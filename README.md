@@ -15,7 +15,16 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 | `PolarH10Bridge/` | Android Studio / Gradle project (open this folder) |
 | `polar-ble-sdk/` | Polar BLE SDK used by the app |
 | `CHANGELOG.md` | Bridge-specific release notes |
+| [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) | Target architecture & RMSSD / session intent |
+| [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol sketch (NDJSON, discovery, RMSSD) |
+| `docs/SYSTEM_ARCHITECTURE.pdf` | PDF export of the architecture doc |
+| `docs/System Architecture FlowChart.pdf` | Architecture flowchart (PDF) |
+| `docs/gemini-svg.svg` | Architecture diagram (SVG) |
 | `Android Dev Workflow.txt` | USB debugging + deploy notes |
+
+## Architecture
+
+Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for system intent (sources, phone bridge, hosts, official RMSSD). Wire details: [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ## Development
 
@@ -33,4 +42,6 @@ Debug APKs are built by GitHub Actions (`.github/workflows/android-bridge.yml`) 
 
 ## Protocol note
 
-Discovery and TCP framing are currently HnH-oriented (`HnH_PHONE_BRIDGE_DISCOVER_V1`, etc.). Treat the wire protocol as a versioned contract when adding VNS-TA / FlareTracker clients; branding and multi-app identity can evolve in later releases.
+Discovery and TCP framing are currently HnH-oriented (`HnH_PHONE_BRIDGE_DISCOVER_V1`, etc.). See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the versioned NDJSON sketch (RMSSD snapshots, record vs stream, multi-app `client_info`). Treat the wire protocol as a versioned contract when adding FlareTracker / VNS-TA clients; branding and multi-app identity can evolve in later releases.
+
+Official session RMSSD math (testable, not yet on the wire) lives in `PolarH10Bridge/app/src/main/java/com/example/polarh10bridge/rmssd/`.

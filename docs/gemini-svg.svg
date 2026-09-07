@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 840" width="100%" height="100%" style="background:#ffffff; font-family: system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Sharp arrows for print -->
+    <marker id="arr-black" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#111827"/>
+    </marker>
+    <marker id="arr-gray" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- Clean White Background -->
+  <rect width="1120" height="840" fill="#ffffff"/>
+
+  <!-- Header -->
+  <text x="50" y="52" fill="#111827" font-size="24" font-weight="bold">Phone Bridge In-System Overview</text>
+  <text x="50" y="75" fill="#4b5563" font-size="13">System architecture • Ritual session physiological telemetry pipeline</text>
+  <rect x="960" y="34" width="110" height="28" rx="5" fill="#ffffff" stroke="#9ca3af" stroke-width="1.2"/>
+  <text x="1015" y="53" fill="#4b5563" font-size="12" font-weight="bold" text-anchor="middle">9/7/2026</text>
+
+  <!-- ==================== LAYER 1: DATA SOURCES ==================== -->
+  <text x="50" y="118" fill="#4b5563" font-size="11" font-weight="bold" letter-spacing="1">ECG DATA SOURCES</text>
+
+  <!-- Polar H10 -->
+  <g transform="translate(50, 130)">
+    <rect width="280" height="96" rx="8" fill="#ffffff" stroke="#111827" stroke-width="1.6"/>
+    <rect x="16" y="14" width="68" height="20" rx="3" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1"/>
+    <text x="50" y="28" fill="#111827" font-size="10" font-weight="bold" text-anchor="middle">SENSOR</text>
+    <text x="16" y="58" fill="#111827" font-size="18" font-weight="bold">Polar H10</text>
+    <text x="16" y="78" fill="#4b5563" font-size="12">Chest strap heart rate monitor</text>
+  </g>
+
+  <!-- Feather MCU -->
+  <g transform="translate(420, 130)">
+    <rect width="280" height="96" rx="8" fill="#ffffff" stroke="#111827" stroke-width="1.6"/>
+    <rect x="16" y="14" width="90" height="20" rx="3" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1"/>
+    <text x="61" y="28" fill="#111827" font-size="10" font-weight="bold" text-anchor="middle">CUSTOM MCU</text>
+    <text x="16" y="58" fill="#111827" font-size="18" font-weight="bold">Feather MCU</text>
+    <text x="16" y="78" fill="#4b5563" font-size="12">(hand or chest electrodes)</text>
+  </g>
+
+  <!-- Other ECG Device (Future) -->
+  <g transform="translate(790, 130)">
+    <rect width="280" height="96" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <rect x="16" y="14" width="65" height="20" rx="3" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="48.5" y="28" fill="#6b7280" font-size="10" font-weight="bold" text-anchor="middle">FUTURE</text>
+    <text x="16" y="58" fill="#374151" font-size="18" font-weight="bold">Other ECG Device</text>
+    <text x="16" y="78" fill="#6b7280" font-size="12">Extensible peripheral support</text>
+  </g>
+
+  <!-- CONNECTORS: Sources -> Bridge -->
+  <!-- Polar H10 line -->
+  <path d="M 190 226 L 190 310 L 250 310 L 250 340" fill="none" stroke="#111827" stroke-width="1.6" marker-end="url(#arr-black)"/>
+  <rect x="125" y="248" width="105" height="42" rx="4" fill="#ffffff" stroke="#4b5563" stroke-width="1"/>
+  <text x="177.5" y="265" fill="#111827" font-size="11" font-weight="bold" text-anchor="middle">BLE</text>
+  <text x="177.5" y="281" fill="#374151" font-size="10.5" text-anchor="middle">(IBI, ECG)</text>
+
+  <!-- Feather line -->
+  <path d="M 560 226 L 560 340" fill="none" stroke="#111827" stroke-width="1.6" marker-end="url(#arr-black)"/>
+  <rect x="455" y="246" width="210" height="52" rx="4" fill="#ffffff" stroke="#4b5563" stroke-width="1"/>
+  <text x="560" y="263" fill="#111827" font-size="11" font-weight="bold" text-anchor="middle">BLE</text>
+  <text x="560" y="279" fill="#374151" font-size="10.5" text-anchor="middle">(IBI, ECG, RMSSD,</text>
+  <text x="560" y="291" fill="#6b7280" font-size="9.5" text-anchor="middle">Tuning Coeffs.)</text>
+
+  <!-- Other ECG Device line -->
+  <path d="M 930 226 L 930 310 L 870 310 L 870 340" fill="none" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arr-gray)"/>
+  <rect x="850" y="248" width="115" height="42" rx="4" fill="#ffffff" stroke="#9ca3af" stroke-width="1"/>
+  <text x="907.5" y="265" fill="#374151" font-size="11" font-weight="bold" text-anchor="middle">BLE or WiFi</text>
+  <text x="907.5" y="281" fill="#6b7280" font-size="10.5" text-anchor="middle">(Future spec)</text>
+
+  <!-- ==================== LAYER 2: PHONE BRIDGE ==================== -->
+  <g transform="translate(50, 350)">
+    <rect width="1020" height="160" rx="10" fill="#ffffff" stroke="#111827" stroke-width="1.8"/>
+    
+    <rect x="24" y="16" width="125" height="24" rx="4" fill="#ffffff" stroke="#111827" stroke-width="1.2"/>
+    <text x="86.5" y="32" fill="#111827" font-size="11.5" font-weight="bold" text-anchor="middle" letter-spacing="1">PHONE BRIDGE</text>
+
+    <!-- Patient Side -->
+    <g transform="translate(30, 48)">
+      <text x="0" y="18" fill="#111827" font-size="15" font-weight="bold">Visible to Patient:</text>
+      <circle cx="8" cy="38" r="3.5" fill="#111827"/>
+      <text x="22" y="42" fill="#1f2937" font-size="13">Countdown timer</text>
+      <circle cx="8" cy="62" r="3.5" fill="#111827"/>
+      <text x="22" y="66" fill="#1f2937" font-size="13">Breathing pacer</text>
+      <circle cx="8" cy="86" r="3.5" fill="#111827"/>
+      <text x="22" y="90" fill="#1f2937" font-size="13">Optional ECG</text>
+    </g>
+
+    <!-- Divider -->
+    <line x1="510" y1="20" x2="510" y2="140" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="5 5"/>
+
+    <!-- Dashboard Side -->
+    <g transform="translate(540, 48)">
+      <text x="0" y="18" fill="#111827" font-size="15" font-weight="bold">Engineering Dashboard:</text>
+      <rect x="0" y="30" width="445" height="66" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <text x="20" y="55" fill="#111827" font-size="15" font-weight="bold">• Feather tuning dashboard</text>
+      <text x="32" y="75" fill="#4b5563" font-size="12">Real-time parameters, RMSSD calibration &amp; diagnostics</text>
+    </g>
+  </g>
+
+  <!-- TRANSPORT LAYER: WiFi & Ritual Session -->
+  <path d="M 560 510 L 560 610" fill="none" stroke="#111827" stroke-width="2.0" marker-end="url(#arr-black)"/>
+  <g transform="translate(305, 532)">
+    <rect width="510" height="54" rx="6" fill="#ffffff" stroke="#111827" stroke-width="1.6"/>
+    <text x="255" y="22" fill="#111827" font-size="12.5" font-weight="bold" text-anchor="middle" letter-spacing="1">WIFI  •  RITUAL SESSION</text>
+    <text x="255" y="42" fill="#374151" font-size="12" text-anchor="middle">(Session data from buffer  <tspan fill="#111827" font-weight="bold">OR</tspan>  real-time streaming)</text>
+  </g>
+
+  <!-- ==================== LAYER 3: LAPTOP PC ==================== -->
+  <g transform="translate(50, 620)">
+    <rect width="1020" height="190" rx="10" fill="#ffffff" stroke="#111827" stroke-width="1.8"/>
+
+    <rect x="24" y="14" width="95" height="22" rx="4" fill="#ffffff" stroke="#111827" stroke-width="1.2"/>
+    <text x="71.5" y="29" fill="#111827" font-size="11" font-weight="bold" text-anchor="middle" letter-spacing="1">LAPTOP PC</text>
+
+    <!-- Distribution Bus -->
+    <path d="M 170 35 L 170 65 L 850 65" fill="none" stroke="#6b7280" stroke-width="1.4" stroke-dasharray="4 4"/>
+    <line x1="170" y1="65" x2="170" y2="85" stroke="#111827" stroke-width="1.6" marker-end="url(#arr-black)"/>
+    <line x1="510" y1="65" x2="510" y2="85" stroke="#111827" stroke-width="1.6" marker-end="url(#arr-black)"/>
+    <line x1="850" y1="65" x2="850" y2="85" stroke="#111827" stroke-width="1.6" marker-end="url(#arr-black)"/>
+
+    <!-- Consumer 1: VNS-TA -->
+    <g transform="translate(25, 90)">
+      <text x="145" y="-12" fill="#111827" font-size="11.5" font-weight="bold" text-anchor="middle">Real-time ECG, IBI [RMSSD]</text>
+      <rect width="290" height="80" rx="6" fill="#ffffff" stroke="#111827" stroke-width="1.4"/>
+      <text x="145" y="38" fill="#111827" font-size="18" font-weight="bold" text-anchor="middle">VNS-TA</text>
+      <text x="145" y="60" fill="#4b5563" font-size="11.5" text-anchor="middle">Vagus Nerve Stimulation Analysis</text>
+    </g>
+
+    <!-- OR 1 -->
+    <text x="350" y="142" fill="#6b7280" font-size="14" font-weight="bold" text-anchor="middle">-or-</text>
+
+    <!-- Consumer 2: Hertz & Hearts -->
+    <g transform="translate(385, 90)">
+      <text x="145" y="-12" fill="#111827" font-size="11.5" font-weight="bold" text-anchor="middle">Real-time ECG, IBI</text>
+      <rect width="290" height="80" rx="6" fill="#ffffff" stroke="#111827" stroke-width="1.4"/>
+      <text x="145" y="38" fill="#111827" font-size="18" font-weight="bold" text-anchor="middle">Hertz &amp; Hearts</text>
+      <text x="145" y="60" fill="#4b5563" font-size="11.5" text-anchor="middle">Biofeedback &amp; Frequency Metrics</text>
+    </g>
+
+    <!-- OR 2 -->
+    <text x="710" y="142" fill="#6b7280" font-size="14" font-weight="bold" text-anchor="middle">-or-</text>
+
+    <!-- Consumer 3: FlareTracker -->
+    <g transform="translate(725, 90)">
+      <text x="135" y="-12" fill="#111827" font-size="11.5" font-weight="bold" text-anchor="middle">Snapshot RMSSD</text>
+      <rect width="270" height="80" rx="6" fill="#ffffff" stroke="#111827" stroke-width="1.4"/>
+      <text x="135" y="38" fill="#111827" font-size="18" font-weight="bold" text-anchor="middle">FlareTracker</text>
+      <text x="135" y="60" fill="#4b5563" font-size="11.5" text-anchor="middle">Symptom &amp; Flare Logging</text>
+    </g>
+  </g>
+</svg>
