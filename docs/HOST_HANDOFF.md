@@ -2,10 +2,19 @@
 
 **Date:** 2026-09-07  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Intent / checklist — phone bridge implementation of newer messages is still **next**  
-**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md), [PROTOCOL.md](./PROTOCOL.md)
+**Status:** Intent / checklist — phone bridge implementation of newer messages is still **next**
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
+
+### Bridge docs (start here)
+
+| Doc | In this repo | On GitHub |
+|-----|--------------|-----------|
+| This handoff | [HOST_HANDOFF.md](./HOST_HANDOFF.md) | [HOST_HANDOFF.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/HOST_HANDOFF.md) |
+| System architecture | [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | [SYSTEM_ARCHITECTURE.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/SYSTEM_ARCHITECTURE.md) |
+| Wire protocol (NDJSON) | [PROTOCOL.md](./PROTOCOL.md) | [PROTOCOL.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/PROTOCOL.md) |
+| Feather patient profiles | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | [FEATHER_PROFILE_SCHEMA.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/FEATHER_PROFILE_SCHEMA.md) |
+| Repo README | [README.md](../README.md) | [ECG-Phone-Bridge](https://github.com/JoelAtHome/ECG-Phone-Bridge) |
 
 ---
 
