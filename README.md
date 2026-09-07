@@ -17,6 +17,8 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 | `CHANGELOG.md` | Bridge-specific release notes |
 | [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) | Target architecture & RMSSD / session intent |
 | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol sketch (NDJSON, discovery, RMSSD) |
+| [`docs/FEATHER_PROFILE_SCHEMA.md`](docs/FEATHER_PROFILE_SCHEMA.md) | Per-patient Feather calibration JSON (phone-local V1) |
+| [`docs/HOST_HANDOFF.md`](docs/HOST_HANDOFF.md) | What FlareTracker / VNS-TA / HnH should expect |
 | `docs/SYSTEM_ARCHITECTURE.pdf` | PDF export of the architecture doc |
 | `docs/System Architecture FlowChart.pdf` | Architecture flowchart (PDF) |
 | `docs/gemini-svg.svg` | Architecture diagram (SVG) |
@@ -24,7 +26,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 
 ## Architecture
 
-Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for system intent (sources, phone bridge, hosts, official RMSSD). Wire details: [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for system intent (sources, phone bridge, hosts, official RMSSD). Wire details: [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Host app checklists: [`docs/HOST_HANDOFF.md`](docs/HOST_HANDOFF.md). Feather patient profiles: [`docs/FEATHER_PROFILE_SCHEMA.md`](docs/FEATHER_PROFILE_SCHEMA.md).
 
 ## Development
 

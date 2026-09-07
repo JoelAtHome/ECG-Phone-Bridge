@@ -3,7 +3,7 @@
 **Date:** 2026-09-07  
 **Status:** Draft — additive to shipping behavior; not all types implemented yet  
 **Transport today:** UDP discovery + TCP newline-delimited JSON (NDJSON), UTF-8  
-**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md)
+**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md), [HOST_HANDOFF.md](./HOST_HANDOFF.md) (per-app checklists)
 
 ---
 

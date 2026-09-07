@@ -279,11 +279,11 @@ Feather does **not** currently self-tune across patients with very different ECG
 
 ## 10. Open items (small)
 
-1. Exact Feather GATT layout and coeff field set.  
+1. Exact Feather GATT layout (profile coeffs map onto characteristics — see `docs/FEATHER_PROFILE_SCHEMA.md`).  
 2. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
 3. Formal protocol version string and discovery rename timeline.  
 4. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
-5. Cross-phone calibration profile share format (when “Later” lands).
+5. Cross-phone profile export/import UX (schema drafted; share flow later).
 
 ---
 
@@ -291,6 +291,8 @@ Feather does **not** currently self-tune across patients with very different ECG
 
 - `README.md` — layout, releases, protocol caution  
 - `docs/PROTOCOL.md` — NDJSON / discovery / RMSSD / session-control sketch  
+- `docs/FEATHER_PROFILE_SCHEMA.md` — per-patient Feather calibration JSON  
+- `docs/HOST_HANDOFF.md` — consumer checklists for FT / VNS-TA / HnH  
 - `PolarH10Bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
 - `PASSDOWN.md` — Android Studio / network tooling passdown  
 - `CHANGELOG.md` — bridge release notes  
