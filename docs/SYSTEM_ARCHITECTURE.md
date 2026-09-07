@@ -290,6 +290,8 @@ Feather does **not** currently self-tune across patients with very different ECG
 ## 11. Related repo docs
 
 - `README.md` — layout, releases, protocol caution  
+- `docs/PROTOCOL.md` — NDJSON / discovery / RMSSD / session-control sketch  
+- `PolarH10Bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
 - `PASSDOWN.md` — Android Studio / network tooling passdown  
 - `CHANGELOG.md` — bridge release notes  
 - FlareTracker H-frame tuning notes under `hardware/h-frame-hrv-esp32/Tuning Data/`  
