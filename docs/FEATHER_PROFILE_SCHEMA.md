@@ -95,7 +95,7 @@ One JSON object per patient (or a store file containing many profiles — see §
 
 ### 3.3 Detector coeffs
 
-Aligned with current H-frame firmware knobs (`hframe_ecg_hrv` / `config.h`) plus placeholders for BLE-tunable analog/DSP gains:
+Aligned with current [ecg-box](https://github.com/JoelAtHome/ecg-box) firmware knobs (`firmware/hframe_ecg_hrv/config.h`) plus placeholders for BLE-tunable analog/DSP gains:
 
 | Field | Unit | Role |
 |-------|------|------|

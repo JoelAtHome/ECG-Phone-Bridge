@@ -7,6 +7,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 - Hertz & Hearts
 - [VNS-TA](https://github.com/JoelAtHome/VNS-TA)
 - FlareTracker
+- Analog capture hardware: [ecg-box](https://github.com/JoelAtHome/ecg-box)
 
 ## Layout
 
