@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.13
+- fix: Quality-flags ⓘ help dialog uses dark panel + light gray text for readability.
+
 ## Version 1.0.0-beta.12
 - enhancement: Tech meters — elapsed with target (`m:ss / m:ss` = settle+analysis), positive empty-flag message, ⓘ flag help, Accepted beats on its own line; Record RMSSD shows TBD until stop.
 - enhancement: About Date follows phone locale/medium date format.

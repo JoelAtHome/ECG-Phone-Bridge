@@ -48,6 +48,9 @@ private val TechPanelBorder = Color(0xFFCFD8DC)
 private val TechFlagBg = Color(0xFFFFF3CD)
 private val TechOkBg = Color(0xFFE8F5E9)
 private val TechInfoBlue = Color(0xFF0B57D0)
+private val TechHelpDialogBg = Color(0xFF2B2B2B)
+private val TechHelpText = Color(0xFFE8E8E8)
+private val TechHelpTextMuted = Color(0xFFC8C8C8)
 
 private val QualityFlagHelp: List<Pair<String, String>> =
     listOf(
@@ -250,12 +253,20 @@ fun TechSessionMeters(
     if (showFlagHelp) {
         AlertDialog(
             onDismissRequest = { showFlagHelp = false },
-            title = { Text("Quality flags") },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Quality flags",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text(
                         text = "Flags appear when the bridge RMSSD math sees a problem. Empty/positive means none of these fired.",
                         fontSize = 13.sp,
+                        color = TechHelpTextMuted,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     QualityFlagHelp.forEach { (name, desc) ->
@@ -263,19 +274,20 @@ fun TechSessionMeters(
                             text = name,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
+                            color = TechHelpText,
                             modifier = Modifier.padding(top = 6.dp),
                         )
                         Text(
                             text = desc,
                             fontSize = 12.sp,
-                            color = TechTextDark.copy(alpha = 0.85f),
+                            color = TechHelpTextMuted,
                         )
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showFlagHelp = false }) {
-                    Text("Close")
+                    Text("Close", color = TechHelpText)
                 }
             },
         )
