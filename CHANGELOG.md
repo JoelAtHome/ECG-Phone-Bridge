@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.10
+- enhancement: About link opens https://jkobelabs.net (replaces Buy Me a Coffee).
+
 ## Version 1.0.0-beta.9
 - fix: Stream/Record radio — deselected option keeps a visible gray ring (Material default was blending away).
 

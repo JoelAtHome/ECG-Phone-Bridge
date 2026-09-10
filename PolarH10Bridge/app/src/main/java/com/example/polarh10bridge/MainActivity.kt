@@ -2201,7 +2201,7 @@ private fun AboutDialog(
                     textDecoration = TextDecoration.Underline,
                     modifier =
                         Modifier.clickable {
-                            uriHandler.openUri("https://buymeacoffee.com/JoelAtHome")
+                            uriHandler.openUri("https://jkobelabs.net")
                         },
                 )
                 Text("Date: $today", color = TextDark, fontSize = 13.sp)
