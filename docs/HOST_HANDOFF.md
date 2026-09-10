@@ -14,6 +14,8 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | System architecture | [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | [SYSTEM_ARCHITECTURE.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/SYSTEM_ARCHITECTURE.md) |
 | Wire protocol (NDJSON) | [PROTOCOL.md](./PROTOCOL.md) | [PROTOCOL.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/PROTOCOL.md) |
 | Feather patient profiles | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | [FEATHER_PROFILE_SCHEMA.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/FEATHER_PROFILE_SCHEMA.md) |
+| ECG box calibrate vs ritual | — (canonical in ecg-box) | [tuning-workflow.md](https://github.com/JoelAtHome/ecg-box/blob/main/docs/tuning-workflow.md) |
+| ECG box PC tuner (scaffold) | — | [tools/pc-tuner](https://github.com/JoelAtHome/ecg-box/tree/main/tools/pc-tuner) |
 | Repo README | [README.md](../README.md) | [ECG-Phone-Bridge](https://github.com/JoelAtHome/ECG-Phone-Bridge) |
 
 ---
@@ -31,6 +33,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | Sources | **Either Polar or Feather** per session — never both |
 | Official RMSSD | Computed **on the phone from IBI**; FlareTracker must not reimplement HRV math |
 | Patient UI | Countdown / optional pacer / optional ECG live on the **phone**, not required on the PC |
+| Detector calibrate | **PC tuner in [ecg-box](https://github.com/JoelAtHome/ecg-box)** (`tools/pc-tuner`); phone **relays** and **stores** per-user coeffs. Do not embed a tuner in FT / VNS-TA / HnH (launch-only later). See [tuning-workflow.md](https://github.com/JoelAtHome/ecg-box/blob/main/docs/tuning-workflow.md). |
 
 Ignore unknown `type` values for forward compatibility.
 

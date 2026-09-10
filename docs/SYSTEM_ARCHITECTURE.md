@@ -296,5 +296,5 @@ Feather does **not** currently self-tune across patients with very different ECG
 - `PolarH10Bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
 - `PASSDOWN.md` — Android Studio / network tooling passdown  
 - `CHANGELOG.md` — bridge release notes  
-- [ecg-box](https://github.com/JoelAtHome/ecg-box) — analog ECG firmware, plans, `protocol.md`; tuning notes under `firmware/Tuning Data/`  
+- [ecg-box](https://github.com/JoelAtHome/ecg-box) — analog ECG firmware, plans, [`protocol.md`](https://github.com/JoelAtHome/ecg-box/blob/main/protocol.md); calibrate vs ritual: [`docs/tuning-workflow.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/tuning-workflow.md); PC tuner scaffold: [`tools/pc-tuner/`](https://github.com/JoelAtHome/ecg-box/tree/main/tools/pc-tuner)  
 - HnH: `SETTLING_DURATION` / `BASELINE_DURATION` / `RMSSD_WINDOW` in config; import computes RMSSD from IBIs only (`hnh/import_session.py`)
