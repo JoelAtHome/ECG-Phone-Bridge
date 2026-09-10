@@ -105,9 +105,12 @@ fun BridgeSessionPanel(
             text =
                 buildString {
                     append("IBIs: $ibiCount")
-                    lastRmssdMs?.let {
-                        append(" · last RMSSD: ")
-                        append(String.format(Locale.US, "%.1f ms", it))
+                    append(" · RMSSD: ")
+                    when {
+                        active && mode == BridgeSessionMode.Record -> append("TBD")
+                        lastRmssdMs != null ->
+                            append(String.format(Locale.US, "%.1f ms", lastRmssdMs))
+                        else -> append("—")
                     }
                 },
             color = SessionTextDark.copy(alpha = 0.7f),

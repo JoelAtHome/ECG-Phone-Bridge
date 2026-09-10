@@ -113,8 +113,6 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.Executors
 
@@ -248,6 +246,7 @@ private data class BridgeScreenState(
     val techView: Boolean = false,
     val sessionStartedElapsedMs: Long = 0L,
     val settleTrimSec: Double = 45.0,
+    val sessionTargetSec: Double = 105.0,
     val recentHrBpm: Double? = null,
     val lastAcceptedBeats: Int = 0,
     val lastQualityFlags: List<String> = emptyList(),
@@ -371,8 +370,19 @@ class MainActivity : ComponentActivity() {
 
     private fun sourceDeviceWire(): String = "POLAR_H10"
 
-    private fun syncSessionUiFromController(lastRmssdMs: Double? = screenState.value.lastRmssdMs) {
+    private fun syncSessionUiFromController(
+        lastRmssdMs: Double? = null,
+        clearRmssd: Boolean = false,
+    ) {
         val result = sessionController.lastComputeResult
+        val rmssdToShow =
+            when {
+                clearRmssd -> null
+                lastRmssdMs != null -> lastRmssdMs
+                sessionController.isActive() &&
+                    sessionController.activeMode == BridgeSessionMode.Record -> null
+                else -> result?.rmssdMs ?: screenState.value.lastRmssdMs
+            }
         updateScreen {
             it.copy(
                 sessionMode = sessionController.preferredMode,
@@ -380,9 +390,10 @@ class MainActivity : ComponentActivity() {
                 sessionActive = sessionController.isActive(),
                 sessionId = sessionController.sessionId,
                 sessionIbiCount = sessionController.ibiCount,
-                lastRmssdMs = lastRmssdMs ?: result?.rmssdMs ?: it.lastRmssdMs,
+                lastRmssdMs = rmssdToShow,
                 sessionStartedElapsedMs = sessionController.sessionStartedElapsedMs,
                 settleTrimSec = sessionController.settleTrimSec,
+                sessionTargetSec = sessionController.sessionTargetSec,
                 recentHrBpm = sessionController.recentHrBpm(),
                 lastAcceptedBeats = result?.quality?.acceptedBeats ?: it.lastAcceptedBeats,
                 lastQualityFlags = result?.quality?.flags ?: it.lastQualityFlags,
@@ -425,7 +436,7 @@ class MainActivity : ComponentActivity() {
             )
         saveSessionModePref(mode)
         sendBridgeJsonLine(stateJson.toString())
-        syncSessionUiFromController(lastRmssdMs = null)
+        syncSessionUiFromController(clearRmssd = true)
     }
 
     private fun stopBridgeSession() {
@@ -433,10 +444,13 @@ class MainActivity : ComponentActivity() {
         val result = sessionController.stop(sourceDeviceWire())
         val rmssdValue =
             result.rmssd?.optDouble("rmssd_ms", Double.NaN)?.takeIf { !it.isNaN() }
-                ?: screenState.value.lastRmssdMs
         result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
         result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
-        syncSessionUiFromController(lastRmssdMs = rmssdValue)
+        if (rmssdValue != null) {
+            syncSessionUiFromController(lastRmssdMs = rmssdValue)
+        } else {
+            syncSessionUiFromController(clearRmssd = true)
+        }
     }
 
     private fun restartBridgeServerIfNeeded() {
@@ -1018,6 +1032,7 @@ class MainActivity : ComponentActivity() {
                 sessionKind = sessionController.preferredKind,
                 techView = techViewPref,
                 settleTrimSec = sessionController.settleTrimSec,
+                sessionTargetSec = sessionController.sessionTargetSec,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1881,9 +1896,15 @@ private fun BridgeMainScreen(
                         sessionMode = state.sessionMode,
                         sessionStartedElapsedMs = state.sessionStartedElapsedMs,
                         settleTrimSec = state.settleTrimSec,
+                        sessionTargetSec = state.sessionTargetSec,
                         ibiCount = state.sessionIbiCount,
                         recentHrBpm = state.recentHrBpm,
-                        lastRmssdMs = state.lastRmssdMs,
+                        displayRmssdMs =
+                            if (state.sessionActive && state.sessionMode == BridgeSessionMode.Record) {
+                                null
+                            } else {
+                                state.lastRmssdMs
+                            },
                         acceptedBeats = state.lastAcceptedBeats,
                         qualityFlags = state.lastQualityFlags,
                         connectedSensorRssi = state.connectedSensorRssi,
@@ -2180,9 +2201,11 @@ private fun AboutDialog(
     onDismissRequest: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
-    val today = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
-    }
+    val context = LocalContext.current
+    val today =
+        remember(context) {
+            android.text.format.DateFormat.getMediumDateFormat(context).format(java.util.Date())
+        }
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(shape = RoundedCornerShape(10.dp), color = UiWhite) {
             Column(modifier = Modifier.padding(16.dp)) {

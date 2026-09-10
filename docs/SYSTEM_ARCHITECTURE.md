@@ -207,15 +207,25 @@ Evolve with versioned types for `rmssd` snapshots and session control; do not br
 
 - IBI stream from either Polar or Feather (accepted beats after source-side rejection when available).
 
-### 6.2 Timing (defaults — all configurable later)
+### 6.2 Timing (defaults — profile + tech override later)
 
-Inspired by HnH phases, adapted for short kid rituals and FlareTracker snapshots:
+Inspired by HnH phases, adapted for short kid rituals and FlareTracker snapshots.
 
-| Parameter | Default intent | Notes |
-|-----------|----------------|-------|
-| Sensor / settle trim | **30–45 s** (configurable up to **120 s**) | HnH chart settle default is 15 s; longer settle allowed when the capture is long enough |
-| Analysis window | **~60–120 s** or **~60 beats** of clean IBI after settle | Aligns with short-term HRV practice / HnH live ~60-beat window |
-| Final trim | Drop last **~15–20 s** when session long enough | Avoids end-regime artifacts (seen on some captures) |
+| Parameter | Code default today | Notes |
+|-----------|-------------------|-------|
+| Sensor / settle trim | **45 s** (intent range 30–45, up to 120) | HnH chart settle default is 15 s; longer settle when the capture is long enough |
+| Analysis window | **60 s** (intent ~60–120 s or ~60 beats) | Short-term HRV / HnH live ~60-beat window as reference |
+| Final trim | **15 s** (intent ~15–20) | Avoids end-regime artifacts when session is long enough |
+
+**Shipping now:** these live as hardcoded `RmssdCalculator.Config` defaults on the phone. Tech meters’ elapsed target is **settle + analysis** (e.g. 1:45); `short_session` uses the same threshold.
+
+**Later (patient profile — cleaner shape):**
+
+1. **Patient profile** (phone-local V1, same store as Feather coeffs when present) holds suggested `settle_trim_s`, `analysis_window_s`, `final_trim_s`. These apply to **Polar and Feather** sessions — they are ritual/session policy, not detector coeffs.  
+2. **Phone is authority** at compute time: official bridge RMSSD and `rmssd.window` always use the values the phone actually applied.  
+3. **Tech view** may override for the current run (and optionally “save as this patient’s default”).  
+4. **Tuner** may *edit* those profile fields when working in a patient profile (convenient while calibrating Feather) — it is **not** the sole source of settle times, and Polar-only workflows must still set them on the phone / profile without opening Tuner.  
+5. Hosts (FlareTracker, etc.) **persist what the bridge reported**; they do not redefine settle policy.
 
 HnH live chart lock uses `SETTLING_DURATION` (default 15 s) + `BASELINE_DURATION` (default 30 s) and a rolling `RMSSD_WINDOW` of 60 beats — useful reference, not identical to FlareTracker snapshot policy.
 
@@ -242,11 +252,17 @@ Feather does **not** currently self-tune across patients with very different ECG
 
 **V1 (required)**
 
-- Per-patient **calibration profile** (patient name → detector coeffs).  
+- Per-patient **profile** (patient name → Feather detector coeffs **and**, later, session RMSSD timing suggestions — see §6.2).  
 - **Stored on the phone that performed the calibration** (local to that device).  
-- Pushed to Feather at session start.  
+- Feather coeffs pushed to Feather at session start; session timing applied by the phone RMSSD path.  
 - Engineering UI: inspect signal, adjust, save, recheck anytime.  
 - When Polar available: use as referee during calibrate; record agreement metadata on the profile.
+
+**Editors (later)**
+
+- **Phone Tech view / profile UI:** primary place to view and change session timing defaults; run-time override without losing the saved profile.  
+- **Tuner:** may edit the same profile document (coeffs + optional session timing) while calibrating — convenience, not sole authority.  
+- Do not require Tuner for Polar-only patients.
 
 **V1.5**
 
@@ -255,7 +271,7 @@ Feather does **not** currently self-tune across patients with very different ECG
 **Later**
 
 - Optional continuous auto-tune with last-known-good rollback — never silent sole authority.  
-- **Share profiles across phones** (export/import file, or sync via a host app) so a second phone can reuse the same patient’s tune without redoing calibration from scratch.
+- **Share profiles across phones** (export/import file, or sync via a host app) so a second phone can reuse the same patient’s tune (and timing defaults) without redoing calibration from scratch.
 
 ---
 
@@ -282,9 +298,10 @@ Feather does **not** currently self-tune across patients with very different ECG
 
 1. Exact Feather GATT layout (profile coeffs map onto characteristics — see `docs/FEATHER_PROFILE_SCHEMA.md`).  
 2. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
-3. Formal protocol version string and discovery rename timeline.  
-4. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
-5. Cross-phone profile export/import UX (schema drafted; share flow later).
+3. **Implement** patient-profile session timing (`settle_trim_s` / `analysis_window_s` / `final_trim_s`) + Tech override UI; Tuner as optional co-editor of the same profile (§6.2 / §7).  
+4. Formal protocol version string and discovery rename timeline.  
+5. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
+6. Cross-phone profile export/import UX (schema drafted; share flow later).
 
 ---
 

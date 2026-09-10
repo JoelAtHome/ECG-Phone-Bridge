@@ -1,14 +1,17 @@
-# Feather per-patient calibration profile (schema)
+# Feather / patient profile schema
 
-**Date:** 2026-09-07  
+**Date:** 2026-09-10  
 **Status:** Draft — phone-local V1; export/import later  
-**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §7, [PROTOCOL.md](./PROTOCOL.md)
+**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2 / §7, [PROTOCOL.md](./PROTOCOL.md)
 
 ---
 
 ## 1. Purpose
 
-Feather (MCU + SparkFun AD8232 + patch or handgrip electrodes) needs **per-patient detector settings**. Profiles map a patient name to coeffs the phone pushes to Feather at session start.
+Per-patient **profile** on the phone:
+
+1. **Feather detector coeffs** (when using Feather) — pushed to the MCU at session start.  
+2. **Session RMSSD timing suggestions** (later) — settle / analysis / final-trim for official bridge RMSSD; used for Polar and Feather.
 
 | Phase | Storage |
 |-------|---------|
@@ -50,6 +53,11 @@ One JSON object per patient (or a store file containing many profiles — see §
     "qrs_threshold": null,
     "gain": null,
     "filter_alpha": null
+  },
+  "session_timing": {
+    "settle_trim_s": 45,
+    "analysis_window_s": 60,
+    "final_trim_s": 15
   },
   "polar_agreement": {
     "checked": false,
@@ -113,7 +121,21 @@ Aligned with current [ecg-box](https://github.com/JoelAtHome/ecg-box) firmware k
 
 Phone → Feather push uses whatever subset GATT supports; unknown keys are ignored by older firmware.
 
-### 3.4 Polar agreement (optional referee)
+### 3.4 Session timing (bridge RMSSD — later)
+
+Suggested settle / analysis / final-trim for **official phone bridge RMSSD**. Applies to Polar **and** Feather captures for this patient. See [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2.
+
+| Field | Unit | Default if omitted | Notes |
+|-------|------|--------------------|-------|
+| `settle_trim_s` | s | 45 | Skip after t=0 before analysis |
+| `analysis_window_s` | s | 60 | Rolling / snapshot window length |
+| `final_trim_s` | s | 15 | Drop end when session long enough |
+
+**Authority:** phone applies these at compute time; Tech view may override for the current run. Tuner may edit the same profile fields but is not required (Polar-only patients). Hosts persist `rmssd.window` from the bridge, not their own settle policy.
+
+Omit the whole `session_timing` object until the phone implements profile-backed timing (shipping code still uses hardcoded calculator defaults).
+
+### 3.5 Polar agreement (optional referee)
 
 Filled when a **simultaneous Polar H10** (or sequential same-conditions) check was done:
 
@@ -194,6 +216,11 @@ Open item: exact share UX (share sheet vs Files app).
     "qrs_threshold": null,
     "gain": null,
     "filter_alpha": null
+  },
+  "session_timing": {
+    "settle_trim_s": 45,
+    "analysis_window_s": 60,
+    "final_trim_s": 15
   },
   "polar_agreement": {
     "checked": true,

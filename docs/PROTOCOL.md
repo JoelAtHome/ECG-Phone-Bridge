@@ -191,6 +191,8 @@ Computed **on the phone from IBI** (see architecture). Not a substitute for live
 
 **Do not** flag solely because `rmssd_ms` is low (e.g. &lt; 20); that can be real.
 
+Settle / analysis lengths are phone defaults today; later they come from the **patient profile** (with Tech override). See [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2. The `window` object on this message always reports what the phone **actually used**.
+
 ### 6.2 When to send
 
 | Mode | Typical emit |

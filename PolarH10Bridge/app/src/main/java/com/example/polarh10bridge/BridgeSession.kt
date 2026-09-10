@@ -116,6 +116,13 @@ class BridgeSessionController(
     val settleTrimSec: Double
         get() = RmssdCalculator.Config().settleTrimSec
 
+    /** Minimum full-session target used for short_session (settle + analysis). */
+    val analysisWindowSec: Double
+        get() = RmssdCalculator.Config().analysisWindowSec
+
+    val sessionTargetSec: Double
+        get() = settleTrimSec + analysisWindowSec
+
     val ibiCount: Int
         get() = synchronized(ibiLock) { ibis.size }
 
