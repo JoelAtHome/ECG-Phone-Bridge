@@ -129,6 +129,7 @@ private const val PHONE_UDP_DISCOVER_PREFIX = "HnH_PHONE_BRIDGE_DISCOVER_V1"
 private const val BRIDGE_PREFS_NAME = "bridge_prefs"
 private const val BRIDGE_PORT_PREF_KEY = "bridge_port"
 private const val BRIDGE_BG_KEEPALIVE_PREF_KEY = "bridge_bg_keepalive"
+private const val BRIDGE_PACER_PRESET_PREF_KEY = "bridge_pacer_preset"
 private const val BRIDGE_PORT_DEFAULT = 8765
 private const val BRIDGE_PORT_MIN = 1024
 private const val BRIDGE_PORT_MAX = 65535
@@ -1603,6 +1604,25 @@ private fun BridgeMainScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                val pacerPrefs =
+                    remember(context) {
+                        context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                    }
+                val initialPacerPreset =
+                    remember(pacerPrefs) {
+                        val saved = pacerPrefs.getString(BRIDGE_PACER_PRESET_PREF_KEY, null)
+                        BreathPacePreset.entries.firstOrNull { it.name == saved }
+                            ?: BreathPacePreset.COHERENCE
+                    }
+                PatientBreathingPacer(
+                    initialPreset = initialPacerPreset,
+                    onPresetChanged = { chosen ->
+                        pacerPrefs.edit().putString(BRIDGE_PACER_PRESET_PREF_KEY, chosen.name).apply()
+                    },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
         }
 

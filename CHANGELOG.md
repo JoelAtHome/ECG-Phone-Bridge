@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.6
+- enhancement: Patient breathing pacer on the phone (smooth expand/contract presets); hosts should drop PC patient pacers.
+- docs: Architecture / host handoff / protocol — phone owns patient pacer for HnH, VNS-TA, and FlareTracker.
+
 ## Version 1.0.0-beta.5
 - enhancement: Updated in-app title to “ECG Phone Bridge” and About text to list Hertz & Hearts, VNS-TA, and FlareTracker.
 

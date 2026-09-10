@@ -30,7 +30,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | Coming next | `protocol` / `features` on discover; `session_control` / `session_state`; `rmssd` snapshots |
 | Sources | **Either Polar or Feather** per session — never both |
 | Official RMSSD | Computed **on the phone from IBI**; FlareTracker must not reimplement HRV math |
-| Patient UI | Countdown / optional pacer / optional ECG live on the **phone**, not required on the PC |
+| Patient UI | Countdown / **breathing pacer** / optional ECG live on the **phone** — hosts do **not** drive the patient pacer |
 
 Ignore unknown `type` values for forward compatibility.
 
@@ -55,7 +55,7 @@ Ignore unknown `type` values for forward compatibility.
 ### Do not expect (V1)
 
 - [ ] Multi-phone profile sync of Feather tunes (phone-local)  
-- [ ] Phone breathing pacer driven by FlareTracker  
+- [ ] Phone breathing pacer driven by FlareTracker (patient starts/stops pacer on the phone)  
 
 ### Until protocol “next” ships
 
@@ -74,12 +74,13 @@ Ignore unknown `type` values for forward compatibility.
 - [ ] Consume live **`rr`** and **`ecg`** continuously  
 - [ ] Optional: rolling or end-of-run **`rmssd`** from the bridge for display / logs  
 - [ ] Optional PC-side RMSSD from IBI for research — **not** a substitute if FT-style canonical value is needed later  
-- [ ] **Remove / stop relying on an in-app breathing pacer** — patient pacer is bridge-owned when used  
+- [ ] **Remove / stop relying on an in-app breathing pacer** — patient pacer is **always** bridge-owned  
 
 ### Do not expect
 
 - [ ] Ritual buffer-dump as the primary path (use stream)  
 - [ ] Dual Polar+Feather in one session  
+- [ ] A smooth PC-side patient pacer (use the phone)  
 
 ---
 
@@ -98,7 +99,7 @@ Ignore unknown `type` values for forward compatibility.
 - [ ] Send `client_app: "hertz_and_hearts"` (or omit — treated as HnH-compatible)  
 - [ ] May use `session_control` stream or record  
 - [ ] May display bridge `rmssd` snapshots; **PC Python RMSSD remains OK as cross-check**  
-- [ ] **May keep HnH’s own pacer** — different workflow from VNS-TA  
+- [ ] **Demote or remove the PC breathing pacer** for patient use — phone owns the patient-facing pacer (PC one has been slow/stuttery across machines)  
 
 ### Import path (related)
 
@@ -120,7 +121,7 @@ Ignore unknown `type` values for forward compatibility.
 | Official bridge RMSSD | Required | Optional | Optional |
 | Record / ritual | Preferred | Rare | Optional |
 | Stream / long session | Rare | Preferred | Common |
-| Own pacer on PC | No | No (remove) | Yes (allowed) |
+| Own pacer on PC | No | No (remove) | No (demote/remove; phone owns patient pacer) |
 | Own RMSSD math | No | Optional cross-check | Optional cross-check |
 
 ---

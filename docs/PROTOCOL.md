@@ -123,6 +123,8 @@ Phone UI chooses mode; PC may also request (phone remains authority if conflict 
 | `kind` | `ritual` \| `session` | Optional tag: ritual = brief morning-style |
 | `session_id` | string | Optional; phone may mint if absent |
 
+**Patient breathing pacer:** owned and rendered on the **phone** (not the PC). Hosts should not drive a patient-facing pacer. Optional later: PC may suggest inhale/exhale timings in `session_control`; phone remains authority for the animation.
+
 ### 5.2 Phone → PC (ack / state)
 
 ```json

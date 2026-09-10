@@ -74,7 +74,7 @@ flowchart TD
 |------|----------|
 | Dual source | **Either Polar or Feather** — never both in one session |
 | PC clients | **One phone bridge-to-PC connection at a time**; multiple users at different times |
-| Patient UI | **Bridge-only** (countdown, optional pacer, optional ECG). Remove pacer from VNS-TA; HnH may keep its own pacer for different workflows |
+| Patient UI | **Bridge-only** (countdown, optional pacer, optional ECG). Hosts must **not** own the patient breathing pacer (drop / demote PC pacers in VNS-TA and HnH; FlareTracker never had one) |
 | Peak / beat detection | **On Polar or Feather only** — phone does not primary-detect peaks from ECG |
 | Official session RMSSD | **Always computed on the phone bridge from IBI** (the value FlareTracker and other apps should trust) |
 
@@ -92,6 +92,7 @@ flowchart TD
 
 ### Next (shared session bridge)
 
+- Phone **patient breathing pacer** (smooth on-device animation; hosts drop PC pacers)
 - Phone UI mode select: **Record session** vs **Stream**
 - Bridge official RMSSD from IBI + quality-aware snapshot selection
 - Feather BLE path + **per-patient calibration profiles** (phone-local; see §7)
@@ -264,7 +265,7 @@ Feather does **not** currently self-tune across patients with very different ECG
 |-----|---------------------|------------------|
 | FlareTracker | Record → snapshot (often a **ritual**) | Official **bridge** RMSSD + window/quality metadata only — no RMSSD math in FlareTracker |
 | VNS-TA | Stream (often a longer **session**) | Real-time ECG, IBI; bridge RMSSD as available. Bridge owns optional patient pacer (remove from VNS-TA) |
-| Hertz & Hearts | Stream or Record | Real-time ECG, IBI; may keep its own pacer; PC RMSSD optional cross-check |
+| Hertz & Hearts | Stream or Record | Real-time ECG, IBI; patient pacer is on the phone (demote/remove stuttery PC pacer); PC RMSSD optional cross-check |
 
 ---
 
