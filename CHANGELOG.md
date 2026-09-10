@@ -6,6 +6,8 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Version 1.0.0-beta.6
 - enhancement: Patient breathing pacer on the phone (smooth expand/contract presets); hosts should drop PC patient pacers.
+- enhancement: Pacer phase count-up (restarts each inhale/exhale); compact preset labels (`5.5/5.5`, etc.).
+- fix: Clear system navigation-bar overlap at the bottom of the main screen.
 - docs: Architecture / host handoff / protocol — phone owns patient pacer for HnH, VNS-TA, and FlareTracker.
 
 ## Version 1.0.0-beta.5

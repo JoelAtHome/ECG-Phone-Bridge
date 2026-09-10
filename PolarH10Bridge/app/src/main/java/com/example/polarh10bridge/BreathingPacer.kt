@@ -5,6 +5,7 @@ import android.view.WindowManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,14 +57,15 @@ private val PacerExhaleFill = Color(0xFF81C784)
 
 /** Built-in patient breathing presets (phone-owned; hosts do not drive this UI). */
 enum class BreathPacePreset(
+    /** Compact inhale/exhale seconds label (no spaces — fits narrow preset chips). */
     val label: String,
     val inhaleSec: Float,
     val exhaleSec: Float,
 ) {
-    COHERENCE("5.5 / 5.5", 5.5f, 5.5f),
-    SIX_BPM("5 / 5", 5f, 5f),
-    RELAX("4 / 6", 4f, 6f),
-    BOX("4 / 4", 4f, 4f),
+    COHERENCE("5.5/5.5", 5.5f, 5.5f),
+    SIX_BPM("5/5", 5f, 5f),
+    RELAX("4/6", 4f, 6f),
+    BOX("4/4", 4f, 4f),
     ;
 
     val breathsPerMinute: Float
@@ -89,6 +92,8 @@ fun PatientBreathingPacer(
     var running by remember { mutableStateOf(false) }
     var phase by remember { mutableStateOf(BreathPhase.Idle) }
     var scale by remember { mutableFloatStateOf(0.42f) }
+    /** Whole-second count within the current inhale or exhale (restarts each phase). */
+    var phaseCount by remember { mutableIntStateOf(0) }
 
     KeepScreenOnWhile(running)
 
@@ -96,6 +101,7 @@ fun PatientBreathingPacer(
         if (!running) {
             phase = BreathPhase.Idle
             scale = 0.42f
+            phaseCount = 0
             return@LaunchedEffect
         }
         val cycleStartNs = withFrameNanos { it }
@@ -109,10 +115,12 @@ fun PatientBreathingPacer(
                     phase = BreathPhase.Inhale
                     val t = elapsed.toDouble() / inhaleNs.toDouble()
                     scale = lerp(0.42f, 1f, easeInOutCos(t.toFloat()))
+                    phaseCount = (elapsed.toDouble() / 1_000_000_000.0).toInt() + 1
                 } else {
                     phase = BreathPhase.Exhale
                     val t = (elapsed - inhaleNs).toDouble() / exhaleNs.toDouble()
                     scale = lerp(1f, 0.42f, easeInOutCos(t.toFloat()))
+                    phaseCount = ((elapsed - inhaleNs).toDouble() / 1_000_000_000.0).toInt() + 1
                 }
             }
         }
@@ -148,7 +156,7 @@ fun PatientBreathingPacer(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             BreathPacePreset.entries.forEach { option ->
                 val selected = option == preset
@@ -158,6 +166,7 @@ fun PatientBreathingPacer(
                         onPresetChanged(option)
                     },
                     modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
                     colors =
                         ButtonDefaults.textButtonColors(
                             contentColor = if (selected) PacerBannerRed else PacerTextDark.copy(alpha = 0.7f),
@@ -165,7 +174,7 @@ fun PatientBreathingPacer(
                 ) {
                     Text(
                         text = option.label,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -238,6 +247,13 @@ fun PatientBreathingPacer(
                     color = PacerTextDark,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (phase == BreathPhase.Idle) "—" else phaseCount.toString(),
+                    color = PacerTextDark.copy(alpha = if (phase == BreathPhase.Idle) 0.35f else 0.9f),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
