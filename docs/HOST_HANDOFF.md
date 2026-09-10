@@ -59,7 +59,7 @@ Ignore unknown `type` values for forward compatibility.
 
 ### Until protocol “next” ships
 
-- Today you may only get live `rr`/`ecg` like HnH. Plan the FT client against [PROTOCOL.md](./PROTOCOL.md) §6 / §11; bridge will emit `rmssd` when that work lands.
+- Bridge now emits `rmssd` + `session_state` when a capture session is started/stopped on the phone (or via `session_control`). Prefer `mode: record` + `kind: ritual` for FT; persist bridge `rmssd` + quality metadata only.
 
 ---
 

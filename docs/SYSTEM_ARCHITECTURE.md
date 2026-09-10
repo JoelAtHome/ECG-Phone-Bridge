@@ -92,12 +92,12 @@ flowchart TD
 
 ### Next (shared session bridge)
 
-- Phone **patient breathing pacer** (smooth on-device animation; hosts drop PC pacers)
-- Phone UI mode select: **Record session** vs **Stream**
-- Bridge official RMSSD from IBI + quality-aware snapshot selection
+- ~~Phone **patient breathing pacer**~~ (shipping)
+- ~~Phone UI mode select: **Record session** vs **Stream**~~ (shipping)
+- ~~Bridge official RMSSD from IBI on the wire~~ (shipping; rolling in stream, final on stop)
 - Feather BLE path + **per-patient calibration profiles** (phone-local; see §7)
-- Versioned multi-app discovery/identity (beyond pure HnH prefix)
-- FlareTracker snapshot ingest of bridge RMSSD + metadata
+- FlareTracker / VNS-TA host clients against the shipping contract
+- Record-mode buffer dump / session package (format TBD)
 
 ### Later
 

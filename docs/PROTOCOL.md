@@ -293,8 +293,9 @@ Phone:   {"type":"session_state","state":"completed",…}
 | Item | Status |
 |------|--------|
 | UDP discover + TCP `rr`/`ecg`/`status`/`client_info` | **Shipping** |
-| `protocol` / `features` on discover reply | Next |
-| `session_control` / `session_state` | Next |
-| `rmssd` snapshot messages | Next (Kotlin calculator drafted in-app; not yet on wire) |
+| `protocol` / `features` on discover reply | **Shipping** (additive) |
+| `session_control` / `session_state` | **Shipping** (phone UI + PC control) |
+| `rmssd` snapshot messages | **Shipping** (final on stop; rolling in stream) |
+| `client_app` on `client_info` | **Shipping** (additive) |
 | Record buffer dump format | Later |
 | New discover prefix | Later |

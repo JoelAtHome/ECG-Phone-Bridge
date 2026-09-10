@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.7
+- enhancement: Capture session UI — Stream vs Record, Start/Stop, IBI count, last bridge RMSSD.
+- enhancement: Official bridge `rmssd` on TCP (final on stop; rolling ~30s in stream mode).
+- enhancement: `session_control` / `session_state`, `client_app` on `client_info`, discover `protocol`/`features`.
+
 ## Version 1.0.0-beta.6
 - enhancement: Patient breathing pacer on the phone (smooth expand/contract presets); hosts should drop PC patient pacers.
 - enhancement: Pacer phase count-up (restarts each inhale/exhale); compact preset labels (`5.5/5.5`, etc.).

@@ -130,6 +130,8 @@ private const val BRIDGE_PREFS_NAME = "bridge_prefs"
 private const val BRIDGE_PORT_PREF_KEY = "bridge_port"
 private const val BRIDGE_BG_KEEPALIVE_PREF_KEY = "bridge_bg_keepalive"
 private const val BRIDGE_PACER_PRESET_PREF_KEY = "bridge_pacer_preset"
+private const val BRIDGE_SESSION_MODE_PREF_KEY = "bridge_session_mode"
+private const val BRIDGE_PROTOCOL_ID = "phone_bridge_ndjson_v1"
 private const val BRIDGE_PORT_DEFAULT = 8765
 private const val BRIDGE_PORT_MIN = 1024
 private const val BRIDGE_PORT_MAX = 65535
@@ -235,6 +237,13 @@ private data class BridgeScreenState(
     val pcBridgeConnected: Boolean = false,
     val pcBridgeIp: String? = null,
     val pcBridgeUserName: String? = null,
+    val pcClientApp: String? = null,
+    val sessionMode: BridgeSessionMode = BridgeSessionMode.Stream,
+    val sessionKind: BridgeSessionKind = BridgeSessionKind.Session,
+    val sessionActive: Boolean = false,
+    val sessionId: String? = null,
+    val sessionIbiCount: Int = 0,
+    val lastRmssdMs: Double? = null,
 )
 
 class MainActivity : ComponentActivity() {
@@ -248,6 +257,7 @@ class MainActivity : ComponentActivity() {
     private var ecgStreamingStarted = false
 
     private var hrDisposable: io.reactivex.rxjava3.disposables.Disposable? = null
+    private val sessionController = BridgeSessionController()
     private var ecgDisposable: io.reactivex.rxjava3.disposables.Disposable? = null
     private var bleSearchDisposable: Disposable? = null
     /** Direct LE scan for RSSI; Polar search often never re-emits the connected peripheral. */
@@ -320,6 +330,76 @@ class MainActivity : ComponentActivity() {
             .edit()
             .putBoolean(BRIDGE_BG_KEEPALIVE_PREF_KEY, enabled)
             .apply()
+    }
+
+    private fun loadSessionModePref(): BridgeSessionMode {
+        val raw =
+            getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(BRIDGE_SESSION_MODE_PREF_KEY, null)
+        return BridgeSessionMode.fromWire(raw) ?: BridgeSessionMode.Stream
+    }
+
+    private fun saveSessionModePref(mode: BridgeSessionMode) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(BRIDGE_SESSION_MODE_PREF_KEY, mode.wireValue())
+            .apply()
+    }
+
+    private fun sourceDeviceWire(): String = "POLAR_H10"
+
+    private fun syncSessionUiFromController(lastRmssdMs: Double? = screenState.value.lastRmssdMs) {
+        updateScreen {
+            it.copy(
+                sessionMode = sessionController.preferredMode,
+                sessionKind = sessionController.preferredKind,
+                sessionActive = sessionController.isActive(),
+                sessionId = sessionController.sessionId,
+                sessionIbiCount = sessionController.ibiCount,
+                lastRmssdMs = lastRmssdMs,
+            )
+        }
+    }
+
+    private fun setPreferredSessionMode(mode: BridgeSessionMode) {
+        if (sessionController.isActive()) return
+        sessionController.preferredMode = mode
+        sessionController.preferredKind =
+            when (mode) {
+                BridgeSessionMode.Record -> BridgeSessionKind.Ritual
+                BridgeSessionMode.Stream -> BridgeSessionKind.Session
+            }
+        saveSessionModePref(mode)
+        syncSessionUiFromController()
+    }
+
+    private fun startBridgeSession(
+        mode: BridgeSessionMode = sessionController.preferredMode,
+        kind: BridgeSessionKind = sessionController.preferredKind,
+        requestedSessionId: String? = null,
+    ) {
+        if (sessionController.isActive()) return
+        val stateJson =
+            sessionController.start(
+                mode = mode,
+                kind = kind,
+                requestedSessionId = requestedSessionId,
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )
+        saveSessionModePref(mode)
+        sendBridgeJsonLine(stateJson.toString())
+        syncSessionUiFromController(lastRmssdMs = null)
+    }
+
+    private fun stopBridgeSession() {
+        if (!sessionController.isActive()) return
+        val result = sessionController.stop(sourceDeviceWire())
+        val rmssdValue =
+            result.rmssd?.optDouble("rmssd_ms", Double.NaN)?.takeIf { !it.isNaN() }
+                ?: screenState.value.lastRmssdMs
+        result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+        result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+        syncSessionUiFromController(lastRmssdMs = rmssdValue)
     }
 
     private fun restartBridgeServerIfNeeded() {
@@ -472,9 +552,45 @@ class MainActivity : ComponentActivity() {
         if (raw.isEmpty()) return
         try {
             val payload = JSONObject(raw)
-            if (!payload.optString("type").equals("client_info", ignoreCase = true)) return
-            val user = payload.optString("pc_user", "").trim().ifEmpty { null }
-            updateScreen { it.copy(pcBridgeUserName = user) }
+            when (payload.optString("type").lowercase(Locale.US)) {
+                "client_info" -> {
+                    val user = payload.optString("pc_user", "").trim().ifEmpty { null }
+                    val app = payload.optString("client_app", "").trim().ifEmpty { null }
+                    updateScreen { it.copy(pcBridgeUserName = user, pcClientApp = app) }
+                }
+                "session_control" -> {
+                    when (payload.optString("action").lowercase(Locale.US)) {
+                        "start" -> {
+                            val mode =
+                                if (payload.has("mode")) {
+                                    BridgeSessionMode.fromWire(payload.optString("mode"))
+                                } else {
+                                    null
+                                } ?: sessionController.preferredMode
+                            val kind =
+                                if (payload.has("kind")) {
+                                    BridgeSessionKind.fromWire(payload.optString("kind"))
+                                } else {
+                                    null
+                                } ?: when (mode) {
+                                    BridgeSessionMode.Record -> BridgeSessionKind.Ritual
+                                    BridgeSessionMode.Stream -> BridgeSessionKind.Session
+                                }
+                            val sid =
+                                payload.optString("session_id", "").trim().ifEmpty { null }
+                            mainHandler.post {
+                                startBridgeSession(mode = mode, kind = kind, requestedSessionId = sid)
+                            }
+                        }
+                        "stop" -> {
+                            mainHandler.post { stopBridgeSession() }
+                        }
+                    }
+                }
+                else -> {
+                    // Ignore unknown types for forward compatibility.
+                }
+            }
         } catch (_: Exception) {
             // Keep stream compatibility with older/newer clients.
         }
@@ -848,11 +964,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         bridgePort = loadBridgePortPref()
         val keepAlivePref = loadKeepAliveInBackgroundPref()
+        val sessionModePref = loadSessionModePref()
+        sessionController.preferredMode = sessionModePref
+        sessionController.preferredKind =
+            when (sessionModePref) {
+                BridgeSessionMode.Record -> BridgeSessionKind.Ritual
+                BridgeSessionMode.Stream -> BridgeSessionKind.Session
+            }
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
                 keepAliveInBackground = keepAlivePref,
                 foregroundServiceActive = BridgeForegroundService.isRunning,
+                sessionMode = sessionModePref,
+                sessionKind = sessionController.preferredKind,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -974,7 +1099,34 @@ class MainActivity : ComponentActivity() {
                                         Log.d("HnHBridge", "HR=${sample.hr} rr=${sample.rrsMs}")
                                         for (rr in sample.rrsMs) {
                                             if (rr > 0) {
+                                                val now = SystemClock.elapsedRealtime()
+                                                sessionController.onRrMs(rr, now)
                                                 sendBridgeJsonLine("""{"type":"rr","rr_ms":$rr}""")
+                                                val rolling =
+                                                    sessionController.maybeRollingRmssdJson(
+                                                        now,
+                                                        sourceDeviceWire(),
+                                                    )
+                                                if (rolling != null) {
+                                                    sendBridgeJsonLine(rolling.toString())
+                                                    val value =
+                                                        rolling.optDouble("rmssd_ms", Double.NaN)
+                                                    updateScreen {
+                                                        it.copy(
+                                                            sessionIbiCount = sessionController.ibiCount,
+                                                            lastRmssdMs =
+                                                                value.takeIf { v -> !v.isNaN() }
+                                                                    ?: it.lastRmssdMs,
+                                                        )
+                                                    }
+                                                } else if (
+                                                    sessionController.isActive() &&
+                                                        sessionController.ibiCount % 5 == 0
+                                                ) {
+                                                    updateScreen {
+                                                        it.copy(sessionIbiCount = sessionController.ibiCount)
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1051,6 +1203,14 @@ class MainActivity : ComponentActivity() {
                                 .put("role", "phone_bridge")
                                 .put("hostname", hostLabel)
                                 .put("port", bridgePort)
+                                .put("protocol", BRIDGE_PROTOCOL_ID)
+                                .put("bridge_version", applicationContext.appVersionName())
+                                .put(
+                                    "features",
+                                    org.json.JSONArray(
+                                        listOf("stream", "record", "rmssd_snapshot"),
+                                    ),
+                                )
                                 .toString() + "\n"
                         val replyBytes = replyJson.toByteArray(Charsets.UTF_8)
                         socket.send(DatagramPacket(replyBytes, replyBytes.size, p.socketAddress))
@@ -1111,10 +1271,18 @@ class MainActivity : ComponentActivity() {
                                             pcBridgeConnected = true,
                                             pcBridgeIp = client.inetAddress?.hostAddress,
                                             pcBridgeUserName = null,
+                                            pcClientApp = null,
                                         )
                                 }
 
-                                sendBridgeJsonLine("""{"type":"status","message":"Phone bridge connected","connected":true}""")
+                                sendBridgeJsonLine(
+                                    JSONObject()
+                                        .put("type", "status")
+                                        .put("message", "Phone bridge connected")
+                                        .put("connected", true)
+                                        .put("protocol", BRIDGE_PROTOCOL_ID)
+                                        .toString(),
+                                )
 
                                 try {
                                     val input = client.getInputStream().bufferedReader(Charsets.UTF_8)
@@ -1131,6 +1299,12 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) {
                                     Log.e("HnHBridge", "TCP read error", e)
                                 } finally {
+                                    if (sessionController.isActive()) {
+                                        val result = sessionController.stop(sourceDeviceWire())
+                                        result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+                                        result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+                                    }
+                                    sessionController.resetOnDisconnect()
                                     bridgeWriter = null
                                     bridgeClient = null
                                     mainHandler.post {
@@ -1139,6 +1313,10 @@ class MainActivity : ComponentActivity() {
                                                 pcBridgeConnected = false,
                                                 pcBridgeIp = null,
                                                 pcBridgeUserName = null,
+                                                pcClientApp = null,
+                                                sessionActive = false,
+                                                sessionId = null,
+                                                sessionIbiCount = 0,
                                             )
                                     }
                                     Log.d("HnHBridge", "Bridge session closed")
@@ -1195,6 +1373,9 @@ class MainActivity : ComponentActivity() {
                             stopBridgeForegroundService()
                         }
                     },
+                    onSessionModeSelected = { mode -> setPreferredSessionMode(mode) },
+                    onStartSession = { startBridgeSession() },
+                    onStopSession = { stopBridgeSession() },
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -1302,6 +1483,9 @@ private fun BridgeMainScreen(
     onScanSensors: () -> Unit,
     onSaveBridgePort: (Int) -> Unit,
     onSaveKeepAliveInBackground: (Boolean) -> Unit,
+    onSessionModeSelected: (BridgeSessionMode) -> Unit,
+    onStartSession: () -> Unit,
+    onStopSession: () -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -1613,6 +1797,19 @@ private fun BridgeMainScreen(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
+                BridgeSessionPanel(
+                    mode = state.sessionMode,
+                    kind = state.sessionKind,
+                    active = state.sessionActive,
+                    sessionId = state.sessionId,
+                    ibiCount = state.sessionIbiCount,
+                    lastRmssdMs = state.lastRmssdMs,
+                    sensorConnected = state.sensorConnected,
+                    onModeSelected = onSessionModeSelected,
+                    onStart = onStartSession,
+                    onStop = onStopSession,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 val pacerPrefs =
                     remember(context) {
                         context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
