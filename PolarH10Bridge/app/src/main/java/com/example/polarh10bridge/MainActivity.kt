@@ -131,6 +131,7 @@ private const val BRIDGE_PORT_PREF_KEY = "bridge_port"
 private const val BRIDGE_BG_KEEPALIVE_PREF_KEY = "bridge_bg_keepalive"
 private const val BRIDGE_PACER_PRESET_PREF_KEY = "bridge_pacer_preset"
 private const val BRIDGE_SESSION_MODE_PREF_KEY = "bridge_session_mode"
+private const val BRIDGE_TECH_VIEW_PREF_KEY = "bridge_tech_view"
 private const val BRIDGE_PROTOCOL_ID = "phone_bridge_ndjson_v1"
 private const val BRIDGE_PORT_DEFAULT = 8765
 private const val BRIDGE_PORT_MIN = 1024
@@ -244,6 +245,12 @@ private data class BridgeScreenState(
     val sessionId: String? = null,
     val sessionIbiCount: Int = 0,
     val lastRmssdMs: Double? = null,
+    val techView: Boolean = false,
+    val sessionStartedElapsedMs: Long = 0L,
+    val settleTrimSec: Double = 45.0,
+    val recentHrBpm: Double? = null,
+    val lastAcceptedBeats: Int = 0,
+    val lastQualityFlags: List<String> = emptyList(),
 )
 
 class MainActivity : ComponentActivity() {
@@ -346,9 +353,26 @@ class MainActivity : ComponentActivity() {
             .apply()
     }
 
+    private fun loadTechViewPref(): Boolean =
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(BRIDGE_TECH_VIEW_PREF_KEY, false)
+
+    private fun saveTechViewPref(enabled: Boolean) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(BRIDGE_TECH_VIEW_PREF_KEY, enabled)
+            .apply()
+    }
+
+    private fun setTechView(enabled: Boolean) {
+        saveTechViewPref(enabled)
+        updateScreen { it.copy(techView = enabled) }
+    }
+
     private fun sourceDeviceWire(): String = "POLAR_H10"
 
     private fun syncSessionUiFromController(lastRmssdMs: Double? = screenState.value.lastRmssdMs) {
+        val result = sessionController.lastComputeResult
         updateScreen {
             it.copy(
                 sessionMode = sessionController.preferredMode,
@@ -356,9 +380,22 @@ class MainActivity : ComponentActivity() {
                 sessionActive = sessionController.isActive(),
                 sessionId = sessionController.sessionId,
                 sessionIbiCount = sessionController.ibiCount,
-                lastRmssdMs = lastRmssdMs,
+                lastRmssdMs = lastRmssdMs ?: result?.rmssdMs ?: it.lastRmssdMs,
+                sessionStartedElapsedMs = sessionController.sessionStartedElapsedMs,
+                settleTrimSec = sessionController.settleTrimSec,
+                recentHrBpm = sessionController.recentHrBpm(),
+                lastAcceptedBeats = result?.quality?.acceptedBeats ?: it.lastAcceptedBeats,
+                lastQualityFlags = result?.quality?.flags ?: it.lastQualityFlags,
             )
         }
+    }
+
+    private fun refreshTechQualityUi() {
+        if (!screenState.value.techView) return
+        if (sessionController.isActive()) {
+            sessionController.refreshQualitySnapshot()
+        }
+        syncSessionUiFromController()
     }
 
     private fun setPreferredSessionMode(mode: BridgeSessionMode) {
@@ -971,6 +1008,7 @@ class MainActivity : ComponentActivity() {
                 BridgeSessionMode.Record -> BridgeSessionKind.Ritual
                 BridgeSessionMode.Stream -> BridgeSessionKind.Session
             }
+        val techViewPref = loadTechViewPref()
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -978,6 +1016,8 @@ class MainActivity : ComponentActivity() {
                 foregroundServiceActive = BridgeForegroundService.isRunning,
                 sessionMode = sessionModePref,
                 sessionKind = sessionController.preferredKind,
+                techView = techViewPref,
+                settleTrimSec = sessionController.settleTrimSec,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1376,6 +1416,8 @@ class MainActivity : ComponentActivity() {
                     onSessionModeSelected = { mode -> setPreferredSessionMode(mode) },
                     onStartSession = { startBridgeSession() },
                     onStopSession = { stopBridgeSession() },
+                    onToggleTechView = { setTechView(!screenState.value.techView) },
+                    onRefreshTechMeters = { refreshTechQualityUi() },
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -1486,6 +1528,8 @@ private fun BridgeMainScreen(
     onSessionModeSelected: (BridgeSessionMode) -> Unit,
     onStartSession: () -> Unit,
     onStopSession: () -> Unit,
+    onToggleTechView: () -> Unit,
+    onRefreshTechMeters: () -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -1617,6 +1661,21 @@ private fun BridgeMainScreen(
                                 onClick = {
                                     menuExpanded = false
                                     showConnectionSettings = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (state.techView) {
+                                            "Switch to Patient view"
+                                        } else {
+                                            "Switch to Tech view"
+                                        },
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onToggleTechView()
                                 },
                             )
                             DropdownMenuItem(
@@ -1797,19 +1856,51 @@ private fun BridgeMainScreen(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-                BridgeSessionPanel(
-                    mode = state.sessionMode,
-                    kind = state.sessionKind,
-                    active = state.sessionActive,
-                    sessionId = state.sessionId,
-                    ibiCount = state.sessionIbiCount,
-                    lastRmssdMs = state.lastRmssdMs,
-                    sensorConnected = state.sensorConnected,
-                    onModeSelected = onSessionModeSelected,
-                    onStart = onStartSession,
-                    onStop = onStopSession,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
+                if (state.techView) {
+                    LaunchedEffect(state.techView, state.sessionActive) {
+                        while (true) {
+                            onRefreshTechMeters()
+                            delay(2000)
+                        }
+                    }
+                    BridgeSessionPanel(
+                        mode = state.sessionMode,
+                        kind = state.sessionKind,
+                        active = state.sessionActive,
+                        sessionId = state.sessionId,
+                        ibiCount = state.sessionIbiCount,
+                        lastRmssdMs = state.lastRmssdMs,
+                        sensorConnected = state.sensorConnected,
+                        onModeSelected = onSessionModeSelected,
+                        onStart = onStartSession,
+                        onStop = onStopSession,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    TechSessionMeters(
+                        sessionActive = state.sessionActive,
+                        sessionMode = state.sessionMode,
+                        sessionStartedElapsedMs = state.sessionStartedElapsedMs,
+                        settleTrimSec = state.settleTrimSec,
+                        ibiCount = state.sessionIbiCount,
+                        recentHrBpm = state.recentHrBpm,
+                        lastRmssdMs = state.lastRmssdMs,
+                        acceptedBeats = state.lastAcceptedBeats,
+                        qualityFlags = state.lastQualityFlags,
+                        connectedSensorRssi = state.connectedSensorRssi,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                } else if (state.sessionActive) {
+                    Text(
+                        text = "Session in progress",
+                        color = TextDark.copy(alpha = 0.55f),
+                        fontSize = 12.sp,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 val pacerPrefs =
                     remember(context) {
                         context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)

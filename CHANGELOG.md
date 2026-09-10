@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.8
+- enhancement: Patient vs Tech view (hamburger menu). Tech meters show settle, HR/IBI, RMSSD, quality flags, RSSI.
+- Patient view stays pacer-clean (optional “Session in progress”); capture controls live in Tech view.
+
 ## Version 1.0.0-beta.7
 - enhancement: Capture session UI — Stream vs Record, Start/Stop, IBI count, last bridge RMSSD.
 - enhancement: Official bridge `rmssd` on TCP (final on stop; rolling ~30s in stream mode).

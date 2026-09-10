@@ -105,6 +105,17 @@ class BridgeSessionController(
     private val ibis = ArrayList<RmssdCalculator.IbiSample>(512)
     private val lastRollingEmitElapsedMs = AtomicLong(0L)
 
+    @Volatile
+    var sessionStartedElapsedMs: Long = 0L
+        private set
+
+    @Volatile
+    var lastComputeResult: RmssdCalculator.Result? = null
+        private set
+
+    val settleTrimSec: Double
+        get() = RmssdCalculator.Config().settleTrimSec
+
     val ibiCount: Int
         get() = synchronized(ibiLock) { ibis.size }
 
@@ -126,6 +137,8 @@ class BridgeSessionController(
         preferredMode = mode
         preferredKind = kind
         sessionId = requestedSessionId?.trim()?.takeIf { it.isNotEmpty() } ?: mintSessionId()
+        sessionStartedElapsedMs = nowElapsedMs
+        lastComputeResult = null
         runState =
             when (mode) {
                 BridgeSessionMode.Stream -> BridgeSessionRunState.Streaming
@@ -140,6 +153,29 @@ class BridgeSessionController(
         synchronized(ibiLock) {
             ibis.add(RmssdCalculator.IbiSample(ibiMs = rrMs.toDouble(), tMs = tElapsedMs.toDouble()))
         }
+    }
+
+    /** Mean HR (bpm) from the last few IBIs, if available. */
+    fun recentHrBpm(maxSamples: Int = 8): Double? {
+        val recent =
+            synchronized(ibiLock) {
+                if (ibis.isEmpty()) return null
+                ibis.takeLast(maxSamples.coerceAtLeast(1)).map { it.ibiMs }
+            }
+        val meanIbi = recent.average()
+        if (meanIbi <= 0.0) return null
+        return 60_000.0 / meanIbi
+    }
+
+    /**
+     * Recompute quality for tech UI without emitting on the wire.
+     * Safe to call periodically while a session is active.
+     */
+    fun refreshQualitySnapshot(): RmssdCalculator.Result {
+        val snapshot = synchronized(ibiLock) { ibis.toList() }
+        val result = RmssdCalculator.compute(snapshot)
+        lastComputeResult = result
+        return result
     }
 
     /**
@@ -172,7 +208,9 @@ class BridgeSessionController(
         }
         runState = BridgeSessionRunState.Idle
         sessionId = null
+        sessionStartedElapsedMs = 0L
         lastRollingEmitElapsedMs.set(0L)
+        // Keep lastComputeResult so tech can still read the last snapshot after disconnect.
     }
 
     fun sessionStateJson(): JSONObject {
@@ -192,6 +230,7 @@ class BridgeSessionController(
                 ibis.toList()
             }
         val result = RmssdCalculator.compute(snapshot)
+        lastComputeResult = result
         val rmssd = result.rmssdMs ?: return null
         val obj =
             JSONObject()
