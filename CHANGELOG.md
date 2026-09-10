@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.9
+- fix: Stream/Record radio — deselected option keeps a visible gray ring (Material default was blending away).
+
 ## Version 1.0.0-beta.8
 - enhancement: Patient vs Tech view (hamburger menu). Tech meters show settle, HR/IBI, RMSSD, quality flags, RSSI.
 - Patient view stays pacer-clean (optional “Session in progress”); capture controls live in Tech view.
