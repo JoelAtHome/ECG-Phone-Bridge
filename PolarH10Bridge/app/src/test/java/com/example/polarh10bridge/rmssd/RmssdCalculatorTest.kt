@@ -9,7 +9,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.abs
 import kotlin.math.sqrt
 
 class RmssdCalculatorTest {
@@ -167,10 +166,11 @@ class RmssdCalculatorTest {
         val steady = listOf(600.0, 610.0, 590.0, 605.0)
         repeat(240) { i -> ibis += IbiSample(steady[i % steady.size]) }
 
+        val settleSec = 30.0
         val withSettle = RmssdCalculator.compute(
             ibis,
             Config(
-                settleTrimSec = 30.0,
+                settleTrimSec = settleSec,
                 analysisWindowSec = 40.0,
                 finalTrimSec = 0.0,
                 rollStepSec = 10.0,
@@ -189,11 +189,18 @@ class RmssdCalculatorTest {
         )
         assertNotNull(withSettle.rmssdMs)
         assertNotNull(noSettle.rmssdMs)
-        // Settling should avoid the chaotic early window dominating the plateau.
+        assertNotNull(withSettle.window)
+
+        // Settled run must not use rolling windows that start in the chaos band.
+        assertTrue(withSettle.rollingCandidates.isNotEmpty())
         assertTrue(
-            "settle=${withSettle.rmssdMs} noSettle=${noSettle.rmssdMs}",
-            withSettle.rmssdMs!! < noSettle.rmssdMs!!,
+            withSettle.rollingCandidates.all { it.startS >= settleSec - 1e-6 },
         )
-        assertTrue(abs(withSettle.rmssdMs!! - noSettle.rmssdMs!!) > 5.0)
+        assertTrue(withSettle.window!!.analysisStartS >= settleSec - 1e-6)
+
+        // Unsettled run should still see at least one early high-RMSSD candidate.
+        val earlyChaos = noSettle.rollingCandidates.filter { it.startS < settleSec }
+        assertTrue(earlyChaos.isNotEmpty())
+        assertTrue(earlyChaos.maxOf { it.rmssdMs } > withSettle.rmssdMs!! + 50.0)
     }
 }
