@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.5
+- enhancement: Updated in-app title to “ECG Phone Bridge” and About text to list Hertz & Hearts, VNS-TA, and FlareTracker.
+
 ## Version 1.0.0-beta.4
 - enhancement: Changed application id to `com.joelathome.ecgphonebridge` (away from `com.example.*`) and display name to “ECG Phone Bridge” for clearer sideloads / less Play Protect friction.
 - enhancement: CI now builds a **signed release** APK for GitHub Releases (`PolarH10Bridge-<tag>.apk`) instead of a debug artifact.

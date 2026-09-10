@@ -1408,7 +1408,7 @@ private fun BridgeMainScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "Polar H10-to-PC Bridge",
+                        text = "ECG Phone Bridge",
                         color = UiWhite,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -1875,10 +1875,10 @@ private fun AboutDialog(
                 Text("About", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = TextDark)
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    "For use with Hertz & Hearts PC app",
+                    "For use with Hertz & Hearts, VNS-TA, and FlareTracker",
                     color = TextDark,
                     fontSize = 13.sp,
-                    lineHeight = 12.sp,
+                    lineHeight = 16.sp,
                 )
                 Text(
                     "Developed by J. Kobe Labs",
