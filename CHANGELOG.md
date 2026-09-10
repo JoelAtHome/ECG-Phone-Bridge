@@ -4,6 +4,12 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.14
+- fix: Tech meters — Elapsed on its own line.
+- enhancement: Flow diagram PC label — `PC: J. Kobe Host App` until connected, then `PC: [host app]` when `client_app` is known.
+- fix: Wi-Fi connect hint shows whenever a LAN/hotspot IPv4 is available (no longer hidden when Wi-Fi client is off); copy is multi-app (`J. Kobe host app`).
+- docs: Host–mode negotiation intent (PC-initiated link; soft FT/VNS-TA/HnH preferences; dual-sided conflict UX) — build later.
+
 ## Version 1.0.0-beta.13
 - fix: Quality-flags ⓘ help dialog uses dark panel + light gray text for readability.
 

@@ -123,11 +123,29 @@ Ignore unknown `type` values for forward compatibility.
 | Stream / long session | Rare | Preferred | Common |
 | Own pacer on PC | No | No (remove) | No (demote/remove; phone owns patient pacer) |
 | Own RMSSD math | No | Optional cross-check | Optional cross-check |
+| Mode if conflict | Prefer Record | Prefer Stream | Either OK |
+
+---
+
+## Host–mode negotiation (later)
+
+**Link:** PC discovers and opens TCP (same for all hosts). One PC at a time.
+
+**Soft preferences:** FT → Record/ritual; VNS-TA → Stream; HnH → either. Phone remains mode authority.
+
+When preference conflicts with the phone’s current capture (e.g. FT while streaming):
+
+- Show copy on **phone Tech view** and on the **PC host**.  
+- Offer actions such as switch mode, keep current mode, or (later) use last recorded ritual.  
+- Never silent mid-run flip — stop/finalize, then start.  
+- Missing `client_app` → HnH-compatible, no nag.
+
+Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer dump / “send last session” still later.
 
 ---
 
 ## Suggested integration order
 
-1. **HnH** — already works; stay compatible while phone adds types.  
-2. **VNS-TA** — stream client + drop duplicate pacer; adopt `client_app`.  
-3. **FlareTracker** — wait for (or co-develop) `rmssd` + record/ritual; persist snapshot + quality metadata only.
+1. **HnH** — already works; stay compatible while phone adds types; send `client_app` when convenient.  
+2. **VNS-TA** — stream client + drop duplicate pacer; adopt `client_app`; expect soft conflict UX if phone is in Record.  
+3. **FlareTracker** — record/ritual + persist bridge `rmssd` + quality; adopt `client_app`; expect soft conflict UX if phone is in Stream; plan for later ritual package / last-session reuse.

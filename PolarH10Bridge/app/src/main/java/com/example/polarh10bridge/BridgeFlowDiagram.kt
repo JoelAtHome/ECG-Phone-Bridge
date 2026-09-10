@@ -61,6 +61,7 @@ internal fun BridgeFlowDiagram(
     sensorConnected: Boolean,
     pcBridgeConnected: Boolean,
     pcBridgeUserName: String?,
+    pcClientApp: String? = null,
     onScanSensors: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -318,7 +319,7 @@ internal fun BridgeFlowDiagram(
             }
         }
         Text(
-            text = "PC - Hertz & Hearts",
+            text = pcHostDiagramLabel(pcBridgeConnected, pcClientApp),
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             color = DiagramTextDark,
@@ -374,5 +375,20 @@ private fun VerticalFlowArrow(active: Boolean) {
                 close()
             }
         drawPath(tri, color)
+    }
+}
+
+/** Label under the PC node — branded host until a specific app identifies itself. */
+private fun pcHostDiagramLabel(
+    connected: Boolean,
+    clientApp: String?,
+): String {
+    if (!connected) return "PC: J. Kobe Host App"
+    return when (clientApp?.trim()?.lowercase()) {
+        "hertz_and_hearts", "hnh" -> "PC: Hertz & Hearts"
+        "vns_ta" -> "PC: VNS-TA"
+        "flaretracker" -> "PC: FlareTracker"
+        null, "" -> "PC: J. Kobe Host App"
+        else -> "PC: J. Kobe Host App"
     }
 }

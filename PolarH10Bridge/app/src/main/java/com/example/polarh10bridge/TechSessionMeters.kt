@@ -141,17 +141,24 @@ fun TechSessionMeters(
                             "Settle ${tot - rem}/$tot s"
                         },
                     )
-                    if (sessionActive) {
-                        append(" · Elapsed ")
-                        append(formatElapsedClock(elapsedSec.toLong()))
-                        append(" / ")
-                        append(formatElapsedClock(sessionTargetSec.toLong().coerceAtLeast(1L)))
-                    }
                 },
             color = TechTextDark,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
         )
+        if (sessionActive) {
+            Text(
+                text =
+                    "Elapsed " +
+                        formatElapsedClock(elapsedSec.toLong()) +
+                        " / " +
+                        formatElapsedClock(sessionTargetSec.toLong().coerceAtLeast(1L)),
+                color = TechTextDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
 
         Text(
             text =

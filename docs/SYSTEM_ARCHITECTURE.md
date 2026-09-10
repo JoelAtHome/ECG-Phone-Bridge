@@ -288,7 +288,9 @@ Feather does **not** currently self-tune across patients with very different ECG
 ## 9. Protocol / ops constraints
 
 - Treat discovery + framing as a **versioned contract** when adding FlareTracker / VNS-TA (today still HnH-branded).  
+- **PC initiates** discovery + TCP; phone does not dial out.  
 - One phone bridge-to-PC connection at a time; different users at different times.  
+- **Host–mode negotiation (later):** soft preferences by `client_app` (FT→Record, VNS-TA→Stream, HnH→either); conflict UI on phone Tech + PC; phone remains mode authority — see `docs/PROTOCOL.md` §5.3.  
 - Foreground service keepalive remains part of reliable bridging on Android.  
 - Dev environment notes (AGP/Gradle/Wi‑Fi) live in `PASSDOWN.md` — not product architecture.
 
@@ -299,9 +301,10 @@ Feather does **not** currently self-tune across patients with very different ECG
 1. Exact Feather GATT layout (profile coeffs map onto characteristics — see `docs/FEATHER_PROFILE_SCHEMA.md`).  
 2. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
 3. **Implement** patient-profile session timing (`settle_trim_s` / `analysis_window_s` / `final_trim_s`) + Tech override UI; Tuner as optional co-editor of the same profile (§6.2 / §7).  
-4. Formal protocol version string and discovery rename timeline.  
-5. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
-6. Cross-phone profile export/import UX (schema drafted; share flow later).
+4. **Implement** host–mode negotiation / conflict UX (`PROTOCOL.md` §5.3) and record buffer dump / last-session reuse.  
+5. Formal protocol version string and discovery rename timeline.  
+6. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
+7. Cross-phone profile export/import UX (schema drafted; share flow later).
 
 ---
 

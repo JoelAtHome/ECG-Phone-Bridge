@@ -142,6 +142,62 @@ Phone UI chooses mode; PC may also request (phone remains authority if conflict 
 
 `source_device`: `POLAR_H10` \| `FEATHER` \| `OTHER`
 
+### 5.3 Host–mode negotiation (later — intent)
+
+**Discovery / link:** Always **PC-initiated**. Host sends UDP discover probe; phone replies; host opens TCP. Same for Hertz & Hearts, VNS-TA, and FlareTracker. The phone does not dial out to hosts.
+
+**One TCP client at a time.** A second host connecting while another is connected: refuse or replace (pick one policy when implementing; document in CHANGELOG). Do not run two PC sessions in parallel.
+
+**Soft preferences (not hard locks at first):**
+
+| `client_app` | Preferred mode / kind | Notes |
+|--------------|----------------------|-------|
+| `flaretracker` | `record` + `ritual` | Official bridge `rmssd` snapshot is the value of record; Stream is not a substitute for a ritual package |
+| `vns_ta` | `stream` + `session` | Live `rr` / `ecg` required |
+| `hertz_and_hearts` (or omitted) | either | Backward compatible; no nag if mode differs |
+
+When `client_app` arrives (or changes) and the phone’s current capture mode conflicts with the preference, **surface a conflict on both sides**:
+
+- **Phone (Tech view):** short explanation + actions (examples below). Patient view stays quiet.  
+- **PC host:** same situation in host copy (“waiting for phone” / “operator chose …”).  
+
+**Example — FlareTracker while Stream is active**
+
+Copy intent: “FlareTracker needs Record (ritual), not Stream.”
+
+Actions (phone Tech; PC mirrors status):
+
+1. **Switch to Record** — stop stream cleanly (optional final stream `rmssd`), then start Record / ritual.  
+2. **Keep streaming** — FT may wait or use live data for QA only; no ritual snapshot until Record completes.  
+3. **Use last recorded session** — only once the phone retains a last ritual package / last official `rmssd` + metadata (not shipping yet).
+
+**Example — VNS-TA while Record is active**
+
+Copy intent: “VNS-TA prefers live Stream.”
+
+Actions:
+
+1. **Switch to Stream** — finalize Record (emit official `rmssd` if possible), then start Stream.  
+2. **Keep Record** — VNS-TA waits or gets limited live if still emitted.  
+3. **Finish Record, then Stream** — explicit two-step.
+
+**Other rules**
+
+- **Phone is authority** for mode changes. PC may *request* via `session_control`; phone confirms or offers the conflict UI.  
+- **Mode change mid-run:** always stop → finalize (Record → `rmssd` / state) → then start the new mode. Never silent flip.  
+- **`client_app` late:** re-evaluate conflict when `client_info` arrives after connect.  
+- **Missing `client_app`:** treat as HnH-compatible; do not show FT/VNS-TA nags.  
+- **Idle (no capture):** on connect, optionally apply host default mode as a *suggestion* in Tech UI (FT→Record, VNS-TA→Stream); do not auto-start capture without operator/start intent unless product later says so.  
+- **Record transfer to FT/HnH:** after Stop, shipping path today is live TCP + final `rmssd`. Full ritual buffer dump / “send last session” is **later** (`session_summary` + package — see §7).
+
+Wire shape for conflicts (sketch — additive later): phone may emit something like
+
+```json
+{"type":"session_conflict","client_app":"flaretracker","current_mode":"stream","preferred_mode":"record","options":["switch_to_record","keep_streaming","use_last_record"]}
+```
+
+PC may reply with `session_control` or a small `conflict_choice` once defined. Until then, Tech UI can resolve locally and hosts watch `session_state`.
+
 ---
 
 ## 6. Official RMSSD snapshot (phone → PC)
@@ -299,5 +355,6 @@ Phone:   {"type":"session_state","state":"completed",…}
 | `session_control` / `session_state` | **Shipping** (phone UI + PC control) |
 | `rmssd` snapshot messages | **Shipping** (final on stop; rolling in stream) |
 | `client_app` on `client_info` | **Shipping** (additive) |
-| Record buffer dump format | Later |
+| Host–mode negotiation / conflict UI | Later (intent in §5.3) |
+| Record buffer dump / last-session reuse | Later |
 | New discover prefix | Later |

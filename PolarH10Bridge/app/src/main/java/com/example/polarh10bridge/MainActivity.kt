@@ -537,17 +537,8 @@ class MainActivity : ComponentActivity() {
 
     private fun applyPhoneWifiLinkFromNetworkToScreenState() {
         val beforeIp = screenState.value.phoneWifiIpv4
-        if (!isWifiRadioOn(this)) {
-            screenState.value =
-                screenState.value.copy(
-                    phoneWifiIpv4 = null,
-                    phoneWifiSubnetMask = null,
-                )
-            if (beforeIp != screenState.value.phoneWifiIpv4) {
-                bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
-            }
-            return
-        }
+        // Always probe TRANSPORT_WIFI (includes soft AP / hotspot). Do not clear on
+        // isWifiEnabled=false — that flag is often off while hotspot is serving the PC.
         val netInfo = wifiNetworkInfo(this)
         screenState.value =
             screenState.value.copy(
@@ -1404,14 +1395,9 @@ class MainActivity : ComponentActivity() {
                     state = state,
                     ipHintRefreshSession = ipHintRefreshSession,
                     readPhoneWifiIpv4 = { screenState.value.phoneWifiIpv4 },
-                    onWifiRadioAvailabilityChanged = { enabled ->
-                        if (!enabled) {
-                            cancelScheduledPhoneWifiLinkRefresh()
-                            applyPhoneWifiLinkFromNetworkToScreenState()
-                        } else {
-                            schedulePhoneWifiLinkRefreshWithRetries()
-                            bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
-                        }
+                    onWifiRadioAvailabilityChanged = { _ ->
+                        schedulePhoneWifiLinkRefreshWithRetries()
+                        bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
                     },
                     onScanSensors = { beginSensorScan() },
                     onSaveBridgePort = { newPort ->
@@ -1458,18 +1444,9 @@ class MainActivity : ComponentActivity() {
             screenState.value.copy(
                 foregroundServiceActive = BridgeForegroundService.isRunning,
             )
-        if (isWifiRadioOn(this)) {
-            schedulePhoneWifiLinkRefreshWithRetries()
-            bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
-        } else {
-            cancelScheduledPhoneWifiLinkRefresh()
-            screenState.value =
-                screenState.value.copy(
-                    phoneWifiIpv4 = null,
-                    phoneWifiSubnetMask = null,
-                )
-            bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
-        }
+        // Always refresh — Wi-Fi client off does not mean no LAN IP (mobile hotspot).
+        schedulePhoneWifiLinkRefreshWithRetries()
+        bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
     }
 
     override fun onStart() {
@@ -1519,6 +1496,7 @@ class MainActivity : ComponentActivity() {
         }
 
         disposables.clear()
+        cancelScheduledPhoneWifiLinkRefresh()
         discoveryExecutor.shutdownNow()
         bridgeExecutor.shutdownNow()
 
@@ -1553,18 +1531,10 @@ private fun BridgeMainScreen(
     val onWifiRadioAvailabilityChangedState by rememberUpdatedState(onWifiRadioAvailabilityChanged)
     val peekPhoneWifiIpv4 by rememberUpdatedState(readPhoneWifiIpv4)
     var connectHintIpv4 by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(wifiRadioEnabled, state.phoneWifiIpv4, ipHintRefreshSession) {
-        if (!wifiRadioEnabled) {
-            connectHintIpv4 = null
-            return@LaunchedEffect
-        }
+    LaunchedEffect(state.phoneWifiIpv4, ipHintRefreshSession) {
         connectHintIpv4 = null
         var best: String? = null
         repeat(48) { attempt ->
-            if (!isWifiRadioOn(context)) {
-                connectHintIpv4 = null
-                return@LaunchedEffect
-            }
             val cur = peekPhoneWifiIpv4() ?: wifiIpv4String(context)
             if (cur != null) {
                 best = preferMoreLikelyLanDisplayIp(best, cur)
@@ -1732,19 +1702,15 @@ private fun BridgeMainScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Only show LAN connect instructions when the Wi-Fi radio is on; the stack may still
-                // report a stale or non-LAN IPv4 while Wi-Fi is disabled.
+                // Show LAN connect instructions whenever we have a Wi-Fi/hotspot IPv4 and the PC
+                // is not yet linked (Wi-Fi client may be off while mobile hotspot is on).
                 val wifiIp =
-                    if (wifiRadioEnabled) {
-                        connectHintIpv4
-                            ?: state.phoneWifiIpv4
-                            ?: wifiIpv4String(LocalContext.current)
-                    } else {
-                        null
-                    }
-                if (wifiIp != null) {
+                    connectHintIpv4
+                        ?: state.phoneWifiIpv4
+                        ?: wifiIpv4String(LocalContext.current)
+                if (wifiIp != null && !state.pcBridgeConnected) {
                     Text(
-                        text = "Open Hertz & Hearts on your PC and connect to $wifiIp:${state.bridgePort}",
+                        text = "On your PC, open a J. Kobe host app and connect to $wifiIp:${state.bridgePort}",
                         color = TextDark.copy(alpha = 0.78f),
                         fontSize = 11.sp,
                         lineHeight = 11.sp,
@@ -1779,6 +1745,7 @@ private fun BridgeMainScreen(
                     sensorConnected = state.sensorConnected,
                     pcBridgeConnected = state.pcBridgeConnected,
                     pcBridgeUserName = state.pcBridgeUserName,
+                    pcClientApp = state.pcClientApp,
                     onScanSensors = onScanSensors,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
