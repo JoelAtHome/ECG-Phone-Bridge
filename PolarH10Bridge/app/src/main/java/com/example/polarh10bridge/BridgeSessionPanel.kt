@@ -168,6 +168,7 @@ private fun SessionModeChoice(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val unselectedRing = Color(0xFF757575)
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -179,6 +180,9 @@ private fun SessionModeChoice(
             colors =
                 RadioButtonDefaults.colors(
                     selectedColor = SessionBannerRed,
+                    unselectedColor = unselectedRing,
+                    disabledSelectedColor = SessionBannerRed.copy(alpha = 0.45f),
+                    disabledUnselectedColor = unselectedRing.copy(alpha = 0.45f),
                 ),
         )
         TextButton(
@@ -189,9 +193,10 @@ private fun SessionModeChoice(
                 text = label,
                 color =
                     when {
-                        !enabled -> SessionTextDark.copy(alpha = 0.4f)
+                        !enabled && selected -> SessionBannerRed.copy(alpha = 0.55f)
+                        !enabled -> SessionTextDark.copy(alpha = 0.45f)
                         selected -> SessionBannerRed
-                        else -> SessionTextDark
+                        else -> SessionTextDark.copy(alpha = 0.85f)
                     },
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             )
