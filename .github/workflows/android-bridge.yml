@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       upload_to_release_tag:
-        description: "Optional. Published release tag to attach the APK to (e.g. v1.0.0-beta.2). Leave empty to build only and download the Actions artifact."
+        description: "Optional. Published release tag to attach the APK to (e.g. v1.0.0-beta.4). Leave empty to build only and download the Actions artifact."
         required: false
         type: string
         default: ""
@@ -25,7 +25,7 @@ on:
       - ".github/workflows/android-bridge.yml"
 
 jobs:
-  build-debug-apk:
+  build-apk:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,17 +48,33 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew --no-daemon clean assembleDebug
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing."
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$GITHUB_WORKSPACE/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Upload debug APK artifact
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon clean assembleRelease
+
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v7
         with:
-          name: PolarH10Bridge-debug-apk
-          path: PolarH10Bridge/app/build/outputs/apk/debug/app-debug.apk
+          name: PolarH10Bridge-release-apk
+          path: PolarH10Bridge/app/build/outputs/apk/release/app-release.apk
 
   upload-to-release:
-    needs: build-debug-apk
+    needs: build-apk
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_to_release_tag != '')
     runs-on: ubuntu-latest
     permissions:
@@ -84,10 +100,10 @@ jobs:
           fi
           echo "tag=$T" >> "$GITHUB_OUTPUT"
 
-      - name: Download debug APK artifact
+      - name: Download release APK artifact
         uses: actions/download-artifact@v7
         with:
-          name: PolarH10Bridge-debug-apk
+          name: PolarH10Bridge-release-apk
           path: apk
 
       - name: Attach APK to GitHub release
@@ -96,9 +112,9 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.release_tag.outputs.tag }}"
-          test -f apk/app-debug.apk
-          cp apk/app-debug.apk "PolarH10Bridge-debug-${TAG}.apk"
-          FILE="PolarH10Bridge-debug-${TAG}.apk"
+          test -f apk/app-release.apk
+          cp apk/app-release.apk "PolarH10Bridge-${TAG}.apk"
+          FILE="PolarH10Bridge-${TAG}.apk"
           found=
           for i in $(seq 1 30); do
             if gh release view "$TAG" --json tagName >/dev/null 2>&1; then

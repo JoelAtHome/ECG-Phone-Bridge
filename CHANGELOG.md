@@ -4,9 +4,12 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
-- docs: Added system architecture intent (`docs/SYSTEM_ARCHITECTURE.md`) and wire-protocol sketch (`docs/PROTOCOL.md`) for multi-app NDJSON, RMSSD snapshots, and record/stream control.
-- docs: Added Feather per-patient profile schema (`docs/FEATHER_PROFILE_SCHEMA.md`) and host consumer handoff checklists (`docs/HOST_HANDOFF.md`).
-- enhancement: Added pure-Kotlin `RmssdCalculator` with unit tests (official session RMSSD from IBI; not yet emitted on the TCP wire).
+## Version 1.0.0-beta.4
+- enhancement: Changed application id to `com.joelathome.ecgphonebridge` (away from `com.example.*`) and display name to “ECG Phone Bridge” for clearer sideloads / less Play Protect friction.
+- enhancement: CI now builds a **signed release** APK for GitHub Releases (`PolarH10Bridge-<tag>.apk`) instead of a debug artifact.
+- fix: Bumped in-app `versionName` to match release tagging (was stuck at `1.0.0-beta.2` while GitHub already had a `v1.0.0-beta.3` tag).
+- docs: Architecture, protocol, Feather profile schema, and host handoff notes.
+- enhancement: Pure-Kotlin `RmssdCalculator` with unit tests (not yet on the TCP wire).
 
 ## Version 1.0.0-beta.2 (April 08 2026)
 - enhancement: Added client identity exchange so the bridge can report the active Hertz & Hearts user profile to the phone app.

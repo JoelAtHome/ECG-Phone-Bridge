@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.example.polarh10bridge"
     compileSdk {
@@ -12,13 +14,36 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.polarh10bridge"
+        // Real application id (not com.example.*) — easier Play Protect / sideload for users.
+        // Kotlin package/namespace stays com.example.polarh10bridge for now.
+        applicationId = "com.joelathome.ecgphonebridge"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.0-beta.2"
+        versionCode = 4
+        versionName = "1.0.0-beta.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            val envStore = System.getenv("ANDROID_KEYSTORE_PATH")
+            val localPropsFile = rootProject.file("keystore.properties")
+            if (!envStore.isNullOrBlank()) {
+                storeFile = file(envStore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            } else if (localPropsFile.exists()) {
+                val props = Properties().apply {
+                    localPropsFile.inputStream().use { load(it) }
+                }
+                storeFile = rootProject.file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -28,6 +53,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
     compileOptions {

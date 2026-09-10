@@ -39,9 +39,16 @@ Local clone path (Windows): `C:\Cursor_Projects\ECG-Phone-Bridge`
 
 ## Releases
 
-Debug APKs are built by GitHub Actions (`.github/workflows/android-bridge.yml`) and attached to GitHub Releases as:
+Signed release APKs are built by GitHub Actions (`.github/workflows/android-bridge.yml`) and attached to GitHub Releases as:
 
-`PolarH10Bridge-debug-<tag>.apk`
+`PolarH10Bridge-<tag>.apk`
+
+Example: [v1.0.0-beta.4](https://github.com/JoelAtHome/ECG-Phone-Bridge/releases) (after publish).
+
+**Install / upgrade notes**
+
+- Package id is `com.joelathome.ecgphonebridge` (not `com.example.*`). Older “Polar H10 Bridge” installs with `com.example.polarh10bridge` will **not** update in place — uninstall the old app, then install the new APK.
+- Sideload from the phone browser/Files; allow install from that source if prompted. Release-signed builds are less likely to trip Play Protect than debug/`com.example` APKs.
 
 ## Protocol note
 
