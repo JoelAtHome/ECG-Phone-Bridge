@@ -76,8 +76,18 @@ Same object; new fields optional so old HnH still works:
 {"type":"status","message":"Phone bridge connected","connected":true}
 {"type":"rr","rr_ms":812}
 {"type":"ecg","sample_rate_hz":130,"samples_mv":[0.12,-0.05,0.08]}
+{"type":"sensor_quality","contact_state":"in_contact","contact":true,"contact_supported":true,"rssi_dbm":-67,"rssi_is_contact":false}
 ```
 
+| `sensor_quality` field | Meaning |
+|------------------------|---------|
+| `contact_state` | `unknown` \| `in_contact` \| `no_contact` (from sensor contact bit, **not** RSSI) |
+| `contact` | Present when `contact_supported` is true |
+| `contact_supported` | Whether the sensor reports a contact bit |
+| `rssi_dbm` | Optional BLE link strength |
+| `rssi_is_contact` | Always `false` — hosts must not treat dBm as on-chest |
+
+When `contact_state` is `no_contact`, the phone **gates** live `rr` / `ecg` (and does not feed those IBIs into official bridge RMSSD). Unknown / unsupported contact does not gate.
 ### 3.2 Shipping types (PC → phone)
 
 ```json

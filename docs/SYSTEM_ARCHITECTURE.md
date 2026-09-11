@@ -3,7 +3,7 @@
 **Date:** 2026-09-11  
 **Status:** Target architecture (intent) with explicit **now / next / later** vs shipping code  
 **Scope:** BLE ingestion → Phone Bridge (edge) → Wi‑Fi session transport → laptop consumers  
-**Priority (2026-09-11):** VNS-TA Stream field path, then Feather-on-phone (BLE) + profiles/calibrate; park `session_control` / ritual buffer dump until after.
+**Priority (2026-09-11):** VNS-TA Stream field path, then Feather-on-phone (BLE) + profiles/calibrate; contact gates shipped β.21; park `session_control` / ritual buffer dump until after.
 
 ---
 
@@ -100,8 +100,8 @@ flowchart TD
 - ~~Phone UI mode select: **Record session** vs **Stream**~~ (shipping)
 - ~~Bridge official RMSSD from IBI on the wire~~ (shipping; rolling in stream, final on stop)
 - ~~FlareTracker / VNS-TA / HnH light host passes~~ (shipping; FT Companion **v1.0.3** + caregiver H10 path verified)
-- **VNS-TA:** field-verify Stream on phone **≥ v1.0.0-beta.18**; keep Polar Stream usable in parallel with Feather work
-- Phone **contact / quality gates** (RSSI alone is not on-chest / contact)
+- **VNS-TA:** field-verify Stream on phone **≥ v1.0.0-beta.18** (prefer **β.21**); keep Polar Stream usable in parallel with Feather work
+- ~~Phone **contact / quality gates** (RSSI alone is not on-chest / contact)~~ — shipped **β.21**
 - **Feather BLE path** on the phone + **per-patient calibration profiles** (phone-local; see §7) — hard gate before Tuner polish
 - Calibrate MVP (thin phone Tech inspect/tweak/Save **or** thin Tuner writing the same profile JSON), then build out **Tuner** as the durable coeff editor (Polar referee, guided Accept)
 
@@ -311,8 +311,8 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 
 **Near-term (VNS-TA priority)**
 
-1. Field-verify VNS-TA Stream against phone **≥ v1.0.0-beta.18**.  
-2. Phone contact / quality gates (do not treat RSSI as contact).  
+1. Field-verify VNS-TA Stream against phone **≥ v1.0.0-beta.18** (prefer **β.21** for contact gates).  
+2. ~~Phone contact / quality gates (do not treat RSSI as contact).~~ — shipped **β.21**.  
 3. Exact Feather GATT layout + phone BLE path (see `docs/FEATHER_PROFILE_SCHEMA.md`).  
 4. Phone-local profiles + calibrate MVP → then Tuner build-out (§7).
 

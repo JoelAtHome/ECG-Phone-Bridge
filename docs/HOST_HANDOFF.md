@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.20**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.3**). **Priority:** VNS-TA Stream field path → phone contact/quality gates → Feather BLE + profiles/calibrate (Tuner after phone can push/stream).
+**Status:** Shipping phone contract through **v1.0.0-beta.21**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.5**). **Priority:** VNS-TA Stream field path → phone Feather BLE + profiles/calibrate (Tuner after phone can push/stream). Contact/quality gates shipped in β.21.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -44,7 +44,7 @@ Ignore unknown `type` values for forward compatibility.
 
 The browser cannot do LAN UDP/TCP. **FlareTracker Bridge Companion** (Windows tray) discovers the phone and holds TCP. The day log talks to loopback **`127.0.0.1:45126`** and POSTs the finished HRV event to the FlareTracker API.
 
-**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.3** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge`.
+**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.5** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge`.
 
 **Coordinator notes (do not regress):**
 
@@ -93,7 +93,7 @@ Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-sessio
 **Next (phone + verify — 2026-09-11):**
 
 1. Field-verify Stream with phone **≥ v1.0.0-beta.18** (same write-thread fixes FT needed). Keep Polar Stream usable while Feather lands.  
-2. Phone **contact / quality gates** (RSSI ≠ on-chest) — shared, helps live VNS.  
+2. ~~Phone **contact / quality gates** (RSSI ≠ on-chest)~~ — shipped **β.21** (`sensor_quality`; RR/ECG gated on Polar `contactStatus`).  
 3. Phone **Feather BLE** + per-patient profiles + calibrate MVP; then build out **Tuner** as co-editor of the same profile JSON (Polar referee). Hosts keep consuming the same `rr` / `ecg` / optional bridge `rmssd` — no Feather-specific host wire.  
 4. Park: `session_control`, ritual buffer dump / last-session reuse, Feather MCU Wi‑Fi as a session path.
 
@@ -183,5 +183,5 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 ## Suggested integration order / priority (2026-09-11)
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
-2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.3** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. Phone β.19 (live dBm) / β.20 (in-app update notify) already shipped — remaining phone polish is **contact/quality gates**. Ritual buffer dump / last-session reuse later.  
-3. **VNS-TA (current priority)** — light pass done (`bf3a4da`). Next: Stream field-verify on β.18+ → contact/quality gates → Feather BLE + profiles/calibrate MVP → Tuner build-out. Do **not** send `session_control` yet. Keep Polar Stream usable in parallel.
+2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.3** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. Phone β.19 (live dBm) / β.20 (in-app update notify) / β.21 (contact gates) shipped. Ritual buffer dump / last-session reuse later.  
+3. **VNS-TA (current priority)** — light pass done (`bf3a4da`). Next: Stream field-verify on β.18+ (prefer **β.21** for contact gates) → Feather BLE + profiles/calibrate MVP → Tuner build-out. Do **not** send `session_control` yet. Keep Polar Stream usable in parallel.

@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.21
+- enhancement: Skin-contact / quality gate from Polar HR `contactStatus` — drop RR/ECG (and RMSSD intake) when the sensor reports no contact. BLE dBm stays link-only (`rssi_is_contact: false`); UI labels say "dBm link".
+- enhancement: Additive `sensor_quality` NDJSON for hosts (`contact_state`, optional `contact` / `contact_supported`, optional `rssi_dbm`).
+
 ## Version 1.0.0-beta.20
 - enhancement: Check GitHub Releases on launch and show a dismissible banner when a newer APK is available (also in About).
 

@@ -253,6 +253,8 @@ private data class BridgeScreenState(
     val settleTrimSec: Double = 45.0,
     val sessionTargetSec: Double = 105.0,
     val recentHrBpm: Double? = null,
+    /** Skin/electrode contact from sensor HR — not BLE RSSI. */
+    val sensorContact: SensorContactState = SensorContactState.Unknown,
     val lastAcceptedBeats: Int = 0,
     val lastQualityFlags: List<String> = emptyList(),
 )
@@ -272,6 +274,14 @@ class MainActivity : ComponentActivity() {
     private var hrDisposable: io.reactivex.rxjava3.disposables.Disposable? = null
     private val sessionController = BridgeSessionController()
     private var ecgDisposable: io.reactivex.rxjava3.disposables.Disposable? = null
+
+    /**
+     * When Polar reports supported no-contact, drop RR/ECG from the host wire and
+     * official RMSSD intake. RSSI never drives this flag.
+     */
+    @Volatile
+    private var telemetryAllowedByContact = true
+    private var lastPublishedContactState: SensorContactState? = null
     private var bleSearchDisposable: Disposable? = null
     /** Direct LE scan for RSSI; Polar search often never re-emits the connected peripheral. */
     private var rssiLeScanCallback: ScanCallback? = null
@@ -391,6 +401,62 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sourceDeviceWire(): String = "POLAR_H10"
+
+    private fun resetSensorContactGate() {
+        telemetryAllowedByContact = true
+        lastPublishedContactState = null
+    }
+
+    private fun applyHrContactSample(
+        contactStatusSupported: Boolean,
+        contactStatus: Boolean,
+        hrBpm: Int,
+    ) {
+        val state =
+            SensorContactGate.fromPolarHrSample(
+                contactStatusSupported = contactStatusSupported,
+                contactStatus = contactStatus,
+            )
+        telemetryAllowedByContact = SensorContactGate.shouldForwardTelemetry(state)
+        if (state != lastPublishedContactState) {
+            lastPublishedContactState = state
+            sendSensorQualityLine(state)
+        }
+        val current = screenState.value
+        val newHr = if (hrBpm > 0) hrBpm.toDouble() else current.recentHrBpm
+        if (current.sensorContact != state || current.recentHrBpm != newHr) {
+            updateScreen {
+                it.copy(
+                    sensorContact = state,
+                    recentHrBpm = newHr,
+                )
+            }
+        }
+    }
+
+    /** Additive host hint. Unknown types are ignored by older clients. */
+    private fun sendSensorQualityLine(state: SensorContactState) {
+        if (bridgeClient == null) return
+        val rssi = screenState.value.connectedSensorRssi
+        val json =
+            buildString {
+                append("""{"type":"sensor_quality","contact_state":"${state.wireValue()}"""")
+                when (state) {
+                    SensorContactState.InContact ->
+                        append(""","contact":true,"contact_supported":true""")
+                    SensorContactState.NoContact ->
+                        append(""","contact":false,"contact_supported":true""")
+                    SensorContactState.Unknown ->
+                        append(""","contact_supported":false""")
+                }
+                if (rssi != null) {
+                    append(""","rssi_dbm":$rssi""")
+                }
+                // Explicit: hosts must not treat rssi_dbm as on-chest / contact.
+                append(""","rssi_is_contact":false}""")
+            }
+        sendBridgeJsonLine(json)
+    }
 
     private fun syncSessionUiFromController(
         lastRmssdMs: Double? = null,
@@ -1142,9 +1208,11 @@ class MainActivity : ComponentActivity() {
                                 connectedSensorId = polarDeviceInfo.deviceId,
                                 connectedSensorAddress = polarDeviceInfo.address.orEmpty(),
                                 connectedSensorRssi = rssi,
+                                sensorContact = SensorContactState.Unknown,
                                 bleRows = emptyList(),
                                 bleSelectedId = null,
                             )
+                        resetSensorContactGate()
                         resumeConnectedRssiMonitoring()
                     }
                 }
@@ -1159,6 +1227,7 @@ class MainActivity : ComponentActivity() {
                     ecgDisposable?.dispose()
                     ecgDisposable = null
                     ecgStreamingStarted = false
+                    resetSensorContactGate()
 
                     mainHandler.post {
                         screenState.value =
@@ -1168,6 +1237,8 @@ class MainActivity : ComponentActivity() {
                                 connectedSensorId = "",
                                 connectedSensorAddress = "",
                                 connectedSensorRssi = null,
+                                sensorContact = SensorContactState.Unknown,
+                                recentHrBpm = null,
                             )
                     }
                     stopConnectedRssiPolling()
@@ -1198,7 +1269,20 @@ class MainActivity : ComponentActivity() {
                             .subscribe(
                                 { hrData ->
                                     for (sample in hrData.samples) {
-                                        Log.d("HnHBridge", "HR=${sample.hr} rr=${sample.rrsMs}")
+                                        applyHrContactSample(
+                                            contactStatusSupported = sample.contactStatusSupported,
+                                            contactStatus = sample.contactStatus,
+                                            hrBpm = sample.hr,
+                                        )
+                                        val allowTelemetry = telemetryAllowedByContact
+                                        Log.d(
+                                            "HnHBridge",
+                                            "HR=${sample.hr} rr=${sample.rrsMs} " +
+                                                "contact=${sample.contactStatus}/" +
+                                                "supported=${sample.contactStatusSupported} " +
+                                                "forward=$allowTelemetry",
+                                        )
+                                        if (!allowTelemetry) continue
                                         for (rr in sample.rrsMs) {
                                             if (rr > 0) {
                                                 val now = SystemClock.elapsedRealtime()
@@ -1258,6 +1342,9 @@ class MainActivity : ComponentActivity() {
                         .observeOn(Schedulers.io())
                         .subscribe(
                             { ecgData: PolarEcgData ->
+                                if (!telemetryAllowedByContact) {
+                                    return@subscribe
+                                }
                                 val samplesMv = extractEcgMillivolts(ecgData)
                                 if (samplesMv.isEmpty()) {
                                     Log.d("HnHBridge", "ECG batch empty after parse; skipping")
@@ -1385,6 +1472,15 @@ class MainActivity : ComponentActivity() {
                                         .put("protocol", BRIDGE_PROTOCOL_ID)
                                         .toString(),
                                 )
+                                // Re-announce contact/link quality so hosts that connected mid-session see it.
+                                lastPublishedContactState?.let { sendSensorQualityLine(it) }
+                                    ?: run {
+                                        val known = screenState.value.sensorContact
+                                        if (known != SensorContactState.Unknown) {
+                                            lastPublishedContactState = known
+                                            sendSensorQualityLine(known)
+                                        }
+                                    }
                                 if (sessionController.isActive()) {
                                     sendBridgeJsonLine(sessionController.sessionStateJson().toString())
                                     mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
@@ -1879,11 +1975,22 @@ private fun BridgeMainScreen(
                                     state.connectedSensorId,
                                 ),
                             )
+                            state.sensorContact.displayLabel()?.let { label ->
+                                append(" · ")
+                                append(label)
+                            }
                             state.connectedSensorRssi?.let { rssi ->
-                                append(" ($rssi dBm signal)")
+                                append(" · ")
+                                append(rssi)
+                                append(" dBm link")
                             }
                         },
-                        color = TextDark,
+                        color =
+                            if (state.sensorContact == SensorContactState.NoContact) {
+                                Color(0xFFB3261E)
+                            } else {
+                                TextDark
+                            },
                         fontSize = 12.sp,
                         lineHeight = 12.sp,
                         style =
@@ -1977,6 +2084,7 @@ private fun BridgeMainScreen(
                             },
                         acceptedBeats = state.lastAcceptedBeats,
                         qualityFlags = state.lastQualityFlags,
+                        sensorContact = state.sensorContact,
                         connectedSensorRssi = state.connectedSensorRssi,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )

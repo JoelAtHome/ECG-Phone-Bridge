@@ -79,6 +79,8 @@ fun TechSessionMeters(
     displayRmssdMs: Double?,
     acceptedBeats: Int,
     qualityFlags: List<String>,
+    sensorContact: SensorContactState,
+    /** BLE link strength only — never treat as skin contact. */
     connectedSensorRssi: Int?,
     modifier: Modifier = Modifier,
 ) {
@@ -163,6 +165,27 @@ fun TechSessionMeters(
         Text(
             text =
                 buildString {
+                    append("Contact: ")
+                    append(
+                        when (sensorContact) {
+                            SensorContactState.InContact -> "skin OK"
+                            SensorContactState.NoContact -> "no skin contact (RR/ECG gated)"
+                            SensorContactState.Unknown -> "unknown (sensor may not report)"
+                        },
+                    )
+                },
+            color =
+                if (sensorContact == SensorContactState.NoContact) {
+                    Color(0xFFB3261E)
+                } else {
+                    TechTextDark.copy(alpha = 0.85f)
+                },
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            text =
+                buildString {
                     append("IBIs: $ibiCount")
                     recentHrBpm?.let {
                         append(" · ~")
@@ -172,12 +195,12 @@ fun TechSessionMeters(
                     connectedSensorRssi?.let {
                         append(" · ")
                         append(it)
-                        append(" dBm")
+                        append(" dBm link")
                     }
                 },
             color = TechTextDark.copy(alpha = 0.85f),
             fontSize = 12.sp,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = 2.dp),
         )
 
         Text(
