@@ -26,8 +26,8 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | Reply | JSON with at least `app`, `role`, `hostname`, `port` |
 | Session | TCP to phone `port` (default **8765**); **one** PC connection at a time |
 | Framing | NDJSON (one JSON object per line, UTF-8) |
-| Shipping types today | Phone→PC: `status`, `rr`, `ecg`. PC→phone: `client_info` (optional `pc_user`) |
-| Coming next | `protocol` / `features` on discover; `session_control` / `session_state`; `rmssd` snapshots |
+| Shipping types today | Phone→PC: `status`, `session_state`, `rmssd`, `rr`, `ecg`. PC→phone: `client_info` (optional `pc_user`). Phone listens for `session_control` but hosts should not send it until a later pass. |
+| Phone APK | Sideload **v1.0.0-beta.18** (`com.joelathome.ecgphonebridge`, versionCode 18) or newer. Earlier builds drop Stop `rmssd` (and any other write started on the UI thread). |
 | Sources | **Either Polar or Feather** per session — never both |
 | Official RMSSD | Computed **on the phone from IBI**; FlareTracker must not reimplement HRV math |
 | Patient UI | Countdown / **breathing pacer** / optional ECG live on the **phone** — hosts do **not** drive the patient pacer |
@@ -40,7 +40,21 @@ Ignore unknown `type` values for forward compatibility.
 
 **Goal:** Store a trustworthy ritual RMSSD (+ metadata) for longitudinal logging.
 
-**Host status (2026-09-10):** light pass done. Record client on the day log (`npm run phone-bridge`) sends `client_app: "flaretracker"` and `pc_user` (child profile name). Does **not** send `session_control`. Soft preference is Record / ritual; phone remains mode authority; capture is not auto-started. Soft conflict only while the phone is in Stream (`streaming`, or `finalizing` if mode is still stream); Keep streaming dismisses the notice and does not change phone mode. Official bridge `rmssd` from a completed Record / ritual is persisted with `window` and `quality.flags` (flagged snapshots stored with a warning; `feather_rmssd_ms` ignored). No PC RMSSD math or chart. No patient pacer. Ritual buffer dump / last-session reuse / `session_control` later.
+**Host status (2026-09-10, verified on the bench):** record path works end to end against phone **v1.0.0-beta.18**. Connect in the day log, Record on the phone, leave the TCP link up, Stop on the phone. FlareTracker saves one HRV row (`rmssd_source: "bridge"`) without a disconnect. Example: panel “Saved ritual RMSSD 8.21 ms” after `rmssd` then `session_state` (`record` / `completed`).
+
+The browser cannot do LAN UDP/TCP. A **local companion** (`npm run phone-bridge`, loopback `127.0.0.1:45126`) discovers the phone and holds the TCP session. The day log polls that companion and POSTs the HRV event to the FlareTracker API. Production (`flaretracker.net`) does **not** run the companion. Profile toggle **Phone bridge** defaults **off** and hides the panel. Local commit `9649b3c` on FlareTracker `main` is **not pushed** (Netlify). Do not treat this as a shipped caregiver feature until a packaged companion starts with the app.
+
+**Coordinator notes (do not regress):**
+
+- Phone **v1.0.0-beta.18** required. Stop and the Record heartbeat used to write the socket on the UI thread. Android dropped those writes (`NetworkOnMainThreadException`) while the phone still looked connected. Greeting `status` arrived; Stop `rmssd` did not. beta.18 writes off the UI thread. Same bug hit any host that expected Stop `rmssd`.
+- beta.15: PC disconnect must **not** stop Record. On reconnect, replay last stop (`rmssd` then `session_state`) if idle, or current `session_state` if still recording.
+- beta.16+: `emitted_at` on `rmssd` / `session_state`. FlareTracker uses that for the HRV timestamp, not PC receive time. `session_state` heartbeat about every 15s while capture is active (keeps the link warm; not a save).
+- Host must **not** recycle the TCP link because it looks quiet. A refresh loop made the phone flap. Stay connected through Stop.
+- Short Start/Stop sends `session_state` only. `rmssd` is omitted when the phone calculator has no value. That is expected. A timeline row needs a full Record the phone itself can number.
+- Soft preference is Record / ritual. Does **not** send `session_control`. Soft Stream conflict; Keep streaming dismisses only. Stream `rmssd` is QA, not saved. `feather_rmssd_ms` ignored. No PC RMSSD math or patient pacer.
+- One PC connection at a time (phone accepts one TCP client).
+
+Later, not this pass: packaged companion, ritual buffer dump, `session_summary`, last-session reuse, sending `session_control`.
 
 ### Expect from the bridge
 
@@ -154,4 +168,4 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
 2. **VNS-TA** — light pass done and shipped (`bf3a4da`). Soft conflict only if the phone is in Record. `session_control` still not sent.  
-3. **FlareTracker** — light pass done. Record client; sends `client_app: "flaretracker"`; persists official bridge `rmssd` + `window` + `quality.flags`. Does not send `session_control`. Soft conflict only if the phone is in Stream. Ritual buffer dump / last-session reuse later.
+3. **FlareTracker** — bench-verified 2026-09-10 against phone **v1.0.0-beta.18**. Local companion + day log; official bridge `rmssd` saved as HRV. Does not send `session_control`. Not in production until a packaged companion exists (profile toggle default off; local commit not pushed). Ritual buffer dump / last-session reuse later.
