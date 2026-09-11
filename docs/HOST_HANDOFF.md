@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Intent / checklist — phone bridge implementation of newer messages is still **next**
+**Status:** Shipping phone contract through **v1.0.0-beta.18**; host light passes + FT bench path recorded. Next host work is FlareTracker Windows tray helper (not this repo).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -42,7 +42,15 @@ Ignore unknown `type` values for forward compatibility.
 
 **Host status (2026-09-10, verified on the bench):** record path works end to end against phone **v1.0.0-beta.18**. Connect in the day log, Record on the phone, leave the TCP link up, Stop on the phone. FlareTracker saves one HRV row (`rmssd_source: "bridge"`) without a disconnect. Example: panel “Saved ritual RMSSD 8.21 ms” after `rmssd` then `session_state` (`record` / `completed`).
 
-The browser cannot do LAN UDP/TCP. A **local companion** (`npm run phone-bridge`, loopback `127.0.0.1:45126`) discovers the phone and holds the TCP session. The day log polls that companion and POSTs the HRV event to the FlareTracker API. Production (`flaretracker.net`) does **not** run the companion. Profile toggle **Phone bridge** defaults **off** and hides the panel. Local commit `9649b3c` on FlareTracker `main` is **not pushed** (Netlify). Do not treat this as a shipped caregiver feature until a packaged companion starts with the app.
+The browser cannot do LAN UDP/TCP. A **local companion** discovers the phone and holds the TCP session. The day log talks to that companion on loopback **`127.0.0.1:45126`** and POSTs the finished HRV event to the FlareTracker API. Bench path today: `npm run phone-bridge`. Production (`flaretracker.net`) does **not** run the companion. Profile toggle **Phone bridge** defaults **off** and hides the panel. Local FlareTracker commit `9649b3c` is **not pushed** (Netlify). Do not treat this as a shipped caregiver feature until the packaged helper path below exists.
+
+**Next (FlareTracker repo — caregiver packaging):**
+
+- Package today’s companion as a **Windows tray exe** (no window at login). Same `127.0.0.1:45126` contract; do not recycle a quiet TCP link.
+- **Start with Windows** (per-user Startup / `HKCU\...\Run`), not a Windows service. Keep it light — no Electron/Tauri shell around the web app.
+- Source + CI in the **FlareTracker GitHub** repo; attach the installer/exe to a **GitHub Release** (do not commit the binary into the tree).
+- Day log UX when Phone bridge is on: **Download helper** if nothing is listening on `45126`; **Update helper** if the companion reports an older version than the site expects. Links go to the latest Release asset (or a stable `…/releases/latest/download/…` URL). Caregivers should not have to hunt Releases by hand.
+- Code signing / SmartScreen: follow-up, not a day-one blocker for family/bench installs.
 
 **Coordinator notes (do not regress):**
 
@@ -53,8 +61,9 @@ The browser cannot do LAN UDP/TCP. A **local companion** (`npm run phone-bridge`
 - Short Start/Stop sends `session_state` only. `rmssd` is omitted when the phone calculator has no value. That is expected. A timeline row needs a full Record the phone itself can number.
 - Soft preference is Record / ritual. Does **not** send `session_control`. Soft Stream conflict; Keep streaming dismisses only. Stream `rmssd` is QA, not saved. `feather_rmssd_ms` ignored. No PC RMSSD math or patient pacer.
 - One PC connection at a time (phone accepts one TCP client).
+- Ritual target remains **phone + sensor only**; PC during Record is today’s shipping path. Phone-persisted ritual + delayed transfer is later (this repo).
 
-Later, not this pass: packaged companion, ritual buffer dump, `session_summary`, last-session reuse, sending `session_control`.
+Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-session reuse, sending `session_control`, host–mode conflict UI.
 
 ### Expect from the bridge
 
@@ -168,4 +177,4 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
 2. **VNS-TA** — light pass done and shipped (`bf3a4da`). Soft conflict only if the phone is in Record. `session_control` still not sent.  
-3. **FlareTracker** — bench-verified 2026-09-10 against phone **v1.0.0-beta.18**. Local companion + day log; official bridge `rmssd` saved as HRV. Does not send `session_control`. Not in production until a packaged companion exists (profile toggle default off; local commit not pushed). Ritual buffer dump / last-session reuse later.
+3. **FlareTracker** — bench-verified 2026-09-10 against phone **v1.0.0-beta.18**. Next: Windows tray helper (login start, GitHub Release, day-log Download/Update). Does not send `session_control`. Toggle stays off until that path ships. Ritual buffer dump / last-session reuse later (phone).
