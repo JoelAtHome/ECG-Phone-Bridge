@@ -49,6 +49,7 @@ Example: [v1.0.0-beta.4](https://github.com/JoelAtHome/ECG-Phone-Bridge/releases
 
 - Package id is `com.joelathome.ecgphonebridge` (not `com.example.*`). Older “Polar H10 Bridge” installs with `com.example.polarh10bridge` will **not** update in place — uninstall the old app, then install the new APK.
 - Sideload from the phone browser/Files; allow install from that source if prompted. Release-signed builds are less likely to trip Play Protect than debug/`com.example` APKs.
+- From **v1.0.0-beta.20**, the app checks GitHub Releases on launch and shows a dismissible banner when a newer version is published.
 
 ## Protocol note
 

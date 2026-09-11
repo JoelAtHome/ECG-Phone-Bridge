@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.19**; host light passes + FT bench path recorded. FlareTracker Bridge Companion (Windows tray) is implemented in the FlareTracker repo (Release asset still to publish).
+**Status:** Shipping phone contract through **v1.0.0-beta.20**; host light passes + FT bench path recorded. FlareTracker Bridge Companion (Windows tray) is implemented in the FlareTracker repo (Release asset still to publish).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 

@@ -1654,6 +1654,13 @@ private fun BridgeMainScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showConnectionSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var availableUpdate by remember { mutableStateOf<AvailableAppUpdate?>(null) }
+    val uriHandler = LocalUriHandler.current
+
+    LaunchedEffect(versionName) {
+        if (versionName.isBlank()) return@LaunchedEffect
+        availableUpdate = checkForAvailableAppUpdate(context, versionName)
+    }
 
     Column(
         modifier =
@@ -1729,6 +1736,43 @@ private fun BridgeMainScreen(
                                     showAbout = true
                                 },
                             )
+                        }
+                    }
+                }
+            }
+            val update = availableUpdate
+            if (update != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFDCEBFF),
+                ) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Update available: ${update.versionLabel}",
+                            modifier = Modifier.weight(1f),
+                            color = TextDark,
+                            fontSize = 13.sp,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        TextButton(
+                            onClick = { uriHandler.openUri(update.releaseUrl) },
+                        ) {
+                            Text("Get update", color = Color(0xFF0B57D0), fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(
+                            onClick = {
+                                dismissAvailableAppUpdate(context, update.tagName)
+                                availableUpdate = null
+                            },
+                        ) {
+                            Text("Later", color = TextDark.copy(alpha = 0.7f))
                         }
                     }
                 }
@@ -2000,6 +2044,8 @@ private fun BridgeMainScreen(
     if (showAbout) {
         AboutDialog(
             versionName = versionName,
+            availableUpdate = availableUpdate,
+            onOpenUpdate = { update -> uriHandler.openUri(update.releaseUrl) },
             onDismissRequest = { showAbout = false },
         )
     }
@@ -2224,6 +2270,8 @@ private fun ConnectionSettingsDialog(
 @Composable
 private fun AboutDialog(
     versionName: String,
+    availableUpdate: AvailableAppUpdate?,
+    onOpenUpdate: (AvailableAppUpdate) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -2256,6 +2304,16 @@ private fun AboutDialog(
                 Text("Date: $today", color = TextDark, fontSize = 13.sp)
                 if (versionName.isNotBlank()) {
                     Text("Version: $versionName", color = TextDark, fontSize = 13.sp)
+                }
+                if (availableUpdate != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Update available: ${availableUpdate.versionLabel}",
+                        color = Color(0xFF0B57D0),
+                        fontSize = 13.sp,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier.clickable { onOpenUpdate(availableUpdate) },
+                    )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
