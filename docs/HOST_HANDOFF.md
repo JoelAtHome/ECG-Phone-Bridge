@@ -1,8 +1,8 @@
 # Host handoff notes (consumer checklist)
 
-**Date:** 2026-09-07  
+**Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.20**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live in the FlareTracker repo (latest ship **v1.0.3**, Release asset `FlareTracker-BridgeCompanion-Setup.exe`).
+**Status:** Shipping phone contract through **v1.0.0-beta.20**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.3**). **Priority:** VNS-TA Stream field path → phone contact/quality gates → Feather BLE + profiles/calibrate (Tuner after phone can push/stream).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -28,7 +28,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | Framing | NDJSON (one JSON object per line, UTF-8) |
 | Shipping types today | Phone→PC: `status`, `session_state`, `rmssd`, `rr`, `ecg`. PC→phone: `client_info` (optional `pc_user`). Phone listens for `session_control` but hosts should not send it until a later pass. |
 | Phone APK | Sideload **v1.0.0-beta.18** (`com.joelathome.ecgphonebridge`, versionCode 18) or newer. Earlier builds drop Stop `rmssd` (and any other write started on the UI thread). |
-| Sources | **Either Polar or Feather** per session — never both |
+| Sources | **Either Polar or Feather** per session — never both. Feather → phone is **BLE** (not Feather Wi‑Fi as the V1 product path). |
 | Official RMSSD | Computed **on the phone from IBI**; FlareTracker must not reimplement HRV math |
 | Patient UI | Countdown / **breathing pacer** / optional ECG live on the **phone** — hosts do **not** drive the patient pacer |
 
@@ -86,9 +86,16 @@ Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-sessio
 
 ## VNS-TA
 
-**Goal:** Low-latency live ECG/IBI (and optional RMSSD) during stimulation / analysis sessions.
+**Goal:** Low-latency live ECG/IBI (and optional RMSSD) during stimulation / analysis sessions. Product needs **Polar and Feather** sources (one at a time); Feather reaches VNS only via the phone edge.
 
 **Host status (2026-09-10):** light pass done. Shipped on VNS-TA main (`bf3a4da`): PC patient pacer removed from the monitoring layout (`pacer.py` stays dormant). Official bridge `rmssd` snapshots shown in the side-column Bridge RMSSD (`feather_rmssd_ms` ignored; live PC RMSSD chart unchanged). Side column stays fixed so charts do not shift. Already in place: stream client sends `client_app: "vns_ta"`; live `rr` / `ecg` consumed; unknown types ignored. Soft preference is Stream. VNS-TA does **not** send `session_control`. Soft conflict only while the phone is in Record (`recording` / `finalizing`); Keep Record dismisses the notice and does not change phone mode. Idle or Stream shows no conflict. Phone remains the mode authority.
+
+**Next (phone + verify — 2026-09-11):**
+
+1. Field-verify Stream with phone **≥ v1.0.0-beta.18** (same write-thread fixes FT needed). Keep Polar Stream usable while Feather lands.  
+2. Phone **contact / quality gates** (RSSI ≠ on-chest) — shared, helps live VNS.  
+3. Phone **Feather BLE** + per-patient profiles + calibrate MVP; then build out **Tuner** as co-editor of the same profile JSON (Polar referee). Hosts keep consuming the same `rr` / `ecg` / optional bridge `rmssd` — no Feather-specific host wire.  
+4. Park: `session_control`, ritual buffer dump / last-session reuse, Feather MCU Wi‑Fi as a session path.
 
 ### Expect from the bridge
 
@@ -98,13 +105,15 @@ Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-sessio
 - [x] Optional: rolling or end-of-run **`rmssd`** from the bridge for display / logs  
 - [x] Optional PC-side RMSSD from IBI for research — **not** a substitute if FT-style canonical value is needed later  
 - [x] **Remove / stop relying on an in-app breathing pacer** — patient pacer is **always** bridge-owned  
+- [ ] Feather sessions via phone BLE + profiles (same NDJSON as Polar once the phone edge supports it)  
 
 ### Do not expect
 
 - [x] Ritual buffer-dump as the primary path (use stream)  
 - [x] Dual Polar+Feather in one session  
 - [x] A smooth PC-side patient pacer (use the phone)  
-
+- [x] A parallel Feather→PC Wi‑Fi session in V1 (phone owns Wi‑Fi to the laptop)  
+- [x] `session_control` this pass
 ---
 
 ## Hertz & Hearts
@@ -144,6 +153,8 @@ Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-sessio
 |------|--------------|--------|-----|
 | Live IBI/ECG | Optional | Required | Required (today) |
 | Official bridge RMSSD | Required | Optional | Optional |
+| Polar source | Verified | Required (now) | Common |
+| Feather source | Later OK | Required (via phone BLE + profiles) | Optional |
 | Record / ritual | Preferred | Rare | Optional |
 | Stream / long session | Rare | Preferred | Common |
 | Own pacer on PC | No | No (remove) | No (demote/remove; phone owns patient pacer) |
@@ -169,8 +180,8 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 
 ---
 
-## Suggested integration order
+## Suggested integration order / priority (2026-09-11)
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
-2. **VNS-TA** — light pass done and shipped (`bf3a4da`). Soft conflict only if the phone is in Record. `session_control` still not sent.  
-3. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.3** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. Open follow-ups on the **phone** repo: in-app update notify, frozen dBm while CONNECTED, contact/quality gates (RSSI alone is not contact). Ritual buffer dump / last-session reuse later (phone).
+2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.3** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. Phone β.19 (live dBm) / β.20 (in-app update notify) already shipped — remaining phone polish is **contact/quality gates**. Ritual buffer dump / last-session reuse later.  
+3. **VNS-TA (current priority)** — light pass done (`bf3a4da`). Next: Stream field-verify on β.18+ → contact/quality gates → Feather BLE + profiles/calibrate MVP → Tuner build-out. Do **not** send `session_control` yet. Keep Polar Stream usable in parallel.

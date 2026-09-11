@@ -1,8 +1,9 @@
 # Phone Bridge System Architecture & Telemetry Specification
 
-**Date:** 2026-09-07  
+**Date:** 2026-09-11  
 **Status:** Target architecture (intent) with explicit **now / next / later** vs shipping code  
-**Scope:** BLE ingestion → Phone Bridge (edge) → Wi‑Fi session transport → laptop consumers
+**Scope:** BLE ingestion → Phone Bridge (edge) → Wi‑Fi session transport → laptop consumers  
+**Priority (2026-09-11):** VNS-TA Stream field path, then Feather-on-phone (BLE) + profiles/calibrate; park `session_control` / ritual buffer dump until after.
 
 ---
 
@@ -68,11 +69,14 @@ flowchart TD
     Edge ==>|WiFi session: Record buffer OR live stream| Host
 ```
 
+**Sensor → phone transport:** Polar and Feather both use **BLE** into the phone edge. Feather may also support Wi‑Fi on the MCU, but product V1 does **not** use Feather Wi‑Fi as the session path — that would fork discovery, compete with the phone’s LAN role to the PC, and break the shared “either Polar or Feather” UX. Feather Wi‑Fi stays a later escape hatch (bandwidth / bench tooling), not a parallel host contract.
+
 **Hard rules**
 
 | Rule | Decision |
 |------|----------|
 | Dual source | **Either Polar or Feather** — never both in one session |
+| Feather link | **BLE to phone** (same edge as Polar); Feather Wi‑Fi is not the V1 product path |
 | PC clients | **One phone bridge-to-PC connection at a time**; multiple users at different times |
 | Patient UI | **Bridge-only** (countdown, optional pacer, optional ECG). Hosts must **not** own the patient breathing pacer (drop / demote PC pacers in VNS-TA and HnH; FlareTracker never had one) |
 | Peak / beat detection | **On Polar or Feather only** — phone does not primary-detect peaks from ECG |
@@ -90,20 +94,24 @@ flowchart TD
 - Ops UI: scan/connect, Wi‑Fi/port, flow diagram, foreground keepalive
 - HnH-oriented discovery branding (multi-app contract still evolving)
 
-### Next (shared session bridge)
+### Next (shared session bridge — VNS-TA priority)
 
 - ~~Phone **patient breathing pacer**~~ (shipping)
 - ~~Phone UI mode select: **Record session** vs **Stream**~~ (shipping)
 - ~~Bridge official RMSSD from IBI on the wire~~ (shipping; rolling in stream, final on stop)
-- Feather BLE path + **per-patient calibration profiles** (phone-local; see §7)
-- FlareTracker / VNS-TA host clients against the shipping contract
-- Record-mode buffer dump / session package (format TBD)
+- ~~FlareTracker / VNS-TA / HnH light host passes~~ (shipping; FT Companion **v1.0.3** + caregiver H10 path verified)
+- **VNS-TA:** field-verify Stream on phone **≥ v1.0.0-beta.18**; keep Polar Stream usable in parallel with Feather work
+- Phone **contact / quality gates** (RSSI alone is not on-chest / contact)
+- **Feather BLE path** on the phone + **per-patient calibration profiles** (phone-local; see §7) — hard gate before Tuner polish
+- Calibrate MVP (thin phone Tech inspect/tweak/Save **or** thin Tuner writing the same profile JSON), then build out **Tuner** as the durable coeff editor (Polar referee, guided Accept)
 
 ### Later
 
-- Assisted / semi-auto Feather tune with human Accept
-- Optional continuous auto-tune (never silent-overwrite last-known-good)
+- `session_control` / full host–mode conflict UX (all hosts together; do not add for VNS alone)
+- Record-mode buffer dump / last-session reuse / session package (FT-oriented; format TBD)
+- Assisted / semi-auto Feather tune with human Accept; optional continuous auto-tune (never silent-overwrite last-known-good)
 - Share / sync patient calibration profiles across phones (export/import or host-backed)
+- Feather MCU Wi‑Fi as optional escape hatch (not a second host contract)
 - Additional ECG peripherals
 - Optional HTTP/WebSocket transport if TCP NDJSON proves insufficient
 
@@ -136,6 +144,8 @@ flowchart TD
 
 ### 5.2 Feather → bridge (BLE, target)
 
+Product path is **GATT/BLE into the phone**, same semantic role as Polar. Once on the phone, Feather sessions emit the same host NDJSON (`rr` / `ecg` / optional bridge `rmssd`) — VNS-TA and other hosts do not need a Feather-specific wire type.
+
 ```typescript
 interface FeatherTelemetryPacket {
   timestamp_ms: number;
@@ -151,7 +161,7 @@ interface FeatherTelemetryPacket {
 }
 ```
 
-Exact GATT UUIDs/characteristic layout: TBD with Feather firmware; treat above as semantic contract.
+Exact GATT UUIDs/characteristic layout: TBD with Feather firmware; treat above as semantic contract. Do not plan a parallel Feather→PC Wi‑Fi session for V1.
 
 ### 5.3 Bridge → laptop (Wi‑Fi session)
 
@@ -250,19 +260,20 @@ Do **not** hard-code “always end of session” or “always mid clock time.”
 
 Feather does **not** currently self-tune across patients with very different ECGs. Retune was required when switching subjects.
 
-**V1 (required)**
+**V1 (required) — sequence matters**
 
-- Per-patient **profile** (patient name → Feather detector coeffs **and**, later, session RMSSD timing suggestions — see §6.2).  
-- **Stored on the phone that performed the calibration** (local to that device).  
-- Feather coeffs pushed to Feather at session start; session timing applied by the phone RMSSD path.  
-- Engineering UI: inspect signal, adjust, save, recheck anytime.  
-- When Polar available: use as referee during calibrate; record agreement metadata on the profile.
+1. Phone **Feather BLE** connect + stream IBI/ECG into the same edge pipeline as Polar.  
+2. Per-patient **profile** on the phone (coeffs **and**, later, session RMSSD timing — see §6.2); push coeffs over BLE at session start.  
+3. Calibrate MVP so coeffs are not guesswork (thin Tech UI and/or thin Tuner writing the same JSON).  
+4. Build out **Tuner** as the durable editor (Polar referee, better plots, guided Accept).
 
-**Editors (later)**
+Also: profiles stay on the **phone that ran calibration**; never silently overwrite; session timing applied by the phone RMSSD path. Untuned coeffs can look steady and still be wrong.
+
+**Editors**
 
 - **Phone Tech view / profile UI:** primary place to view and change session timing defaults; run-time override without losing the saved profile.  
-- **Tuner:** may edit the same profile document (coeffs + optional session timing) while calibrating — convenience, not sole authority.  
-- Do not require Tuner for Polar-only patients.
+- **Tuner:** co-editor of the same profile document (coeffs + optional session timing) — convenience, not sole authority; do not put settle windows *only* in Tuner.  
+- Do not require Tuner for Polar-only patients. Do not block Polar Stream VNS work on Tuner polish.
 
 **V1.5**
 
@@ -280,7 +291,7 @@ Feather does **not** currently self-tune across patients with very different ECG
 | App | Typical bridge mode | Primary payloads |
 |-----|---------------------|------------------|
 | FlareTracker | Record → snapshot (often a **ritual**) | Official **bridge** RMSSD + window/quality metadata only — no RMSSD math in FlareTracker |
-| VNS-TA | Stream (often a longer **session**) | Real-time ECG, IBI; bridge RMSSD as available. Bridge owns optional patient pacer (remove from VNS-TA) |
+| VNS-TA | Stream (often a longer **session**) | Real-time ECG, IBI; bridge RMSSD as available. Needs **Polar and Feather** (Feather via phone BLE + profiles). Bridge owns optional patient pacer (already removed from VNS-TA) |
 | Hertz & Hearts | Stream or Record | Real-time ECG, IBI; patient pacer is on the phone (demote/remove stuttery PC pacer); PC RMSSD optional cross-check |
 
 ---
@@ -298,13 +309,22 @@ Feather does **not** currently self-tune across patients with very different ECG
 
 ## 10. Open items (small)
 
-1. Exact Feather GATT layout (profile coeffs map onto characteristics — see `docs/FEATHER_PROFILE_SCHEMA.md`).  
-2. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
-3. **Implement** patient-profile session timing (`settle_trim_s` / `analysis_window_s` / `final_trim_s`) + Tech override UI; Tuner as optional co-editor of the same profile (§6.2 / §7).  
-4. **Implement** host–mode negotiation / conflict UX (`PROTOCOL.md` §5.3) and record buffer dump / last-session reuse.  
-5. Formal protocol version string and discovery rename timeline.  
-6. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
-7. Cross-phone profile export/import UX (schema drafted; share flow later).
+**Near-term (VNS-TA priority)**
+
+1. Field-verify VNS-TA Stream against phone **≥ v1.0.0-beta.18**.  
+2. Phone contact / quality gates (do not treat RSSI as contact).  
+3. Exact Feather GATT layout + phone BLE path (see `docs/FEATHER_PROFILE_SCHEMA.md`).  
+4. Phone-local profiles + calibrate MVP → then Tuner build-out (§7).
+
+**Later / parked (safe to defer)**
+
+5. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
+6. **Implement** patient-profile session timing UI; Tuner as optional co-editor (§6.2 / §7).  
+7. **Implement** host–mode negotiation / `session_control` conflict UX (`PROTOCOL.md` §5.3) and record buffer dump / last-session reuse — all hosts together.  
+8. Formal protocol version string and discovery rename timeline.  
+9. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
+10. Cross-phone profile export/import UX (schema drafted; share flow later).  
+11. Feather MCU Wi‑Fi session path (escape hatch only).
 
 ---
 

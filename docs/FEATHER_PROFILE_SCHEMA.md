@@ -1,6 +1,6 @@
 # Feather / patient profile schema
 
-**Date:** 2026-09-10  
+**Date:** 2026-09-11  
 **Status:** Draft — phone-local V1; export/import later  
 **Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2 / §7, [PROTOCOL.md](./PROTOCOL.md)
 
@@ -10,8 +10,12 @@
 
 Per-patient **profile** on the phone:
 
-1. **Feather detector coeffs** (when using Feather) — pushed to the MCU at session start.  
+1. **Feather detector coeffs** (when using Feather) — pushed to the MCU over **BLE** at session start.  
 2. **Session RMSSD timing suggestions** (later) — settle / analysis / final-trim for official bridge RMSSD; used for Polar and Feather.
+
+**Link:** Product path is **phone ← Feather BLE** (same edge as Polar). Feather MCU Wi‑Fi is not the V1 session path. Hosts (including VNS-TA) keep consuming phone NDJSON (`rr` / `ecg` / optional bridge `rmssd`); they do not talk to Feather directly.
+
+**Calibrate / Tuner:** Phone owns the profile store and session push. A thin Tech UI or thin Tuner may create/edit the same JSON; full Tuner (Polar referee, guided Accept) comes after the phone can connect, push coeffs, and stream. Do not put settle windows only in Tuner.
 
 | Phase | Storage |
 |-------|---------|
@@ -243,6 +247,7 @@ Open item: exact share UX (share sheet vs Files app).
 
 ## 7. Implementation notes (phone)
 
-1. UI: pick patient → load profile → connect Feather → write coeffs → start IBI/ECG.  
+1. UI: pick patient → load profile → connect Feather **over BLE** → write coeffs → start IBI/ECG.  
 2. Never silently overwrite a profile; “Save” / “Recheck” is explicit.  
-3. Official session RMSSD stays on the phone from IBI (`RmssdCalculator`); do not treat `feather_rmssd` or Polar agreement fields as the FlareTracker value of record.
+3. Official session RMSSD stays on the phone from IBI (`RmssdCalculator`); do not treat `feather_rmssd` or Polar agreement fields as the FlareTracker value of record.  
+4. Sequence: BLE connect/stream + profile push first; calibrate MVP next; Tuner build-out after that contract works.
