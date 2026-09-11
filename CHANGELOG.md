@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.17
+- fix: Bridge writes use the socket stream and close a dead PC connection on write failure. `PrintWriter` was swallowing IO errors, so Stop `rmssd` never left the phone until a later reconnect.
+- enhancement: Restart the Record heartbeat when a PC reconnects during an active session.
+
 ## Version 1.0.0-beta.16
 - enhancement: Wire `emitted_at` (ISO instant) on `session_state` and official `rmssd` so hosts timestamp rituals at phone stop time, not PC reconnect time.
 - enhancement: Periodic `session_state` heartbeat every 15s while capture is active — keeps the PC TCP link warm during long Record sessions (FlareTracker / other hosts).

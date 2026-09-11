@@ -595,14 +595,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendBridgeJsonLine(json: String) {
-        val w = bridgeWriter ?: return
+        val client = bridgeClient ?: return
+        val payload = (json + "\n").toByteArray(Charsets.UTF_8)
         synchronized(writerLock) {
+            if (bridgeClient !== client) return
             try {
-                w.println(json)
-                w.flush()
+                val out = client.getOutputStream()
+                out.write(payload)
+                out.flush()
             } catch (e: Exception) {
                 Log.e("HnHBridge", "bridge write failed", e)
+                closeBridgeClient(client, "write failed")
             }
+        }
+    }
+
+    /** Drop a dead PC socket so accept() can take the next host. PrintWriter swallows IO errors. */
+    private fun closeBridgeClient(client: Socket, reason: String) {
+        if (bridgeClient !== client) return
+        Log.d("HnHBridge", "closing PC socket: $reason")
+        bridgeWriter = null
+        bridgeClient = null
+        try {
+            client.close()
+        } catch (_: Exception) {
         }
     }
 
@@ -1348,6 +1364,8 @@ class MainActivity : ComponentActivity() {
                                 )
                                 if (sessionController.isActive()) {
                                     sendBridgeJsonLine(sessionController.sessionStateJson().toString())
+                                    mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
+                                    mainHandler.postDelayed(bridgeWireKeepAliveRunnable, 1_000L)
                                 } else {
                                     sessionController.lastWireStopForReplay()?.let { replay ->
                                         replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
@@ -1370,7 +1388,6 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) {
                                     Log.e("HnHBridge", "TCP read error", e)
                                 } finally {
-                                    mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
                                     bridgeWriter = null
                                     bridgeClient = null
                                     mainHandler.post {
