@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.16
+- enhancement: Wire `emitted_at` (ISO instant) on `session_state` and official `rmssd` so hosts timestamp rituals at phone stop time, not PC reconnect time.
+- enhancement: Periodic `session_state` heartbeat every 15s while capture is active — keeps the PC TCP link warm during long Record sessions (FlareTracker / other hosts).
+- fix: Flush bridge NDJSON after each line so stop payloads reach the host promptly.
+
 ## Version 1.0.0-beta.15
 - fix: Capture continues on the phone when the PC TCP link drops (session no longer auto-stops).
 - enhancement: On PC reconnect, replay last `rmssd` / `session_state` if the host missed the live stop lines; send current `session_state` if capture is still running.

@@ -245,6 +245,7 @@ class BridgeSessionController(
             .put("kind", activeKind.wireValue())
             .put("state", runState.wireValue())
             .put("source_device", "POLAR_H10")
+            .put("emitted_at", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
     }
 
     private fun buildRmssdJson(sourceDevice: String): JSONObject? {
@@ -262,6 +263,7 @@ class BridgeSessionController(
                 .put("rmssd_ms", rmssd)
                 .put("rmssd_source", "bridge")
                 .put("source_device", sourceDevice)
+                .put("emitted_at", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
         result.window?.let { w ->
             obj.put(
                 "window",

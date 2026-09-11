@@ -296,6 +296,19 @@ class MainActivity : ComponentActivity() {
 
     private val writerLock = Any()
 
+    /** Keeps TCP warm and mirrors recording state to the PC during long Record sessions. */
+    private val bridgeWireKeepAliveRunnable =
+        object : Runnable {
+            override fun run() {
+                if (sessionController.isActive() && bridgeWriter != null) {
+                    sendBridgeJsonLine(sessionController.sessionStateJson().toString())
+                }
+                if (sessionController.isActive()) {
+                    mainHandler.postDelayed(this, 15_000L)
+                }
+            }
+        }
+
     @Volatile
     private var bridgeWriter: java.io.PrintWriter? = null
     private var bridgeClient: Socket? = null
@@ -436,11 +449,14 @@ class MainActivity : ComponentActivity() {
             )
         saveSessionModePref(mode)
         sendBridgeJsonLine(stateJson.toString())
+        mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
+        mainHandler.postDelayed(bridgeWireKeepAliveRunnable, 15_000L)
         syncSessionUiFromController(clearRmssd = true)
     }
 
     private fun stopBridgeSession() {
         if (!sessionController.isActive()) return
+        mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
         val result = sessionController.stop(sourceDeviceWire())
         val rmssdValue =
             result.rmssd?.optDouble("rmssd_ms", Double.NaN)?.takeIf { !it.isNaN() }
@@ -583,6 +599,7 @@ class MainActivity : ComponentActivity() {
         synchronized(writerLock) {
             try {
                 w.println(json)
+                w.flush()
             } catch (e: Exception) {
                 Log.e("HnHBridge", "bridge write failed", e)
             }
@@ -1353,6 +1370,7 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) {
                                     Log.e("HnHBridge", "TCP read error", e)
                                 } finally {
+                                    mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
                                     bridgeWriter = null
                                     bridgeClient = null
                                     mainHandler.post {
