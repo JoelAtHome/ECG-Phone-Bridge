@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.19
+- fix: Connected-sensor dBm keeps updating after Connect on the already-linked H10. Rescan stopped RSSI polling; Cancel resumed it, but Connect did not.
+- fix: RSSI watchdog re-arms the LE scan if no samples arrive for ~4s (zombie scans that stay registered but never deliver).
+
 ## Version 1.0.0-beta.18
 - fix: Bridge NDJSON writes run off the UI thread. Stop and the Record heartbeat were hitting NetworkOnMainThreadException, so the phone stayed connected and the host never received `rmssd`.
 

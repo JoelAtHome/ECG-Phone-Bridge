@@ -138,6 +138,11 @@ private const val BLE_ROW_STALE_MS = 5_000L
 private const val BLE_ROW_PRUNE_INTERVAL_MS = 1_000L
 /** Watchdog: restart RSSI scan if the stack dropped it (and pacing for Polar fallback when MAC unknown). */
 private const val BLE_RSSI_RESUBSCRIBE_MS = 2_000L
+/**
+ * If no RSSI sample arrives for this long while connected, force re-arm the LE scan.
+ * Android can leave a scan "running" that never delivers results for an already-connected peripheral.
+ */
+private const val BLE_RSSI_STALE_REARM_MS = 4_000L
 /** Polar-only fallback: short burst scan when we have no BLE address to match (rare). */
 private const val BLE_RSSI_POLAR_BURST_MS = 3_500L
 /** Min time between on-screen connected-sensor dBm updates (scan may run faster). */
@@ -273,6 +278,8 @@ class MainActivity : ComponentActivity() {
     private var bleRssiPolarFallbackDisposable: Disposable? = null
 
     private var lastConnectedRssiUiElapsedMs = 0L
+    /** Wall clock of last RSSI sample received (pre-throttle); used to detect zombie LE scans. */
+    private var lastConnectedRssiSampleElapsedMs = 0L
     private var pendingConnectedRssiValue: Int? = null
     private var pendingConnectedRssiAddressNorm: String? = null
     private var rssiUiThrottleFlushScheduled = false
@@ -530,7 +537,13 @@ class MainActivity : ComponentActivity() {
                     return
                 }
                 if (state.connectedSensorAddress.isNotBlank()) {
-                    if (rssiLeScanCallback == null) {
+                    val now = SystemClock.elapsedRealtime()
+                    val sampleStale =
+                        lastConnectedRssiSampleElapsedMs == 0L ||
+                            now - lastConnectedRssiSampleElapsedMs >= BLE_RSSI_STALE_REARM_MS
+                    if (rssiLeScanCallback == null || sampleStale) {
+                        // Drop zombie scans that stay registered but never deliver results.
+                        stopConnectedRssiLeScan()
                         startConnectedRssiLeScan()
                     }
                 } else {
@@ -715,6 +728,7 @@ class MainActivity : ComponentActivity() {
         connectedAddressNorm: String?,
     ) {
         val now = SystemClock.elapsedRealtime()
+        lastConnectedRssiSampleElapsedMs = now
         pendingConnectedRssiValue = rssi
         pendingConnectedRssiAddressNorm = connectedAddressNorm
         val due = now - lastConnectedRssiUiElapsedMs >= BLE_RSSI_UI_THROTTLE_MS
@@ -740,6 +754,7 @@ class MainActivity : ComponentActivity() {
         pendingConnectedRssiValue = null
         pendingConnectedRssiAddressNorm = null
         lastConnectedRssiUiElapsedMs = 0L
+        lastConnectedRssiSampleElapsedMs = 0L
     }
 
     private fun stopBleScan() {
@@ -883,6 +898,14 @@ class MainActivity : ComponentActivity() {
         stopConnectedRssiMonitor()
     }
 
+    /** After sensor dialog dismiss / reconnect, resume live dBm while still connected. */
+    private fun resumeConnectedRssiMonitoring() {
+        if (!screenState.value.sensorConnected) return
+        startConnectedRssiMonitor()
+        mainHandler.removeCallbacks(bleRssiResubscribeRunnable)
+        mainHandler.post(bleRssiResubscribeRunnable)
+    }
+
     private fun sameConnectedDevice(
         connectedId: String,
         connectedAddress: String,
@@ -993,11 +1016,7 @@ class MainActivity : ComponentActivity() {
                 bleRows = emptyList(),
             )
         }
-        if (screenState.value.sensorConnected) {
-            startConnectedRssiMonitor()
-            mainHandler.removeCallbacks(bleRssiResubscribeRunnable)
-            mainHandler.post(bleRssiResubscribeRunnable)
-        }
+        resumeConnectedRssiMonitoring()
     }
 
     private fun confirmSensorSelection() {
@@ -1018,6 +1037,8 @@ class MainActivity : ComponentActivity() {
                     bleSelectedId = null,
                 )
             }
+            // beginSensorScan() stopped RSSI polling; must resume like Cancel does.
+            resumeConnectedRssiMonitoring()
             return
         }
 
@@ -1124,9 +1145,7 @@ class MainActivity : ComponentActivity() {
                                 bleRows = emptyList(),
                                 bleSelectedId = null,
                             )
-                        startConnectedRssiMonitor()
-                        mainHandler.removeCallbacks(bleRssiResubscribeRunnable)
-                        mainHandler.post(bleRssiResubscribeRunnable)
+                        resumeConnectedRssiMonitoring()
                     }
                 }
 
