@@ -113,6 +113,11 @@ class BridgeSessionController(
     var lastComputeResult: RmssdCalculator.Result? = null
         private set
 
+    /** Last stop payloads for PC replay when reconnect misses the live stop lines. */
+    @Volatile
+    var lastWireStopResult: StopResult? = null
+        private set
+
     val settleTrimSec: Double
         get() = RmssdCalculator.Config().settleTrimSec
 
@@ -146,6 +151,7 @@ class BridgeSessionController(
         sessionId = requestedSessionId?.trim()?.takeIf { it.isNotEmpty() } ?: mintSessionId()
         sessionStartedElapsedMs = nowElapsedMs
         lastComputeResult = null
+        lastWireStopResult = null
         runState =
             when (mode) {
                 BridgeSessionMode.Stream -> BridgeSessionRunState.Streaming
@@ -206,7 +212,17 @@ class BridgeSessionController(
         val state = sessionStateJson()
         // Return to idle for the next start; keep last sessionId on the completed message.
         runState = BridgeSessionRunState.Idle
-        return StopResult(sessionState = state, rmssd = rmssd)
+        val result = StopResult(sessionState = state, rmssd = rmssd)
+        if (result.rmssd != null || result.sessionState != null) {
+            lastWireStopResult = result
+        }
+        return result
+    }
+
+    /** When idle, resend the last completed stop once after a PC reconnect. */
+    fun lastWireStopForReplay(): StopResult? {
+        if (isActive()) return null
+        return lastWireStopResult
     }
 
     fun resetOnDisconnect() {

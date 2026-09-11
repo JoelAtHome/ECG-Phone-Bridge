@@ -1329,6 +1329,14 @@ class MainActivity : ComponentActivity() {
                                         .put("protocol", BRIDGE_PROTOCOL_ID)
                                         .toString(),
                                 )
+                                if (sessionController.isActive()) {
+                                    sendBridgeJsonLine(sessionController.sessionStateJson().toString())
+                                } else {
+                                    sessionController.lastWireStopForReplay()?.let { replay ->
+                                        replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+                                        replay.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+                                    }
+                                }
 
                                 try {
                                     val input = client.getInputStream().bufferedReader(Charsets.UTF_8)
@@ -1345,27 +1353,20 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) {
                                     Log.e("HnHBridge", "TCP read error", e)
                                 } finally {
-                                    if (sessionController.isActive()) {
-                                        val result = sessionController.stop(sourceDeviceWire())
-                                        result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
-                                        result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
-                                    }
-                                    sessionController.resetOnDisconnect()
                                     bridgeWriter = null
                                     bridgeClient = null
                                     mainHandler.post {
-                                        screenState.value =
-                                            screenState.value.copy(
+                                        updateScreen {
+                                            it.copy(
                                                 pcBridgeConnected = false,
                                                 pcBridgeIp = null,
                                                 pcBridgeUserName = null,
                                                 pcClientApp = null,
-                                                sessionActive = false,
-                                                sessionId = null,
-                                                sessionIbiCount = 0,
                                             )
+                                        }
+                                        syncSessionUiFromController()
                                     }
-                                    Log.d("HnHBridge", "Bridge session closed")
+                                    Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
                                 }
                             }
                         }

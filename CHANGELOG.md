@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.15
+- fix: Capture continues on the phone when the PC TCP link drops (session no longer auto-stops).
+- enhancement: On PC reconnect, replay last `rmssd` / `session_state` if the host missed the live stop lines; send current `session_state` if capture is still running.
+- docs: Host handoff light-pass status for FlareTracker, VNS-TA, and Hertz & Hearts (2026-09-10).
+
 ## Version 1.0.0-beta.14
 - fix: Tech meters — Elapsed on its own line.
 - enhancement: Flow diagram PC label — `PC: J. Kobe Host App` until connected, then `PC: [host app]` when `client_app` is known.
