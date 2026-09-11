@@ -257,6 +257,8 @@ class MainActivity : ComponentActivity() {
     private val disposables = CompositeDisposable()
     private val bridgeExecutor = Executors.newSingleThreadExecutor()
     private val discoveryExecutor = Executors.newSingleThreadExecutor()
+    /** Socket writes must not run on the UI thread (NetworkOnMainThreadException drops Stop). */
+    private val bridgeWriteExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var rrStreamingStarted = false
@@ -597,15 +599,17 @@ class MainActivity : ComponentActivity() {
     private fun sendBridgeJsonLine(json: String) {
         val client = bridgeClient ?: return
         val payload = (json + "\n").toByteArray(Charsets.UTF_8)
-        synchronized(writerLock) {
-            if (bridgeClient !== client) return
-            try {
-                val out = client.getOutputStream()
-                out.write(payload)
-                out.flush()
-            } catch (e: Exception) {
-                Log.e("HnHBridge", "bridge write failed", e)
-                closeBridgeClient(client, "write failed")
+        bridgeWriteExecutor.execute {
+            synchronized(writerLock) {
+                if (bridgeClient !== client) return@execute
+                try {
+                    val out = client.getOutputStream()
+                    out.write(payload)
+                    out.flush()
+                } catch (e: Exception) {
+                    Log.e("HnHBridge", "bridge write failed", e)
+                    closeBridgeClient(client, "write failed")
+                }
             }
         }
     }

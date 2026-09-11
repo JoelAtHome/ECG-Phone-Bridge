@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.18
+- fix: Bridge NDJSON writes run off the UI thread. Stop and the Record heartbeat were hitting NetworkOnMainThreadException, so the phone stayed connected and the host never received `rmssd`.
+
 ## Version 1.0.0-beta.17
 - fix: Bridge writes use the socket stream and close a dead PC connection on write failure. `PrintWriter` was swallowing IO errors, so Stop `rmssd` never left the phone until a later reconnect.
 - enhancement: Restart the Record heartbeat when a PC reconnects during an active session.
