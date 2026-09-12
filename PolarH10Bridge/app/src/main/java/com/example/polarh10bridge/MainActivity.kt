@@ -113,6 +113,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
 
@@ -257,6 +258,8 @@ private data class BridgeScreenState(
     val sensorContact: SensorContactState = SensorContactState.Unknown,
     val lastAcceptedBeats: Int = 0,
     val lastQualityFlags: List<String> = emptyList(),
+    /** Tech-only: inject synthetic Feather IBIs into the bridge edge (no BLE box required). */
+    val featherSimActive: Boolean = false,
 )
 
 class MainActivity : ComponentActivity() {
@@ -283,6 +286,20 @@ class MainActivity : ComponentActivity() {
     private var telemetryAllowedByContact = true
     private var lastPublishedContactState: SensorContactState? = null
     private var bleSearchDisposable: Disposable? = null
+    private var featherProfileStore: com.example.polarh10bridge.feather.FeatherProfileStore? = null
+    private var featherSimIbiIndex = 0
+    private val featherSimRunnable =
+        object : Runnable {
+            override fun run() {
+                if (!screenState.value.featherSimActive) return
+                // ~75 bpm with slight variation — enough for rolling RMSSD smoke tests.
+                val pattern = intArrayOf(800, 812, 788, 804, 796, 820, 780, 808)
+                val rr = pattern[featherSimIbiIndex % pattern.size]
+                featherSimIbiIndex++
+                ingestSourceRrMs(rr)
+                mainHandler.postDelayed(this, rr.toLong())
+            }
+        }
     /** Direct LE scan for RSSI; Polar search often never re-emits the connected peripheral. */
     private var rssiLeScanCallback: ScanCallback? = null
     private var bleRssiPolarFallbackDisposable: Disposable? = null
@@ -400,7 +417,64 @@ class MainActivity : ComponentActivity() {
         updateScreen { it.copy(techView = enabled) }
     }
 
-    private fun sourceDeviceWire(): String = "POLAR_H10"
+    private fun sourceDeviceWire(): String =
+        if (screenState.value.featherSimActive) {
+            com.example.polarh10bridge.feather.FeatherBleContract.SOURCE_DEVICE_WIRE
+        } else {
+            "POLAR_H10"
+        }
+
+    private fun ingestSourceRrMs(rr: Int) {
+        if (rr <= 0) return
+        val now = SystemClock.elapsedRealtime()
+        sessionController.onRrMs(rr, now)
+        sendBridgeJsonLine("""{"type":"rr","rr_ms":$rr}""")
+        val rolling =
+            sessionController.maybeRollingRmssdJson(
+                now,
+                sourceDeviceWire(),
+            )
+        if (rolling != null) {
+            sendBridgeJsonLine(rolling.toString())
+            val value = rolling.optDouble("rmssd_ms", Double.NaN)
+            updateScreen {
+                it.copy(
+                    sessionIbiCount = sessionController.ibiCount,
+                    lastRmssdMs = value.takeIf { v -> !v.isNaN() } ?: it.lastRmssdMs,
+                    recentHrBpm = sessionController.recentHrBpm(),
+                )
+            }
+        } else if (sessionController.isActive() && sessionController.ibiCount % 5 == 0) {
+            updateScreen {
+                it.copy(
+                    sessionIbiCount = sessionController.ibiCount,
+                    recentHrBpm = sessionController.recentHrBpm(),
+                )
+            }
+        }
+    }
+
+    private fun setFeatherSimActive(enabled: Boolean) {
+        if (enabled == screenState.value.featherSimActive) return
+        if (enabled && screenState.value.sensorConnected) {
+            Log.w("HnHBridge", "Refuse Feather sim while Polar sensor is connected")
+            return
+        }
+        mainHandler.removeCallbacks(featherSimRunnable)
+        if (!enabled) {
+            updateScreen { it.copy(featherSimActive = false) }
+            return
+        }
+        featherSimIbiIndex = 0
+        featherProfileStore?.ensureDemoProfile()
+        updateScreen {
+            it.copy(
+                featherSimActive = true,
+                sensorContact = SensorContactState.InContact,
+            )
+        }
+        mainHandler.post(featherSimRunnable)
+    }
 
     private fun resetSensorContactGate() {
         telemetryAllowedByContact = true
@@ -521,6 +595,7 @@ class MainActivity : ComponentActivity() {
                 kind = kind,
                 requestedSessionId = requestedSessionId,
                 nowElapsedMs = SystemClock.elapsedRealtime(),
+                sourceDevice = sourceDeviceWire(),
             )
         saveSessionModePref(mode)
         sendBridgeJsonLine(stateJson.toString())
@@ -1131,6 +1206,11 @@ class MainActivity : ComponentActivity() {
         bridgePort = loadBridgePortPref()
         val keepAlivePref = loadKeepAliveInBackgroundPref()
         val sessionModePref = loadSessionModePref()
+        featherProfileStore =
+            com.example.polarh10bridge.feather.FeatherProfileStore(
+                File(filesDir, "feather_profiles"),
+            )
+        featherProfileStore?.ensureDemoProfile()
         sessionController.preferredMode = sessionModePref
         sessionController.preferredKind =
             when (sessionModePref) {
@@ -1191,6 +1271,7 @@ class MainActivity : ComponentActivity() {
                                 normBleAddr(it.deviceId) == normBleAddr(polarDeviceInfo.deviceId)
                         }?.rssi
                     mainHandler.post {
+                        setFeatherSimActive(false)
                         val nameFromRow =
                             screenState.value.bleRows.find {
                                 it.deviceId == polarDeviceInfo.deviceId ||
@@ -1574,6 +1655,9 @@ class MainActivity : ComponentActivity() {
                     onStopSession = { stopBridgeSession() },
                     onToggleTechView = { setTechView(!screenState.value.techView) },
                     onRefreshTechMeters = { refreshTechQualityUi() },
+                    onToggleFeatherSim = {
+                        setFeatherSimActive(!screenState.value.featherSimActive)
+                    },
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -1632,6 +1716,7 @@ class MainActivity : ComponentActivity() {
         }
         rrStreamingStarted = false
         ecgStreamingStarted = false
+        mainHandler.removeCallbacks(featherSimRunnable)
 
         hrDisposable?.dispose()
         hrDisposable = null
@@ -1697,6 +1782,7 @@ private fun BridgeMainScreen(
     onStopSession: () -> Unit,
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
+    onToggleFeatherSim: () -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -2105,6 +2191,8 @@ private fun BridgeMainScreen(
                         qualityFlags = state.lastQualityFlags,
                         sensorContact = state.sensorContact,
                         connectedSensorRssi = state.connectedSensorRssi,
+                        featherSimActive = state.featherSimActive,
+                        onToggleFeatherSim = onToggleFeatherSim,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {

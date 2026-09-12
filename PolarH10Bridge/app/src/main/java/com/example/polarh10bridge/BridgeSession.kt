@@ -118,6 +118,10 @@ class BridgeSessionController(
     var lastWireStopResult: StopResult? = null
         private set
 
+    @Volatile
+    var activeSourceDevice: String = "POLAR_H10"
+        private set
+
     val settleTrimSec: Double
         get() = RmssdCalculator.Config().settleTrimSec
 
@@ -140,6 +144,7 @@ class BridgeSessionController(
         kind: BridgeSessionKind = preferredKind,
         requestedSessionId: String? = null,
         nowElapsedMs: Long,
+        sourceDevice: String = activeSourceDevice,
     ): JSONObject {
         synchronized(ibiLock) {
             ibis.clear()
@@ -148,6 +153,7 @@ class BridgeSessionController(
         activeKind = kind
         preferredMode = mode
         preferredKind = kind
+        activeSourceDevice = sourceDevice
         sessionId = requestedSessionId?.trim()?.takeIf { it.isNotEmpty() } ?: mintSessionId()
         sessionStartedElapsedMs = nowElapsedMs
         lastComputeResult = null
@@ -244,7 +250,7 @@ class BridgeSessionController(
             .put("mode", activeMode.wireValue())
             .put("kind", activeKind.wireValue())
             .put("state", runState.wireValue())
-            .put("source_device", "POLAR_H10")
+            .put("source_device", activeSourceDevice)
             .put("emitted_at", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
     }
 

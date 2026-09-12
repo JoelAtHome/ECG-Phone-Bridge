@@ -313,8 +313,8 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 
 1. Field-verify VNS-TA Stream against phone **≥ v1.0.0-beta.18** (prefer **β.21** for contact gates).  
 2. ~~Phone contact / quality gates (do not treat RSSI as contact).~~ — shipped **β.21**.  
-3. Exact Feather GATT layout + phone BLE path (see `docs/FEATHER_PROFILE_SCHEMA.md`).  
-4. Phone-local profiles + calibrate MVP → then Tuner build-out (§7).
+3. Exact Feather GATT layout ([`FEATHER_BLE_GATT.md`](./FEATHER_BLE_GATT.md)) + phone BLE client (codecs/profile store/sim path landed; live GATT connect next).  
+4. Phone-local profiles + calibrate MVP → then Tuner build-out (§7). See [`FEATHER_REPO_HANDOFF.md`](./FEATHER_REPO_HANDOFF.md).
 
 **Later / parked (safe to defer)**
 

@@ -82,6 +82,8 @@ fun TechSessionMeters(
     sensorContact: SensorContactState,
     /** BLE link strength only — never treat as skin contact. */
     connectedSensorRssi: Int?,
+    featherSimActive: Boolean = false,
+    onToggleFeatherSim: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -280,6 +282,35 @@ fun TechSessionMeters(
                     FlagChip(text = flag, ok = false)
                 }
             }
+        }
+
+        if (onToggleFeatherSim != null) {
+            TextButton(
+                onClick = onToggleFeatherSim,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(
+                    text =
+                        if (featherSimActive) {
+                            "Stop Feather sim"
+                        } else {
+                            "Simulate Feather IBIs"
+                        },
+                    color = TechInfoBlue,
+                    fontSize = 13.sp,
+                )
+            }
+            Text(
+                text =
+                    if (featherSimActive) {
+                        "Synthetic IBIs → bridge as source_device FEATHER (no BLE box)."
+                    } else {
+                        "Phone-first Feather path test without reflashing the ECG box."
+                    },
+                color = TechTextDark.copy(alpha = 0.62f),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+            )
         }
     }
 
