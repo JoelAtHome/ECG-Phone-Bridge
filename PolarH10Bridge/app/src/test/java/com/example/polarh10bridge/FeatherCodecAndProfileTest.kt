@@ -6,6 +6,7 @@ import com.example.polarh10bridge.feather.FeatherIbiPacket
 import com.example.polarh10bridge.feather.FeatherPacketCodec
 import com.example.polarh10bridge.feather.FeatherPatientProfile
 import com.example.polarh10bridge.feather.FeatherProfileStore
+import com.example.polarh10bridge.feather.FeatherSimIbi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -14,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import kotlin.math.abs
 
 class FeatherPacketCodecTest {
     @Test
@@ -114,5 +116,23 @@ class FeatherProfileStoreTest {
         val back = FeatherPatientProfile.fromJsonObject(p.toJsonObject())
         assertEquals(p.profileId, back.profileId)
         assertEquals(p.coeffs["ibi_max_ms"], back.coeffs["ibi_max_ms"])
+    }
+}
+
+class FeatherSimIbiTest {
+    @Test
+    fun rsa_swings_within_band_and_varies_over_breath() {
+        val trough = FeatherSimIbi.nextIbiMs(elapsedSimMs = 1_250L, beatIndex = 1) // +RSA peak
+        val crest = FeatherSimIbi.nextIbiMs(elapsedSimMs = 3_750L, beatIndex = 3) // −RSA trough
+        assertTrue(trough in 560..1080)
+        assertTrue(crest in 560..1080)
+        assertTrue(abs(trough - crest) > 40)
+    }
+
+    @Test
+    fun slow_wander_shifts_mean_across_windows() {
+        val early = (0 until 20).map { FeatherSimIbi.nextIbiMs(it * 800L, it) }.average()
+        val late = (0 until 20).map { FeatherSimIbi.nextIbiMs(21_000L + it * 800L, 100 + it) }.average()
+        assertTrue(abs(early - late) > 5.0)
     }
 }

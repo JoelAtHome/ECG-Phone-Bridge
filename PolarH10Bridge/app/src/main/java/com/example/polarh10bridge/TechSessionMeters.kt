@@ -303,7 +303,7 @@ fun TechSessionMeters(
             Text(
                 text =
                     if (featherSimActive) {
-                        "Synthetic IBIs → bridge as source_device FEATHER (no BLE box)."
+                        "RSA-style IBIs → bridge as FEATHER (HR breathes; RMSSD drifts)."
                     } else {
                         "Phone-first Feather path test without reflashing the ECG box."
                     },

@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.27
+- enhancement: Feather sim uses RSA-style breathing IBI variation + slow wander so Tech HR and RMSSD keep moving after settle (not a frozen flatline).
+
 ## Version 1.0.0-beta.26
 - fix: Capture **Start** enables when Tech Feather sim is active (was gated on Polar `sensorConnected` only).
 

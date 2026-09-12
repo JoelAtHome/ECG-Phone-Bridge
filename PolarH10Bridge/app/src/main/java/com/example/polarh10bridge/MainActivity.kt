@@ -288,15 +288,20 @@ class MainActivity : ComponentActivity() {
     private var bleSearchDisposable: Disposable? = null
     private var featherProfileStore: com.example.polarh10bridge.feather.FeatherProfileStore? = null
     private var featherSimIbiIndex = 0
+    private var featherSimElapsedMs = 0L
     private val featherSimRunnable =
         object : Runnable {
             override fun run() {
                 if (!screenState.value.featherSimActive) return
-                // ~75 bpm with slight variation — enough for rolling RMSSD smoke tests.
-                val pattern = intArrayOf(800, 812, 788, 804, 796, 820, 780, 808)
-                val rr = pattern[featherSimIbiIndex % pattern.size]
+                // RSA (~12 breaths/min) + slow wander so HR breathes and RMSSD drifts.
+                val rr =
+                    com.example.polarh10bridge.feather.FeatherSimIbi.nextIbiMs(
+                        elapsedSimMs = featherSimElapsedMs,
+                        beatIndex = featherSimIbiIndex,
+                    )
                 featherSimIbiIndex++
-                ingestSourceRrMs(rr)
+                featherSimElapsedMs += rr.toLong()
+                ingestSourceRrMs(rr, updateHrEveryBeat = true)
                 mainHandler.postDelayed(this, rr.toLong())
             }
         }
@@ -424,7 +429,7 @@ class MainActivity : ComponentActivity() {
             "POLAR_H10"
         }
 
-    private fun ingestSourceRrMs(rr: Int) {
+    private fun ingestSourceRrMs(rr: Int, updateHrEveryBeat: Boolean = false) {
         if (rr <= 0) return
         val now = SystemClock.elapsedRealtime()
         sessionController.onRrMs(rr, now)
@@ -444,11 +449,25 @@ class MainActivity : ComponentActivity() {
                     recentHrBpm = sessionController.recentHrBpm(),
                 )
             }
-        } else if (sessionController.isActive() && sessionController.ibiCount % 5 == 0) {
+        } else if (
+            sessionController.isActive() &&
+                (updateHrEveryBeat || sessionController.ibiCount % 5 == 0)
+        ) {
+            // During Feather sim, also refresh a preview RMSSD so Tech meters move
+            // between the 30s wire snapshots (same calculator, UI-only).
+            val previewRmssd =
+                if (updateHrEveryBeat &&
+                    sessionController.activeMode == BridgeSessionMode.Stream
+                ) {
+                    sessionController.refreshQualitySnapshot().rmssdMs
+                } else {
+                    null
+                }
             updateScreen {
                 it.copy(
                     sessionIbiCount = sessionController.ibiCount,
                     recentHrBpm = sessionController.recentHrBpm(),
+                    lastRmssdMs = previewRmssd ?: it.lastRmssdMs,
                 )
             }
         }
@@ -466,6 +485,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         featherSimIbiIndex = 0
+        featherSimElapsedMs = 0L
         featherProfileStore?.ensureDemoProfile()
         updateScreen {
             it.copy(
