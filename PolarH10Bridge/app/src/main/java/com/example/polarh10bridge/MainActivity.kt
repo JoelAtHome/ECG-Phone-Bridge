@@ -2168,6 +2168,7 @@ private fun BridgeMainScreen(
                         ibiCount = state.sessionIbiCount,
                         lastRmssdMs = state.lastRmssdMs,
                         sensorConnected = state.sensorConnected,
+                        featherSimActive = state.featherSimActive,
                         onModeSelected = onSessionModeSelected,
                         onStart = onStartSession,
                         onStop = onStopSession,

@@ -7,10 +7,10 @@
 
 ## A. Without the ECG box (Simulate Feather)
 
-1. Install a build that includes Tech **Simulate Feather IBIs** (this branch / next release after phone-first Feather work).  
+1. Install a build that includes Tech **Simulate Feather IBIs** (β.26+).  
 2. Open the app → switch to **Tech view**.  
-3. Tap **Simulate Feather IBIs**.  
-4. Start **Stream** (or Record).  
+3. Tap **Simulate Feather IBIs** (Start stays disabled until this is on, unless a Polar is connected).  
+4. Start **Stream** (or Record) — Start should enable with the sim hint.  
 5. Confirm Tech meters: IBI count rises, HR ~75, Stream RMSSD moves from `unsettled` to a number after settle.  
 6. With VNS-TA (or any host) connected over Wi‑Fi:  
    - Live `rr` lines arrive  

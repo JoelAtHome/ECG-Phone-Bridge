@@ -38,11 +38,14 @@ fun BridgeSessionPanel(
     ibiCount: Int,
     lastRmssdMs: Double?,
     sensorConnected: Boolean,
+    /** Tech Feather sim counts as a source for Start (no Polar required). */
+    featherSimActive: Boolean = false,
     onModeSelected: (BridgeSessionMode) -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val canStart = !active && (sensorConnected || featherSimActive)
     Column(
         modifier =
             modifier
@@ -120,9 +123,16 @@ fun BridgeSessionPanel(
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
         )
 
-        if (!sensorConnected) {
+        if (!sensorConnected && !featherSimActive) {
             Text(
-                text = "Connect a sensor before starting a capture session.",
+                text = "Connect a sensor (or Tech → Simulate Feather) before starting.",
+                color = SessionTextDark.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        } else if (featherSimActive && !sensorConnected) {
+            Text(
+                text = "Feather sim active — Start uses source_device FEATHER.",
                 color = SessionTextDark.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 6.dp),
@@ -135,7 +145,7 @@ fun BridgeSessionPanel(
         ) {
             Button(
                 onClick = onStart,
-                enabled = !active && sensorConnected,
+                enabled = canStart,
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = SessionBannerRed,

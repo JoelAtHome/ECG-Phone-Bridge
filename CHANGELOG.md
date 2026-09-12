@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.26
+- fix: Capture **Start** enables when Tech Feather sim is active (was gated on Polar `sensorConnected` only).
+
 ## Version 1.0.0-beta.25
 - enhancement: Phone-first Feather path — BLE GATT contract, profile store, packet codecs, Tech **Simulate Feather IBIs** (`source_device: FEATHER`), plus ecg-box handoff docs. Live GATT connect still next.
 
