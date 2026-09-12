@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.21**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.5**). **Priority:** VNS-TA Stream field path → phone Feather BLE + profiles/calibrate (Tuner after phone can push/stream). Contact/quality gates shipped in β.21.
+**Status:** Shipping phone contract through **v1.0.0-beta.22**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** VNS-TA Stream field path → phone Feather BLE + profiles/calibrate (Tuner after phone can push/stream). Contact/quality gates shipped in β.21; finish tear-down / PC disconnect detection in β.22.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -44,7 +44,7 @@ Ignore unknown `type` values for forward compatibility.
 
 The browser cannot do LAN UDP/TCP. **FlareTracker Bridge Companion** (Windows tray) discovers the phone and holds TCP. The day log talks to loopback **`127.0.0.1:45126`** and POSTs the finished HRV event to the FlareTracker API.
 
-**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.5** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge`.
+**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.6** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge`.
 
 **Coordinator notes (do not regress):**
 

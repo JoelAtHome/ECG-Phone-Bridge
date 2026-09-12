@@ -1610,14 +1610,20 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        if (!isChangingConfigurations && shouldKeepBridgeAliveInBackground()) {
+        // Do not start keep-alive when the user is actually leaving/finishing the app.
+        if (!isChangingConfigurations && !isFinishing && shouldKeepBridgeAliveInBackground()) {
             startBridgeForegroundService()
         }
         super.onStop()
     }
 
     override fun onDestroy() {
-        val keepAlive = BridgeForegroundService.isRunning && !isFinishing && !isChangingConfigurations
+        // Swipe-away / Back-finish: tear down fully so PC hosts see the link drop.
+        if (isFinishing) {
+            stopBridgeForegroundService()
+        }
+        val keepAlive =
+            BridgeForegroundService.isRunning && !isFinishing && !isChangingConfigurations
         if (keepAlive) {
             super.onDestroy()
             return
@@ -1634,6 +1640,16 @@ class MainActivity : ComponentActivity() {
         bleSearchDisposable?.dispose()
         bleSearchDisposable = null
         stopConnectedRssiPolling()
+
+        mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
+        bridgeClient?.let { client ->
+            try {
+                client.close()
+            } catch (_: Exception) {
+            }
+        }
+        bridgeClient = null
+        bridgeWriter = null
 
         synchronized(discoverySocketLock) {
             try {
@@ -1654,6 +1670,7 @@ class MainActivity : ComponentActivity() {
         cancelScheduledPhoneWifiLinkRefresh()
         discoveryExecutor.shutdownNow()
         bridgeExecutor.shutdownNow()
+        bridgeWriteExecutor.shutdownNow()
 
         if (::polarApi.isInitialized) {
             polarApi.shutDown()

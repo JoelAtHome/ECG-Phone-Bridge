@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.22
+- fix: Closing/finishing the app tears down the PC TCP link (closes the client socket, stops background keep-alive on finish) so VNS-TA / HnH detect disconnect instead of a zombie "still connected" / no-data state.
+
 ## Version 1.0.0-beta.21
 - enhancement: Skin-contact / quality gate from Polar HR `contactStatus` — drop RR/ECG (and RMSSD intake) when the sensor reports no contact. BLE dBm stays link-only (`rssi_is_contact: false`); UI labels say "dBm link".
 - enhancement: Additive `sensor_quality` NDJSON for hosts (`contact_state`, optional `contact` / `contact_supported`, optional `rssi_dbm`).
