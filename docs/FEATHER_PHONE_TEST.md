@@ -29,16 +29,16 @@ gradlew.bat test --tests com.example.polarh10bridge.FeatherCodecAndProfileTest
 
 ## B. With real Feather BLE (Tech GATT client — ≥ β.29)
 
-Prereqs: Feather flashed with `hframe_ecg_hrv` `ENABLE_BLE=1`, advertising **`ECG-Box-Feather`** (service `c3f0a000-…`). Prefer this over third-party BLE scanner apps for IBI notify + `start_stream`.
+Prereqs: Feather flashed with `hframe_ecg_hrv` `ENABLE_BLE=1`, advertising **`ECG-Box-Feather`** (service `c3f0a000-…`). Prefer this over third-party BLE scanner apps for IBI/ECG notify + `start_stream`.
 
 1. Power Feather (USB or LiPo).  
 2. Phone → **Tech view** → **Connect Feather**.  
-3. Status should move Scanning → Connecting → Ready → Streaming; **Last IBI** updates (~600–1000 ms at rest).  
+3. Status should move Scanning → Connecting → Ready → Streaming; **Last IBI** updates (~600–1000 ms at rest); **ECG strip** scrolls.  
 4. Optional: **Stop stream** / **Start stream** / **Disconnect**.  
-5. **Start Stream** on the capture panel — `source_device: FEATHER`; hosts see live `rr` (and ECG if notifies arrive).  
+5. **Start Stream** on the capture panel — `source_device: FEATHER`; hosts see live `rr` / `ecg`.  
 6. XOR: disconnect Feather before connecting Polar (and the reverse).
 
-Demo profile coeffs are written on connect when present.
+Demo profile coeffs are written on connect when present (patch/torso known-good from β.32+).
 
 ---
 

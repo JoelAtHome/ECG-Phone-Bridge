@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.33
+- enhancement: Feather ECG notify enabled — host `ecg` NDJSON while streaming (like `rr`); Tech rolling ECG strip (~3 s).
+
 ## Version 1.0.0-beta.32
 - enhancement: Demo Feather coeffs match ecg-box patch/torso known-good (`ibi_outlier` 0.75/1.30, `ibi_rmssd_max_ms` 1200); migrate on-device `demo` via `demo_seed`.
 

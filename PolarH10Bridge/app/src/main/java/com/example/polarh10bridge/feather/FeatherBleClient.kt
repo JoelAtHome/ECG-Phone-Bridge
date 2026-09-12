@@ -140,14 +140,23 @@ class FeatherBleClient(
                     return
                 }
                 enableNotify(g, ibi) {
-                    val statusChar =
-                        service.getCharacteristic(FeatherBleContract.STATUS_NOTIFY_UUID)
-                    if (statusChar != null) {
-                        enableNotify(g, statusChar) {
+                    val ecgChar =
+                        service.getCharacteristic(FeatherBleContract.ECG_NOTIFY_UUID)
+                    val afterEcg = {
+                        val statusChar =
+                            service.getCharacteristic(FeatherBleContract.STATUS_NOTIFY_UUID)
+                        if (statusChar != null) {
+                            enableNotify(g, statusChar) {
+                                afterNotifiesEnabled(g, service)
+                            }
+                        } else {
                             afterNotifiesEnabled(g, service)
                         }
+                    }
+                    if (ecgChar != null) {
+                        enableNotify(g, ecgChar, afterEcg)
                     } else {
-                        afterNotifiesEnabled(g, service)
+                        afterEcg()
                     }
                 }
             }

@@ -265,6 +265,9 @@ private data class BridgeScreenState(
     val featherBlePhase: String = "Idle",
     val featherBleDetail: String = "",
     val featherBleLastIbiMs: Int? = null,
+    /** Rolling Feather ECG (mV) for Tech strip; also forwarded to host while streaming. */
+    val featherEcgTraceMv: List<Float> = emptyList(),
+    val featherEcgSampleHz: Int = 250,
 )
 
 class MainActivity : ComponentActivity() {
@@ -528,6 +531,15 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 it.featherBleLastIbiMs
                                             },
+                                        featherEcgTraceMv =
+                                            if (phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle
+                                            ) {
+                                                emptyList()
+                                            } else {
+                                                it.featherEcgTraceMv
+                                            },
                                     )
                                 }
                             }
@@ -553,8 +565,25 @@ class MainActivity : ComponentActivity() {
                             val mv =
                                 com.example.polarh10bridge.feather.FeatherPacketCodec
                                     .samplesUvToMv(samplesUv)
-                            // Host path: same shape Polar ECG uses when session active.
-                            if (!screenState.value.sessionActive) return
+                                    .map { it.toFloat() }
+                            updateScreen { state ->
+                                val merged = ArrayList<Float>(state.featherEcgTraceMv.size + mv.size)
+                                merged.addAll(state.featherEcgTraceMv)
+                                merged.addAll(mv)
+                                val maxSamples = (sampleHz * 3).coerceIn(250, 1000)
+                                val trimmed =
+                                    if (merged.size > maxSamples) {
+                                        merged.subList(merged.size - maxSamples, merged.size)
+                                            .toList()
+                                    } else {
+                                        merged
+                                    }
+                                state.copy(
+                                    featherEcgTraceMv = trimmed,
+                                    featherEcgSampleHz = sampleHz.coerceAtLeast(1),
+                                )
+                            }
+                            // Same host path as Polar ECG — send whenever streaming (like rr).
                             val samplesJson = mv.joinToString(prefix = "[", postfix = "]")
                             sendBridgeJsonLine(
                                 """{"type":"ecg","sample_rate_hz":$sampleHz,"samples_mv":$samplesJson}""",
@@ -598,6 +627,7 @@ class MainActivity : ComponentActivity() {
                 featherBlePhase = "Idle",
                 featherBleDetail = "idle",
                 featherBleLastIbiMs = null,
+                featherEcgTraceMv = emptyList(),
                 connectedSensorName =
                     if (it.sensorConnected) it.connectedSensorName else "",
                 sensorContact =
@@ -2477,6 +2507,8 @@ private fun BridgeMainScreen(
                         onDisconnectFeatherBle = onDisconnectFeatherBle,
                         onFeatherStartStream = onFeatherStartStream,
                         onFeatherStopStream = onFeatherStopStream,
+                        featherEcgTraceMv = state.featherEcgTraceMv,
+                        featherEcgSampleHz = state.featherEcgSampleHz,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {
