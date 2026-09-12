@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.util.Locale
-import kotlin.math.ceil
 import kotlin.math.max
 
 private val TechTextDark = Color(0xFF1A1A1A)
