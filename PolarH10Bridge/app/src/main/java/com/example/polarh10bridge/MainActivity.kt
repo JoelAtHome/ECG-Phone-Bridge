@@ -2121,7 +2121,9 @@ private fun BridgeMainScreen(
 
     LaunchedEffect(versionName) {
         if (versionName.isBlank()) return@LaunchedEffect
-        availableUpdate = checkForAvailableAppUpdate(context, versionName)
+        // Always hit GitHub on cold start so a release published after the last
+        // cached check (6h) is not missed. Cache still applies to non-forced calls.
+        availableUpdate = checkForAvailableAppUpdate(context, versionName, forceNetwork = true)
     }
 
     Column(

@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.31
+- fix: Update banner always re-checks GitHub on app open (6h cache was hiding newer releases published the same day).
+
 ## Version 1.0.0-beta.30
 - polish: Tech Capture **Start**/**Stop** share the same enabled/disabled colors; Mode shows **Settling** with `m:ss / m:ss` like Elapsed.
 
