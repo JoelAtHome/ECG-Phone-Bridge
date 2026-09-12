@@ -197,7 +197,7 @@ internal fun BridgeFlowDiagram(
                 colorFilter = if (sensorConnected) null else ColorFilter.tint(NodeGrayTint),
             )
                 Text(
-                    text = if (sensorConnected) "CONNECTED (click to rescan)" else "TAP TO FIND SENSORS",
+                    text = if (sensorConnected) "CONNECTED (tap to rescan)" else "TAP TO FIND SENSORS",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (sensorConnected) FlowRed else DiagramTextDark,

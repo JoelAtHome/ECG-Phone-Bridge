@@ -1167,6 +1167,43 @@ class MainActivity : ComponentActivity() {
         scheduleBleScanAutoStop()
     }
 
+    private fun disconnectConnectedSensor() {
+        val id = screenState.value.connectedSensorId
+        if (!screenState.value.sensorConnected && id.isEmpty()) return
+        stopConnectedRssiPolling()
+        stopBleScan()
+        if (id.isNotEmpty()) {
+            try {
+                polarApi.disconnectFromDevice(id)
+            } catch (e: Exception) {
+                Log.e("HnHBridge", "disconnectFromDevice failed", e)
+            }
+        }
+        // Optimistic UI clear; Polar callback also clears if/when it fires.
+        hrDisposable?.dispose()
+        hrDisposable = null
+        rrStreamingStarted = false
+        ecgDisposable?.dispose()
+        ecgDisposable = null
+        ecgStreamingStarted = false
+        resetSensorContactGate()
+        updateScreen {
+            it.copy(
+                sensorConnected = false,
+                connectedSensorName = "",
+                connectedSensorId = "",
+                connectedSensorAddress = "",
+                connectedSensorRssi = null,
+                sensorContact = SensorContactState.Unknown,
+                recentHrBpm = null,
+                bleDialogVisible = false,
+                bleConnecting = false,
+                bleRows = emptyList(),
+                bleSelectedId = null,
+            )
+        }
+    }
+
     private fun cancelSensorDialog() {
         stopBleScan()
         updateScreen {
@@ -1656,6 +1693,7 @@ class MainActivity : ComponentActivity() {
                         bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
                     },
                     onScanSensors = { beginSensorScan() },
+                    onDisconnectSensor = { disconnectConnectedSensor() },
                     onSaveBridgePort = { newPort ->
                         val clamped = newPort.coerceIn(BRIDGE_PORT_MIN, BRIDGE_PORT_MAX)
                         bridgePort = clamped
@@ -1795,6 +1833,7 @@ private fun BridgeMainScreen(
     readPhoneWifiIpv4: () -> String?,
     onWifiRadioAvailabilityChanged: (enabled: Boolean) -> Unit,
     onScanSensors: () -> Unit,
+    onDisconnectSensor: () -> Unit,
     onSaveBridgePort: (Int) -> Unit,
     onSaveKeepAliveInBackground: (Boolean) -> Unit,
     onSessionModeSelected: (BridgeSessionMode) -> Unit,
@@ -2128,6 +2167,17 @@ private fun BridgeMainScreen(
                             ),
                         modifier = Modifier.align(Alignment.Start),
                     )
+                    TextButton(
+                        onClick = onDisconnectSensor,
+                        modifier = Modifier.align(Alignment.Start),
+                    ) {
+                        Text(
+                            text = "Disconnect sensor",
+                            color = BannerRed,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                     val phoneIp =
                         if (!wifiRadioEnabled) {
                             "Wi-Fi client off (hotspot may still work)"
