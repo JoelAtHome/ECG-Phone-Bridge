@@ -93,6 +93,13 @@ class FeatherProfileStoreTest {
         val demo = store.ensureDemoProfile()
         assertEquals("demo", demo.profileId)
         assertEquals(400, (demo.coeffs["refractory_ms"] as Number).toInt())
+        assertEquals(0.75, (demo.coeffs["ibi_outlier_lo"] as Number).toDouble(), 1e-9)
+        assertEquals(1.30, (demo.coeffs["ibi_outlier_hi"] as Number).toDouble(), 1e-9)
+        assertEquals(1200, (demo.coeffs["ibi_rmssd_max_ms"] as Number).toInt())
+        assertEquals(
+            FeatherPatientProfile.DEMO_SEED,
+            (demo.hardware["demo_seed"] as Number).toInt(),
+        )
 
         val again = store.ensureDemoProfile()
         assertEquals(demo.createdAt, again.createdAt)
@@ -112,11 +119,46 @@ class FeatherProfileStoreTest {
     }
 
     @Test
+    fun ensureDemo_migratesLegacyOutlierCaps() {
+        val dir = tmp.newFolder("feather_profiles")
+        val store = FeatherProfileStore(dir)
+        store.save(
+            FeatherPatientProfile(
+                profileId = "demo",
+                displayName = "Demo",
+                createdAt = "2026-09-01T00:00:00Z",
+                coeffs =
+                    mapOf(
+                        "refractory_ms" to 400,
+                        "ibi_outlier_lo" to 0.65,
+                        "ibi_outlier_hi" to 1.4,
+                        "ibi_rmssd_max_ms" to 1000,
+                    ),
+                hardware =
+                    mapOf(
+                        "electrode_setup" to "patch_torso",
+                        "sample_hz" to 250,
+                    ),
+            ),
+        )
+        val migrated = store.ensureDemoProfile()
+        assertEquals("2026-09-01T00:00:00Z", migrated.createdAt)
+        assertEquals(0.75, (migrated.coeffs["ibi_outlier_lo"] as Number).toDouble(), 1e-9)
+        assertEquals(1.30, (migrated.coeffs["ibi_outlier_hi"] as Number).toDouble(), 1e-9)
+        assertEquals(1200, (migrated.coeffs["ibi_rmssd_max_ms"] as Number).toInt())
+        assertEquals(
+            FeatherPatientProfile.DEMO_SEED,
+            (migrated.hardware["demo_seed"] as Number).toInt(),
+        )
+    }
+
+    @Test
     fun profile_json_roundTrip() {
         val p = FeatherPatientProfile.defaultDemo()
         val back = FeatherPatientProfile.fromJsonObject(p.toJsonObject())
         assertEquals(p.profileId, back.profileId)
         assertEquals(p.coeffs["ibi_max_ms"], back.coeffs["ibi_max_ms"])
+        assertEquals(p.coeffs["ibi_outlier_lo"], back.coeffs["ibi_outlier_lo"])
     }
 }
 

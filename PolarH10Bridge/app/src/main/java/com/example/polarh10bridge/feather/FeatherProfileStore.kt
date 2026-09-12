@@ -63,7 +63,14 @@ data class FeatherPatientProfile(
             return out
         }
 
-        /** Defaults aligned with ecg-box firmware/hframe_ecg_hrv/config.h */
+        /**
+         * Demo seed aligned with ecg-box patch/torso known-good
+         * (`docs/FEATHER_BLE.md` § Known-good coeff sets). Bump [DEMO_SEED]
+         * when those values change so [FeatherProfileStore.ensureDemoProfile]
+         * rewrites an already-saved demo file.
+         */
+        const val DEMO_SEED = 2
+
         fun defaultDemo(profileId: String = "demo", displayName: String = "Demo"): FeatherPatientProfile =
             FeatherPatientProfile(
                 profileId = profileId,
@@ -78,9 +85,9 @@ data class FeatherPatientProfile(
                         "peak_end_frac" to 0.55,
                         "r_peak_refine_ms" to 200,
                         "fiducial_delay_ms" to 40,
-                        "ibi_outlier_lo" to 0.65,
-                        "ibi_outlier_hi" to 1.4,
-                        "ibi_rmssd_max_ms" to 1000,
+                        "ibi_outlier_lo" to 0.75,
+                        "ibi_outlier_hi" to 1.30,
+                        "ibi_rmssd_max_ms" to 1200,
                     ),
                 hardware =
                     mapOf(
@@ -88,8 +95,22 @@ data class FeatherPatientProfile(
                         "frontend" to "sparkfun_ad8232",
                         "electrode_setup" to "patch_torso",
                         "sample_hz" to 250,
+                        "demo_seed" to DEMO_SEED,
                     ),
             )
+
+        /** True when a stored demo still has pre-seed-2 outlier / RMSSD-cap values. */
+        fun demoNeedsKnownGoodMigration(profile: FeatherPatientProfile): Boolean {
+            if (profile.profileId != "demo") return false
+            val seed = (profile.hardware["demo_seed"] as? Number)?.toInt()
+            if (seed != null && seed >= DEMO_SEED) return false
+            val lo = (profile.coeffs["ibi_outlier_lo"] as? Number)?.toDouble()
+            val hi = (profile.coeffs["ibi_outlier_hi"] as? Number)?.toDouble()
+            val maxMs = (profile.coeffs["ibi_rmssd_max_ms"] as? Number)?.toInt()
+            // Legacy seed used 0.65 / 1.4 / 1000.
+            if (lo == 0.75 && hi == 1.30 && maxMs == 1200) return false
+            return true
+        }
     }
 }
 
@@ -135,8 +156,19 @@ class FeatherProfileStore(
     }
 
     fun ensureDemoProfile(): FeatherPatientProfile {
-        load("demo")?.let { return it }
-        return save(FeatherPatientProfile.defaultDemo())
+        val existing = load("demo")
+        if (existing == null) {
+            return save(FeatherPatientProfile.defaultDemo())
+        }
+        if (FeatherPatientProfile.demoNeedsKnownGoodMigration(existing)) {
+            val refreshed =
+                FeatherPatientProfile.defaultDemo().copy(
+                    createdAt = existing.createdAt,
+                    displayName = existing.displayName.ifBlank { "Demo" },
+                )
+            return save(refreshed)
+        }
+        return existing
     }
 
     private fun fileFor(profileId: String): File {
