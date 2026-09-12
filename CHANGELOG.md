@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.24
+- fix: Keep Polar H10 and PC bridge connections across screen rotation (`configChanges` so the Activity is not recreated and torn down).
+
 ## Version 1.0.0-beta.23
 - enhancement: Stream mode shows RMSSD as **unsettled** (instead of —) while settling / until the first rolling value.
 

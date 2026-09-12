@@ -1622,6 +1622,8 @@ class MainActivity : ComponentActivity() {
         if (isFinishing) {
             stopBridgeForegroundService()
         }
+        // Skip teardown only when background keep-alive FGS is holding the process.
+        // Orientation is handled via android:configChanges so this Activity is not recreated.
         val keepAlive =
             BridgeForegroundService.isRunning && !isFinishing && !isChangingConfigurations
         if (keepAlive) {
