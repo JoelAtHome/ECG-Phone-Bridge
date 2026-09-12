@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.30
+- polish: Tech Capture **Start**/**Stop** share the same enabled/disabled colors; Mode shows **Settling** with `m:ss / m:ss` like Elapsed.
+
 ## Version 1.0.0-beta.29
 - enhancement: Tech **Connect Feather** live GATT client — scan `ECG-Box-Feather`, enable IBI notify, push demo coeffs, `start_stream`, show Last IBI; Start session uses `source_device: FEATHER`. Prefer over third-party BLE scanners for MCU bring-up.
 - docs: Advertise name `ECG-Box-Feather` (HnH-only names deprecated); phone test §B for live BLE.
