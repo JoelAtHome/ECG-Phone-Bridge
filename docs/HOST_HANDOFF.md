@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.33**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Feather profiles/calibrate → Tuner. β.32 demo coeffs; β.33 Feather ECG notify + Tech strip.
+**Status:** Shipping phone contract through **v1.0.0-beta.34**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Feather profiles/calibrate → Tuner. β.33 live ECG; β.34 strip always visible + sim IBI/ECG.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 

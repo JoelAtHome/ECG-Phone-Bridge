@@ -128,7 +128,7 @@ fun BridgeSessionPanel(
         if (!sensorConnected && !featherSimActive && !featherBleConnected) {
             Text(
                 text =
-                    "Connect Polar, Tech → Connect Feather, or Simulate Feather before starting.",
+                    "Connect Polar, Tech → Connect Feather, or Simulate Feather IBI + ECG before starting.",
                 color = SessionTextDark.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 6.dp),

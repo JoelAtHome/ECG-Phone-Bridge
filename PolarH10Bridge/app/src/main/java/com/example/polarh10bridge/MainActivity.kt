@@ -268,6 +268,7 @@ private data class BridgeScreenState(
     /** Rolling Feather ECG (mV) for Tech strip; also forwarded to host while streaming. */
     val featherEcgTraceMv: List<Float> = emptyList(),
     val featherEcgSampleHz: Int = 250,
+    val featherEcgPacketCount: Int = 0,
 )
 
 class MainActivity : ComponentActivity() {
@@ -298,6 +299,8 @@ class MainActivity : ComponentActivity() {
     private var featherBleClient: com.example.polarh10bridge.feather.FeatherBleClient? = null
     private var featherSimIbiIndex = 0
     private var featherSimElapsedMs = 0L
+    private var featherSimCurrentIbiMs = 800
+    private var featherSimEcgPhase01 = 0.0
     private val featherSimRunnable =
         object : Runnable {
             override fun run() {
@@ -310,8 +313,29 @@ class MainActivity : ComponentActivity() {
                     )
                 featherSimIbiIndex++
                 featherSimElapsedMs += rr.toLong()
+                featherSimCurrentIbiMs = rr
+                // Align synthetic R with this beat boundary.
+                featherSimEcgPhase01 = 0.0
                 ingestSourceRrMs(rr, updateHrEveryBeat = true)
                 mainHandler.postDelayed(this, rr.toLong())
+            }
+        }
+    private val featherSimEcgRunnable =
+        object : Runnable {
+            override fun run() {
+                if (!screenState.value.featherSimActive) return
+                val batchN = 20
+                val hz = com.example.polarh10bridge.feather.FeatherSimEcg.SAMPLE_HZ
+                val (nextPhase, samples) =
+                    com.example.polarh10bridge.feather.FeatherSimEcg.fillBatchMv(
+                        phase01 = featherSimEcgPhase01,
+                        ibiMs = featherSimCurrentIbiMs.toDouble(),
+                        count = batchN,
+                        sampleHz = hz,
+                    )
+                featherSimEcgPhase01 = nextPhase
+                ingestFeatherEcgMv(hz, samples.toList())
+                mainHandler.postDelayed(this, batchN * 1000L / hz)
             }
         }
     /** Direct LE scan for RSSI; Polar search often never re-emits the connected peripheral. */
@@ -540,6 +564,15 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 it.featherEcgTraceMv
                                             },
+                                        featherEcgPacketCount =
+                                            if (phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle
+                                            ) {
+                                                0
+                                            } else {
+                                                it.featherEcgPacketCount
+                                            },
                                     )
                                 }
                             }
@@ -566,28 +599,7 @@ class MainActivity : ComponentActivity() {
                                 com.example.polarh10bridge.feather.FeatherPacketCodec
                                     .samplesUvToMv(samplesUv)
                                     .map { it.toFloat() }
-                            updateScreen { state ->
-                                val merged = ArrayList<Float>(state.featherEcgTraceMv.size + mv.size)
-                                merged.addAll(state.featherEcgTraceMv)
-                                merged.addAll(mv)
-                                val maxSamples = (sampleHz * 3).coerceIn(250, 1000)
-                                val trimmed =
-                                    if (merged.size > maxSamples) {
-                                        merged.subList(merged.size - maxSamples, merged.size)
-                                            .toList()
-                                    } else {
-                                        merged
-                                    }
-                                state.copy(
-                                    featherEcgTraceMv = trimmed,
-                                    featherEcgSampleHz = sampleHz.coerceAtLeast(1),
-                                )
-                            }
-                            // Same host path as Polar ECG — send whenever streaming (like rr).
-                            val samplesJson = mv.joinToString(prefix = "[", postfix = "]")
-                            sendBridgeJsonLine(
-                                """{"type":"ecg","sample_rate_hz":$sampleHz,"samples_mv":$samplesJson}""",
-                            )
+                            ingestFeatherEcgMv(sampleHz, mv)
                         }
                     },
             )
@@ -628,6 +640,7 @@ class MainActivity : ComponentActivity() {
                 featherBleDetail = "idle",
                 featherBleLastIbiMs = null,
                 featherEcgTraceMv = emptyList(),
+                featherEcgPacketCount = 0,
                 connectedSensorName =
                     if (it.sensorConnected) it.connectedSensorName else "",
                 sensorContact =
@@ -686,6 +699,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun ingestFeatherEcgMv(sampleHz: Int, samplesMv: List<Float>) {
+        if (samplesMv.isEmpty()) return
+        val hz = sampleHz.coerceAtLeast(1)
+        updateScreen { state ->
+            val merged = ArrayList<Float>(state.featherEcgTraceMv.size + samplesMv.size)
+            merged.addAll(state.featherEcgTraceMv)
+            merged.addAll(samplesMv)
+            val maxSamples = (hz * 3).coerceIn(250, 1000)
+            val trimmed =
+                if (merged.size > maxSamples) {
+                    merged.subList(merged.size - maxSamples, merged.size).toList()
+                } else {
+                    merged
+                }
+            state.copy(
+                featherEcgTraceMv = trimmed,
+                featherEcgSampleHz = hz,
+                featherEcgPacketCount = state.featherEcgPacketCount + 1,
+            )
+        }
+        val samplesJson = samplesMv.joinToString(prefix = "[", postfix = "]")
+        sendBridgeJsonLine(
+            """{"type":"ecg","sample_rate_hz":$hz,"samples_mv":$samplesJson}""",
+        )
+    }
+
     private fun setFeatherSimActive(enabled: Boolean) {
         if (enabled == screenState.value.featherSimActive) return
         if (enabled && screenState.value.sensorConnected) {
@@ -697,20 +736,32 @@ class MainActivity : ComponentActivity() {
             return
         }
         mainHandler.removeCallbacks(featherSimRunnable)
+        mainHandler.removeCallbacks(featherSimEcgRunnable)
         if (!enabled) {
-            updateScreen { it.copy(featherSimActive = false) }
+            updateScreen {
+                it.copy(
+                    featherSimActive = false,
+                    featherEcgTraceMv = emptyList(),
+                    featherEcgPacketCount = 0,
+                )
+            }
             return
         }
         featherSimIbiIndex = 0
         featherSimElapsedMs = 0L
+        featherSimCurrentIbiMs = 800
+        featherSimEcgPhase01 = 0.0
         featherProfileStore?.ensureDemoProfile()
         updateScreen {
             it.copy(
                 featherSimActive = true,
                 sensorContact = SensorContactState.InContact,
+                featherEcgTraceMv = emptyList(),
+                featherEcgPacketCount = 0,
             )
         }
         mainHandler.post(featherSimRunnable)
+        mainHandler.post(featherSimEcgRunnable)
     }
 
     private fun resetSensorContactGate() {
@@ -2001,6 +2052,7 @@ class MainActivity : ComponentActivity() {
         rrStreamingStarted = false
         ecgStreamingStarted = false
         mainHandler.removeCallbacks(featherSimRunnable)
+        mainHandler.removeCallbacks(featherSimEcgRunnable)
         featherBleClient?.disconnect()
         featherBleClient = null
 
@@ -2509,6 +2561,7 @@ private fun BridgeMainScreen(
                         onFeatherStopStream = onFeatherStopStream,
                         featherEcgTraceMv = state.featherEcgTraceMv,
                         featherEcgSampleHz = state.featherEcgSampleHz,
+                        featherEcgPacketCount = state.featherEcgPacketCount,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {

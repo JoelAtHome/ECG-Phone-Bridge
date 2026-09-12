@@ -6,6 +6,7 @@ import com.example.polarh10bridge.feather.FeatherIbiPacket
 import com.example.polarh10bridge.feather.FeatherPacketCodec
 import com.example.polarh10bridge.feather.FeatherPatientProfile
 import com.example.polarh10bridge.feather.FeatherProfileStore
+import com.example.polarh10bridge.feather.FeatherSimEcg
 import com.example.polarh10bridge.feather.FeatherSimIbi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -177,5 +178,31 @@ class FeatherSimIbiTest {
         val early = (0 until 20).map { FeatherSimIbi.nextIbiMs(it * 800L, it) }.average()
         val late = (0 until 20).map { FeatherSimIbi.nextIbiMs(21_000L + it * 800L, 100 + it) }.average()
         assertTrue(abs(early - late) > 5.0)
+    }
+}
+
+class FeatherSimEcgTest {
+    @Test
+    fun r_peak_is_tallest_in_beat() {
+        val r = FeatherSimEcg.sampleMv(0.30)
+        val p = FeatherSimEcg.sampleMv(0.12)
+        val t = FeatherSimEcg.sampleMv(0.52)
+        val baseline = FeatherSimEcg.sampleMv(0.80)
+        assertTrue(r > p)
+        assertTrue(r > t)
+        assertTrue(r > baseline)
+        assertTrue(r > 0.5)
+    }
+
+    @Test
+    fun fillBatch_advances_phase() {
+        val (phase20, short) = FeatherSimEcg.fillBatchMv(0.0, 800.0, 20)
+        assertEquals(20, short.size)
+        assertTrue(phase20 > 0.0)
+        assertTrue(phase20 < 1.0)
+        // Full beat at 250 Hz × 800 ms = 200 samples — covers R-peak at ~0.30.
+        val (_, batch) = FeatherSimEcg.fillBatchMv(0.0, 800.0, 200)
+        assertEquals(200, batch.size)
+        assertTrue(batch.max() > 0.5f)
     }
 }

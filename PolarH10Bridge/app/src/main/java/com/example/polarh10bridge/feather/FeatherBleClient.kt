@@ -111,6 +111,11 @@ class FeatherBleClient(
                     BluetoothProfile.STATE_CONNECTED -> {
                         emit(Phase.Discovering, "connected; discovering")
                         g.requestMtu(185)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            g.requestConnectionPriority(
+                                BluetoothGatt.CONNECTION_PRIORITY_HIGH,
+                            )
+                        }
                         g.discoverServices()
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
@@ -420,7 +425,10 @@ class FeatherBleClient(
                 }
             }
             FeatherBleContract.ECG_NOTIFY_UUID -> {
-                val pkt = FeatherPacketCodec.decodeEcg(value) ?: return
+                val pkt = FeatherPacketCodec.decodeEcg(value) ?: run {
+                    Log.w(TAG, "ECG decode failed len=${value.size}")
+                    return
+                }
                 mainHandler.post {
                     listener.onEcgSamplesUv(pkt.sampleHz, pkt.samplesUv)
                 }

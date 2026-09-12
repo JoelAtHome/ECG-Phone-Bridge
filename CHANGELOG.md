@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.34
+- fix: Tech ECG strip always visible under Feather BLE (stronger chrome + packet count); high BLE connection priority.
+- enhancement: **Simulate Feather IBI + ECG** — textbook PQRST feeds Tech strip and host `ecg` (with existing RSA IBIs).
+
 ## Version 1.0.0-beta.33
 - enhancement: Feather ECG notify enabled — host `ecg` NDJSON while streaming (like `rr`); Tech rolling ECG strip (~3 s).
 

@@ -4,7 +4,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Synthetic IBIs for Tech "Simulate Feather" — RSA + slow wander so HR and
+ * Synthetic IBIs for Tech "Simulate Feather IBI + ECG" — RSA + slow wander so HR and
  * rolling RMSSD look alive after settle (not a frozen flatline).
  */
 object FeatherSimIbi {

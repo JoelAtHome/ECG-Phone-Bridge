@@ -7,13 +7,13 @@
 
 ## A. Without the ECG box (Simulate Feather)
 
-1. Install a build that includes Tech **Simulate Feather IBIs** (**≥ v1.0.0-beta.27** for RSA liveliness; β.26+ for Start-with-sim).  
+1. Install a build that includes Tech **Simulate Feather IBI + ECG** (**≥ v1.0.0-beta.34**; β.27+ for RSA IBIs only; β.26+ for Start-with-sim).  
 2. Open the app → switch to **Tech view**.  
-3. Tap **Simulate Feather IBIs** (Start stays disabled until this is on, unless a Polar is connected).  
+3. Tap **Simulate Feather IBI + ECG** (Start stays disabled until this is on, unless a Polar is connected).  
 4. Start **Stream** (or Record) — Start should enable with the sim hint.  
-5. Confirm Tech meters: IBI count rises, HR ~75 with gentle breathing variation, Stream RMSSD moves from `unsettled` to a number after settle and keeps drifting a bit.  
+5. Confirm Tech meters: IBI count rises, HR ~75 with gentle breathing variation, Stream RMSSD moves from `unsettled` to a number after settle and keeps drifting a bit; **ECG strip** scrolls textbook PQRST.  
 6. With VNS-TA (or any host) connected over Wi‑Fi:  
-   - Live `rr` lines arrive  
+   - Live `rr` and `ecg` lines arrive  
    - `session_state.source_device` is **`FEATHER`**  
    - Optional rolling / stop `rmssd` with `rmssd_source: "bridge"`  
 7. **Disconnect sensor** (β.28+) if an H10 was connected; stop sim before connecting Polar (sim refuses while Polar is linked; connecting Polar stops sim).

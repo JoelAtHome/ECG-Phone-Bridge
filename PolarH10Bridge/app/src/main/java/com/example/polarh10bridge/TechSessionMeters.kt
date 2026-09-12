@@ -100,6 +100,7 @@ fun TechSessionMeters(
     onFeatherStopStream: (() -> Unit)? = null,
     featherEcgTraceMv: List<Float> = emptyList(),
     featherEcgSampleHz: Int = 250,
+    featherEcgPacketCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -313,7 +314,7 @@ fun TechSessionMeters(
                         if (featherSimActive) {
                             "Stop Feather sim"
                         } else {
-                            "Simulate Feather IBIs"
+                            "Simulate Feather IBI + ECG"
                         },
                     color = TechInfoBlue,
                     fontSize = 13.sp,
@@ -322,9 +323,9 @@ fun TechSessionMeters(
             Text(
                 text =
                     if (featherSimActive) {
-                        "RSA-style IBIs → bridge as FEATHER (HR breathes; RMSSD drifts)."
+                        "RSA IBIs + textbook PQRST ECG → bridge as FEATHER (strip + host)."
                     } else {
-                        "Phone-first Feather path test without reflashing the ECG box."
+                        "No ECG box needed — synthetic IBI and ECG for Tech strip / VNS bring-up."
                     },
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
@@ -356,31 +357,6 @@ fun TechSessionMeters(
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            if (featherBleConnected || featherEcgTraceMv.isNotEmpty()) {
-                Text(
-                    text =
-                        if (featherEcgTraceMv.isEmpty()) {
-                            "ECG strip — waiting for samples…"
-                        } else {
-                            "ECG strip (~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz)"
-                        },
-                    color = TechTextDark.copy(alpha = 0.75f),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                FeatherEcgStrip(
-                    samplesMv = featherEcgTraceMv,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(88.dp)
-                            .padding(top = 4.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF7FBFF))
-                            .border(1.dp, TechPanelBorder, RoundedCornerShape(8.dp))
-                            .padding(6.dp),
-                )
-            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(top = 4.dp),
@@ -407,6 +383,37 @@ fun TechSessionMeters(
                     }
                 }
             }
+            // Always show under Feather BLE so it is hard to miss (even before samples).
+            Text(
+                text =
+                    when {
+                        featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
+                            "ECG strip — ${featherEcgPacketCount} pkts, " +
+                                "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz"
+                        featherBleConnected ->
+                            "ECG strip — waiting for live Feather samples…"
+                        featherSimActive ->
+                            "ECG strip — waiting for sim samples…"
+                        else ->
+                            "ECG strip — Connect Feather or Simulate Feather IBI + ECG to start"
+                    },
+                color = TechTextDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            FeatherEcgStrip(
+                samplesMv = featherEcgTraceMv,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(112.dp)
+                        .padding(top = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFE3F2FD))
+                        .border(2.dp, TechInfoBlue.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+            )
             Text(
                 text =
                     "Scans for ECG-Box-Feather, enables IBI+ECG notify, writes demo coeffs, " +
@@ -414,7 +421,7 @@ fun TechSessionMeters(
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
     }
