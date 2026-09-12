@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.32
+- enhancement: Demo Feather coeffs match ecg-box patch/torso known-good (`ibi_outlier` 0.75/1.30, `ibi_rmssd_max_ms` 1200); migrate on-device `demo` via `demo_seed`.
+
 ## Version 1.0.0-beta.31
 - fix: Update banner always re-checks GitHub on app open (6h cache was hiding newer releases published the same day).
 
