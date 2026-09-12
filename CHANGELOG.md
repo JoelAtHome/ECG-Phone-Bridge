@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.29
+- enhancement: Tech **Connect Feather** live GATT client — scan `ECG-Box-Feather`, enable IBI notify, push demo coeffs, `start_stream`, show Last IBI; Start session uses `source_device: FEATHER`. Prefer over third-party BLE scanners for MCU bring-up.
+- docs: Advertise name `ECG-Box-Feather` (HnH-only names deprecated); phone test §B for live BLE.
+
 ## Version 1.0.0-beta.28
 - enhancement: **Disconnect sensor** under the connected H10 line — drops Polar without closing the app (PC bridge stays up).
 

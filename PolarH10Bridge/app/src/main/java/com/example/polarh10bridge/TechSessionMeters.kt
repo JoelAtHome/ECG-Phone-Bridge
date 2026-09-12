@@ -84,6 +84,14 @@ fun TechSessionMeters(
     connectedSensorRssi: Int?,
     featherSimActive: Boolean = false,
     onToggleFeatherSim: (() -> Unit)? = null,
+    featherBlePhase: String = "Idle",
+    featherBleDetail: String = "",
+    featherBleLastIbiMs: Int? = null,
+    featherBleConnected: Boolean = false,
+    onConnectFeatherBle: (() -> Unit)? = null,
+    onDisconnectFeatherBle: (() -> Unit)? = null,
+    onFeatherStartStream: (() -> Unit)? = null,
+    onFeatherStopStream: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -310,6 +318,67 @@ fun TechSessionMeters(
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
+            )
+        }
+
+        if (onConnectFeatherBle != null) {
+            Text(
+                text = "Feather BLE test",
+                color = TechTextDark,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                text = "$featherBlePhase — $featherBleDetail",
+                color = TechTextDark.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            if (featherBleLastIbiMs != null) {
+                Text(
+                    text = "Last IBI: ${featherBleLastIbiMs} ms",
+                    color = TechTextDark,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                if (!featherBleConnected) {
+                    TextButton(onClick = onConnectFeatherBle) {
+                        Text("Connect Feather", color = TechInfoBlue, fontSize = 13.sp)
+                    }
+                } else {
+                    if (onFeatherStartStream != null) {
+                        TextButton(onClick = onFeatherStartStream) {
+                            Text("Start stream", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    }
+                    if (onFeatherStopStream != null) {
+                        TextButton(onClick = onFeatherStopStream) {
+                            Text("Stop stream", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    }
+                    if (onDisconnectFeatherBle != null) {
+                        TextButton(onClick = onDisconnectFeatherBle) {
+                            Text("Disconnect", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+            Text(
+                text =
+                    "Scans for ECG-Box-Feather, enables IBI notify, writes demo coeffs, " +
+                        "sends start_stream. Use this instead of fiddly third-party BLE apps.",
+                color = TechTextDark.copy(alpha = 0.62f),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
     }

@@ -40,12 +40,14 @@ fun BridgeSessionPanel(
     sensorConnected: Boolean,
     /** Tech Feather sim counts as a source for Start (no Polar required). */
     featherSimActive: Boolean = false,
+    /** Live Feather GATT client connected/streaming. */
+    featherBleConnected: Boolean = false,
     onModeSelected: (BridgeSessionMode) -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val canStart = !active && (sensorConnected || featherSimActive)
+    val canStart = !active && (sensorConnected || featherSimActive || featherBleConnected)
     Column(
         modifier =
             modifier
@@ -123,9 +125,17 @@ fun BridgeSessionPanel(
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
         )
 
-        if (!sensorConnected && !featherSimActive) {
+        if (!sensorConnected && !featherSimActive && !featherBleConnected) {
             Text(
-                text = "Connect a sensor (or Tech → Simulate Feather) before starting.",
+                text =
+                    "Connect Polar, Tech → Connect Feather, or Simulate Feather before starting.",
+                color = SessionTextDark.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        } else if (featherBleConnected && !sensorConnected) {
+            Text(
+                text = "Feather BLE linked — Start uses source_device FEATHER.",
                 color = SessionTextDark.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 6.dp),

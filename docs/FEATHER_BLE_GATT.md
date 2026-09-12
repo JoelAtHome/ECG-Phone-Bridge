@@ -24,11 +24,11 @@ Do **not** emulate Polar PMD. Do **not** use Feather Wi‑Fi as the V1 session p
 
 | Item | Value |
 |------|--------|
-| Complete local name | `HnH-Feather` (preferred) or `ECG-Box` |
+| Complete local name | `ECG-Box-Feather` (preferred) or `ECG-Box` (HnH-only names deprecated) |
 | Advertise service UUID | Primary service below |
 | Appearance / manufacturer data | Optional; phone does not require them for V1 |
 
-Phone scan filters on **service UUID** and/or name prefix `HnH-Feather` / `ECG-Box`.
+Phone scan filters on **service UUID** and/or name prefix `ECG-Box` (legacy `HnH-Feather` still accepted).
 
 ---
 

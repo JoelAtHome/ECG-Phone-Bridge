@@ -74,8 +74,9 @@ class FeatherPacketCodecTest {
 
     @Test
     fun advertised_name_filter() {
-        assertTrue(FeatherBleContract.matchesAdvertisedName("HnH-Feather"))
+        assertTrue(FeatherBleContract.matchesAdvertisedName("ECG-Box-Feather"))
         assertTrue(FeatherBleContract.matchesAdvertisedName("ECG-Box"))
+        assertTrue(FeatherBleContract.matchesAdvertisedName("HnH-Feather")) // legacy
         assertTrue(FeatherBleContract.matchesAdvertisedName("HnH-Feather-2"))
         assertFalse(FeatherBleContract.matchesAdvertisedName("Polar H10"))
         assertFalse(FeatherBleContract.matchesAdvertisedName(null))

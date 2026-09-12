@@ -1,7 +1,7 @@
 # Phone-first Feather test procedure
 
-**Date:** 2026-09-11  
-**When to use:** Before Feather firmware BLE is flashing-ready (or anytime you want a no-hardware smoke test of the FEATHER host path).
+**Date:** 2026-09-12  
+**When to use:** Host-path smoke test (sim) or live MCU bring-up (Tech Feather BLE).
 
 ---
 
@@ -27,14 +27,21 @@ gradlew.bat test --tests com.example.polarh10bridge.FeatherCodecAndProfileTest
 
 ---
 
-## B. With real Feather BLE (after firmware handoff)
+## B. With real Feather BLE (Tech GATT client — ≥ β.29)
 
-Prereqs: firmware implements [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md); phone GATT client wired to scan/connect (follow-on to phone-first codecs).
+Prereqs: Feather flashed with `hframe_ecg_hrv` `ENABLE_BLE=1`, advertising **`ECG-Box-Feather`** (service `c3f0a000-…`). Prefer this over third-party BLE scanner apps for IBI notify + `start_stream`.
 
-1. Power Feather; confirm nRF Connect sees `HnH-Feather` / `ECG-Box` + service `c3f0a000-…`.  
-2. Phone: scan → connect Feather (not Polar).  
-3. Active demo/patient profile coeffs are written; stream starts.  
-4. VNS-TA Stream: live `rr` / `ecg`, `source_device: FEATHER`.  
-5. Disconnect / reconnect; XOR with Polar still holds.
+1. Power Feather (USB or LiPo).  
+2. Phone → **Tech view** → **Connect Feather**.  
+3. Status should move Scanning → Connecting → Ready → Streaming; **Last IBI** updates (~600–1000 ms at rest).  
+4. Optional: **Stop stream** / **Start stream** / **Disconnect**.  
+5. **Start Stream** on the capture panel — `source_device: FEATHER`; hosts see live `rr` (and ECG if notifies arrive).  
+6. XOR: disconnect Feather before connecting Polar (and the reverse).
 
-Until step B’s phone GATT client lands, use **A** for host-path validation and [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) for firmware work.
+Demo profile coeffs are written on connect when present.
+
+---
+
+## C. Legacy external scanners
+
+nRF Connect / BLE Scanner can still inspect GATT, but CCCD + UTF-8 control writes are awkward on some apps. Prefer **§B** for bring-up.

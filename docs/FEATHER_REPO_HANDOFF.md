@@ -13,17 +13,18 @@ Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path
 
 **Feather MCU (ecg-box) → phone over BLE → same Wi‑Fi NDJSON hosts already consume.**
 
-**Phone status (as of v1.0.0-beta.28):**
+**Phone status (as of v1.0.0-beta.29):**
 
 | Done on phone | Not done yet |
 |---------------|--------------|
-| GATT contract locked ([FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md)) | Live BLE scan / connect / notify client |
-| Packet codecs + profile store (unit-tested under `feather/`) | Push coeffs over real GATT |
-| Tech **Simulate Feather IBIs** (RSA-style) → same `rr` / RMSSD / NDJSON with `source_device: FEATHER` | End-to-end with real MCU |
+| GATT contract locked ([FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md)) | Full patient-profile picker UX |
+| Packet codecs + profile store (unit-tested under `feather/`) | Host-backed profile sync |
+| Tech **Simulate Feather IBIs** (RSA-style) → same `rr` / RMSSD / NDJSON with `source_device: FEATHER` | |
+| Tech **Connect Feather** live GATT (scan / CCCD / coeffs / start_stream / IBI) | |
 | Host path smoke-tested via sim; Polar still works when sim is off | |
 | **Disconnect sensor** without closing the app | |
 
-Firmware can implement BLE against the GATT doc now. Joint phone test waits on (1) firmware advertising the service and (2) the phone GATT client (follow-on in this repo).
+Firmware can implement BLE against the GATT doc. Joint test: flash MCU + phone **≥ β.29** Tech → Connect Feather (see [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) §B).
 
 | Doc in this repo | Why open it |
 |------------------|-------------|
@@ -42,7 +43,7 @@ Phone codecs: `PolarH10Bridge/app/src/main/java/com/example/polarh10bridge/feath
 
 Current `firmware/hframe_ecg_hrv` is serial/plotter oriented. Add a **BLE path** without changing peak ownership:
 
-1. **Advertise** as `HnH-Feather` (or `ECG-Box`) with primary service UUID from GATT doc.  
+1. **Advertise** as `ECG-Box-Feather` (or `ECG-Box`) with primary service UUID from GATT doc.  
 2. **Notify IBI** (`c3f0a001-…`) for each accepted beat interval (binary v1).  
 3. **Optional ECG notify** (`c3f0a002-…`) batches of i16 **µV** @ `sample_hz` (250).  
 4. **Accept coeffs JSON write** (`c3f0a003-…`) mapping to the knobs already in `config.h` / runtime detector state.  
@@ -79,16 +80,16 @@ Prefer **runtime mutable** copies of these so BLE write applies without reboot.
 
 Use nRF Connect (or similar) before phone integration:
 
-1. Device appears as `HnH-Feather` / `ECG-Box` with service `c3f0a000-…`.  
+1. Device appears as `ECG-Box-Feather` / `ECG-Box` with service `c3f0a000-…`.  
 2. After enabling IBI CCCD + `start_stream`, notifications match binary layout in GATT doc; IBIs look physiologic at rest (~600–1000 ms).  
 3. Writing a coeffs JSON with e.g. `refractory_ms: 350` changes behavior (or is ACK’d in status) without crash.  
 4. `stop_stream` stops notifies.  
 5. Disconnect / reconnect recovers cleanly.  
 6. Serial plotter path still works when BLE is idle (if both compiled in).
 
-Then (after phone GATT client lands): scan → connect → profile push → Stream → VNS-TA sees `rr` / `ecg` with `source_device: "FEATHER"`.
+Then: phone Tech **Connect Feather** (β.29+) → Stream → VNS-TA sees `rr` / `ecg` with `source_device: "FEATHER"`.
 
-Until then, phone host-path smoke test is Tech **Simulate Feather** on APK **≥ v1.0.0-beta.27** — see [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md).
+Phone host-path smoke test without MCU: Tech **Simulate Feather** on APK **≥ v1.0.0-beta.27** — see [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md).
 
 ---
 
@@ -146,7 +147,7 @@ Also read:
 Phone status: codecs, profile store, and Tech Simulate Feather (host path with source_device FEATHER) are already shipping; live GATT scan/connect on the phone is still next. Your job is the MCU BLE side against the GATT doc.
 
 Requirements:
-- Advertise HnH-Feather (or ECG-Box) with service c3f0a000-7a1e-4f3b-9c2d-8e5f6a7b8c9d
+- Advertise ECG-Box-Feather (or ECG-Box) with service c3f0a000-7a1e-4f3b-9c2d-8e5f6a7b8c9d
 - IBI notify binary v1; optional ECG i16 µV; coeffs JSON write mapped to detector knobs; control start_stream/stop_stream
 - Keep peak detection on MCU; no Polar PMD emulation; no Wi-Fi session path for V1
 - Keep USB serial bench path working

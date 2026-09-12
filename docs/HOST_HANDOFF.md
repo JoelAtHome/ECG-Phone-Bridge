@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.28**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** phone Feather BLE (live GATT connect next) + profiles/calibrate → Tuner. β.27 sim RSA; β.28 Disconnect sensor without closing app.
+**Status:** Shipping phone contract through **v1.0.0-beta.29**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Feather profiles/calibrate → Tuner. β.27 sim RSA; β.28 Disconnect sensor; β.29 Tech **Connect Feather** live GATT.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 

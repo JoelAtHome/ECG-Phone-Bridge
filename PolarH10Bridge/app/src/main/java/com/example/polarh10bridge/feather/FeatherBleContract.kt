@@ -7,7 +7,8 @@ import org.json.JSONObject
 
 /** Draft v1 UUIDs — keep in sync with docs/FEATHER_BLE_GATT.md */
 object FeatherBleContract {
-    const val ADVERTISED_NAME_PRIMARY = "HnH-Feather"
+    /** Preferred advertise name (HnH-only names are deprecated). */
+    const val ADVERTISED_NAME_PRIMARY = "ECG-Box-Feather"
     const val ADVERTISED_NAME_ALT = "ECG-Box"
 
     val SERVICE_UUID: UUID = UUID.fromString("c3f0a000-7a1e-4f3b-9c2d-8e5f6a7b8c9d")
@@ -25,8 +26,10 @@ object FeatherBleContract {
         if (n.isEmpty()) return false
         return n.equals(ADVERTISED_NAME_PRIMARY, ignoreCase = true) ||
             n.equals(ADVERTISED_NAME_ALT, ignoreCase = true) ||
-            n.startsWith("HnH-Feather", ignoreCase = true) ||
-            n.startsWith("ECG-Box", ignoreCase = true)
+            n.startsWith("ECG-Box", ignoreCase = true) ||
+            // Legacy advertise names still accepted if an older flash is on the bench.
+            n.equals("HnH-Feather", ignoreCase = true) ||
+            n.startsWith("HnH-Feather", ignoreCase = true)
     }
 }
 

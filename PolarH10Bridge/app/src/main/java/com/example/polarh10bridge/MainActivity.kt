@@ -260,6 +260,11 @@ private data class BridgeScreenState(
     val lastQualityFlags: List<String> = emptyList(),
     /** Tech-only: inject synthetic Feather IBIs into the bridge edge (no BLE box required). */
     val featherSimActive: Boolean = false,
+    /** Tech Feather GATT client (live ECG-Box-Feather). */
+    val featherBleConnected: Boolean = false,
+    val featherBlePhase: String = "Idle",
+    val featherBleDetail: String = "",
+    val featherBleLastIbiMs: Int? = null,
 )
 
 class MainActivity : ComponentActivity() {
@@ -287,6 +292,7 @@ class MainActivity : ComponentActivity() {
     private var lastPublishedContactState: SensorContactState? = null
     private var bleSearchDisposable: Disposable? = null
     private var featherProfileStore: com.example.polarh10bridge.feather.FeatherProfileStore? = null
+    private var featherBleClient: com.example.polarh10bridge.feather.FeatherBleClient? = null
     private var featherSimIbiIndex = 0
     private var featherSimElapsedMs = 0L
     private val featherSimRunnable =
@@ -423,11 +429,188 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sourceDeviceWire(): String =
-        if (screenState.value.featherSimActive) {
+        if (screenState.value.featherSimActive || screenState.value.featherBleConnected) {
             com.example.polarh10bridge.feather.FeatherBleContract.SOURCE_DEVICE_WIRE
         } else {
             "POLAR_H10"
         }
+
+    private fun ensureFeatherBleClient(): com.example.polarh10bridge.feather.FeatherBleClient {
+        featherBleClient?.let { return it }
+        val client =
+            com.example.polarh10bridge.feather.FeatherBleClient(
+                context = this,
+                mainHandler = mainHandler,
+                listener =
+                    object : com.example.polarh10bridge.feather.FeatherBleClient.Listener {
+                        override fun onPhase(
+                            phase: com.example.polarh10bridge.feather.FeatherBleClient.Phase,
+                            detail: String,
+                        ) {
+                            val connected =
+                                phase ==
+                                    com.example.polarh10bridge.feather.FeatherBleClient.Phase.Ready ||
+                                    phase ==
+                                    com.example.polarh10bridge.feather.FeatherBleClient.Phase
+                                        .Streaming ||
+                                    phase ==
+                                    com.example.polarh10bridge.feather.FeatherBleClient.Phase
+                                        .Discovering ||
+                                    phase ==
+                                    com.example.polarh10bridge.feather.FeatherBleClient.Phase
+                                        .Connecting
+                            updateScreen {
+                                it.copy(
+                                    featherBlePhase = phase.name,
+                                    featherBleDetail = detail,
+                                    featherBleConnected = connected ||
+                                        (it.featherBleConnected &&
+                                            phase !=
+                                            com.example.polarh10bridge.feather.FeatherBleClient
+                                                .Phase.Idle &&
+                                            phase !=
+                                            com.example.polarh10bridge.feather.FeatherBleClient
+                                                .Phase.Error &&
+                                            phase !=
+                                            com.example.polarh10bridge.feather.FeatherBleClient
+                                                .Phase.Scanning),
+                                    sensorContact =
+                                        if (connected) {
+                                            SensorContactState.InContact
+                                        } else if (
+                                            phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle ||
+                                                phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Error
+                                        ) {
+                                            if (it.featherSimActive) {
+                                                SensorContactState.InContact
+                                            } else {
+                                                SensorContactState.Unknown
+                                            }
+                                        } else {
+                                            it.sensorContact
+                                        },
+                                    connectedSensorName =
+                                        if (connected) {
+                                            com.example.polarh10bridge.feather.FeatherBleContract
+                                                .ADVERTISED_NAME_PRIMARY
+                                        } else if (
+                                            phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle ||
+                                                phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Error
+                                        ) {
+                                            if (it.sensorConnected) it.connectedSensorName else ""
+                                        } else {
+                                            it.connectedSensorName
+                                        },
+                                )
+                            }
+                            if (phase ==
+                                com.example.polarh10bridge.feather.FeatherBleClient.Phase.Idle ||
+                                phase ==
+                                com.example.polarh10bridge.feather.FeatherBleClient.Phase.Error
+                            ) {
+                                updateScreen {
+                                    it.copy(
+                                        featherBleConnected = false,
+                                        featherBleLastIbiMs =
+                                            if (phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle
+                                            ) {
+                                                null
+                                            } else {
+                                                it.featherBleLastIbiMs
+                                            },
+                                    )
+                                }
+                            }
+                        }
+
+                        override fun onIbiMs(values: List<Int>) {
+                            for (rr in values) {
+                                if (rr <= 0) continue
+                                updateScreen { it.copy(featherBleLastIbiMs = rr) }
+                                ingestSourceRrMs(rr, updateHrEveryBeat = true)
+                            }
+                        }
+
+                        override fun onStatusJson(json: String) {
+                            Log.d("HnHBridge", "Feather status: $json")
+                            updateScreen {
+                                it.copy(featherBleDetail = json.take(120))
+                            }
+                        }
+
+                        override fun onEcgSamplesUv(sampleHz: Int, samplesUv: List<Int>) {
+                            if (samplesUv.isEmpty()) return
+                            val mv =
+                                com.example.polarh10bridge.feather.FeatherPacketCodec
+                                    .samplesUvToMv(samplesUv)
+                            // Host path: same shape Polar ECG uses when session active.
+                            if (!screenState.value.sessionActive) return
+                            val samplesJson = mv.joinToString(prefix = "[", postfix = "]")
+                            sendBridgeJsonLine(
+                                """{"type":"ecg","sample_rate_hz":$sampleHz,"samples_mv":$samplesJson}""",
+                            )
+                        }
+                    },
+            )
+        featherBleClient = client
+        return client
+    }
+
+    private fun beginFeatherBleTest() {
+        if (screenState.value.sensorConnected) {
+            Log.w("HnHBridge", "Refuse Feather BLE while Polar connected — disconnect first")
+            updateScreen {
+                it.copy(
+                    featherBlePhase = "Error",
+                    featherBleDetail = "Disconnect Polar first",
+                )
+            }
+            return
+        }
+        setFeatherSimActive(false)
+        featherProfileStore?.ensureDemoProfile()
+        val coeffsBytes =
+            featherProfileStore
+                ?.load("demo")
+                ?.let {
+                    com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
+                        it.coeffsForBleWrite(),
+                    )
+                }
+        ensureFeatherBleClient().connectForTest(coeffsJsonUtf8 = coeffsBytes)
+    }
+
+    private fun disconnectFeatherBle() {
+        featherBleClient?.disconnect()
+        updateScreen {
+            it.copy(
+                featherBleConnected = false,
+                featherBlePhase = "Idle",
+                featherBleDetail = "idle",
+                featherBleLastIbiMs = null,
+                connectedSensorName =
+                    if (it.sensorConnected) it.connectedSensorName else "",
+                sensorContact =
+                    if (it.featherSimActive) {
+                        SensorContactState.InContact
+                    } else if (it.sensorConnected) {
+                        it.sensorContact
+                    } else {
+                        SensorContactState.Unknown
+                    },
+            )
+        }
+    }
 
     private fun ingestSourceRrMs(rr: Int, updateHrEveryBeat: Boolean = false) {
         if (rr <= 0) return
@@ -477,6 +660,10 @@ class MainActivity : ComponentActivity() {
         if (enabled == screenState.value.featherSimActive) return
         if (enabled && screenState.value.sensorConnected) {
             Log.w("HnHBridge", "Refuse Feather sim while Polar sensor is connected")
+            return
+        }
+        if (enabled && screenState.value.featherBleConnected) {
+            Log.w("HnHBridge", "Refuse Feather sim while live Feather BLE is connected")
             return
         }
         mainHandler.removeCallbacks(featherSimRunnable)
@@ -1169,7 +1356,11 @@ class MainActivity : ComponentActivity() {
 
     private fun disconnectConnectedSensor() {
         val id = screenState.value.connectedSensorId
-        if (!screenState.value.sensorConnected && id.isEmpty()) return
+        val featherUp = screenState.value.featherBleConnected
+        if (!screenState.value.sensorConnected && id.isEmpty() && !featherUp) return
+        if (featherUp || screenState.value.featherBlePhase != "Idle") {
+            disconnectFeatherBle()
+        }
         stopConnectedRssiPolling()
         stopBleScan()
         if (id.isNotEmpty()) {
@@ -1328,6 +1519,7 @@ class MainActivity : ComponentActivity() {
                                 normBleAddr(it.deviceId) == normBleAddr(polarDeviceInfo.deviceId)
                         }?.rssi
                     mainHandler.post {
+                        disconnectFeatherBle()
                         setFeatherSimActive(false)
                         val nameFromRow =
                             screenState.value.bleRows.find {
@@ -1716,6 +1908,10 @@ class MainActivity : ComponentActivity() {
                     onToggleFeatherSim = {
                         setFeatherSimActive(!screenState.value.featherSimActive)
                     },
+                    onConnectFeatherBle = { beginFeatherBleTest() },
+                    onDisconnectFeatherBle = { disconnectFeatherBle() },
+                    onFeatherStartStream = { featherBleClient?.startStream() },
+                    onFeatherStopStream = { featherBleClient?.stopStream() },
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -1775,6 +1971,8 @@ class MainActivity : ComponentActivity() {
         rrStreamingStarted = false
         ecgStreamingStarted = false
         mainHandler.removeCallbacks(featherSimRunnable)
+        featherBleClient?.disconnect()
+        featherBleClient = null
 
         hrDisposable?.dispose()
         hrDisposable = null
@@ -1842,6 +2040,10 @@ private fun BridgeMainScreen(
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
     onToggleFeatherSim: () -> Unit,
+    onConnectFeatherBle: () -> Unit,
+    onDisconnectFeatherBle: () -> Unit,
+    onFeatherStartStream: () -> Unit,
+    onFeatherStopStream: () -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -2239,6 +2441,7 @@ private fun BridgeMainScreen(
                         lastRmssdMs = state.lastRmssdMs,
                         sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
+                        featherBleConnected = state.featherBleConnected,
                         onModeSelected = onSessionModeSelected,
                         onStart = onStartSession,
                         onStop = onStopSession,
@@ -2264,6 +2467,14 @@ private fun BridgeMainScreen(
                         connectedSensorRssi = state.connectedSensorRssi,
                         featherSimActive = state.featherSimActive,
                         onToggleFeatherSim = onToggleFeatherSim,
+                        featherBlePhase = state.featherBlePhase,
+                        featherBleDetail = state.featherBleDetail,
+                        featherBleLastIbiMs = state.featherBleLastIbiMs,
+                        featherBleConnected = state.featherBleConnected,
+                        onConnectFeatherBle = onConnectFeatherBle,
+                        onDisconnectFeatherBle = onDisconnectFeatherBle,
+                        onFeatherStartStream = onFeatherStartStream,
+                        onFeatherStopStream = onFeatherStopStream,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {
