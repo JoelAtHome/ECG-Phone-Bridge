@@ -148,9 +148,12 @@ fun TechSessionMeters(
                         } else if (settled) {
                             "Settled"
                         } else {
-                            val rem = ceil(settleRemaining).toInt()
-                            val tot = ceil(settleTarget).toInt()
-                            "Settle ${tot - rem}/$tot s"
+                            val settledSec =
+                                elapsedSec.toLong().coerceIn(0L, settleTarget.toLong())
+                            "Settling " +
+                                formatElapsedClock(settledSec) +
+                                " / " +
+                                formatElapsedClock(settleTarget.toLong().coerceAtLeast(1L))
                         },
                     )
                 },

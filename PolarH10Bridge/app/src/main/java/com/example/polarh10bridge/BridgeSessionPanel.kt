@@ -161,6 +161,7 @@ fun BridgeSessionPanel(
                         containerColor = SessionBannerRed,
                         contentColor = Color.White,
                         disabledContainerColor = Color(0xFFBDBDBD),
+                        disabledContentColor = Color.White.copy(alpha = 0.85f),
                     ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f),
@@ -172,9 +173,10 @@ fun BridgeSessionPanel(
                 enabled = active,
                 colors =
                     ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF455A64),
+                        containerColor = SessionBannerRed,
                         contentColor = Color.White,
                         disabledContainerColor = Color(0xFFBDBDBD),
+                        disabledContentColor = Color.White.copy(alpha = 0.85f),
                     ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f),
