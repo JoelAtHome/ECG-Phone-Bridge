@@ -211,6 +211,9 @@ fun TechSessionMeters(
                         append(String.format(Locale.US, "%.1f ms", displayRmssdMs))
                     } else if (sessionActive && sessionMode == BridgeSessionMode.Record) {
                         append("TBD (on stop)")
+                    } else if (sessionActive && sessionMode == BridgeSessionMode.Stream) {
+                        // Settle period (and until first rolling emit): clearer than "—"
+                        append("unsettled")
                     } else {
                         append("—")
                     }

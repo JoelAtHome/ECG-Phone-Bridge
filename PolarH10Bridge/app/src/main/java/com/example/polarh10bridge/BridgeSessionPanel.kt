@@ -110,6 +110,8 @@ fun BridgeSessionPanel(
                         active && mode == BridgeSessionMode.Record -> append("TBD")
                         lastRmssdMs != null ->
                             append(String.format(Locale.US, "%.1f ms", lastRmssdMs))
+                        // Stream settle (and until first rolling value): clearer than "—"
+                        active && mode == BridgeSessionMode.Stream -> append("unsettled")
                         else -> append("—")
                     }
                 },

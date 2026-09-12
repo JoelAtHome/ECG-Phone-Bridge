@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.22**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** VNS-TA Stream field path → phone Feather BLE + profiles/calibrate (Tuner after phone can push/stream). Contact/quality gates shipped in β.21; finish tear-down / PC disconnect detection in β.22.
+**Status:** Shipping phone contract through **v1.0.0-beta.23**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** VNS-TA Stream field path → phone Feather BLE + profiles/calibrate (Tuner after phone can push/stream). Contact/quality gates shipped in β.21; finish tear-down / PC disconnect detection in β.22; Stream RMSSD shows **unsettled** until rolling value in β.23.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 

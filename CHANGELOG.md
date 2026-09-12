@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.23
+- enhancement: Stream mode shows RMSSD as **unsettled** (instead of —) while settling / until the first rolling value.
+
 ## Version 1.0.0-beta.22
 - fix: Closing/finishing the app tears down the PC TCP link (closes the client socket, stops background keep-alive on finish) so VNS-TA / HnH detect disconnect instead of a zombie "still connected" / no-data state.
 
