@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.37**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Tuner build-out (Polar referee) after field-verify Tech profiles/calibrate. β.37 Delete profile; β.36 factory labels. **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
+**Status:** Shipping phone contract through **v1.0.0-beta.37**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner** USB MVP — see ecg-box [`docs/TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md) (commit/push from local `ecg-box` when ready). Phone profiles field-verified (Patient 2 knobs live). **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -14,7 +14,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | System architecture | [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | [SYSTEM_ARCHITECTURE.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/SYSTEM_ARCHITECTURE.md) |
 | Wire protocol (NDJSON) | [PROTOCOL.md](./PROTOCOL.md) | [PROTOCOL.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/PROTOCOL.md) |
 | Feather patient profiles | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | [FEATHER_PROFILE_SCHEMA.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/FEATHER_PROFILE_SCHEMA.md) |
-| Feather BLE GATT + ECG-Box handoff | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) · [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) | same paths on GitHub |
+| Feather BLE GATT + ecg-box handoff | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) · [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) | same paths on GitHub |
 | Phone-first Feather test | [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) | same on GitHub |
 | Repo README | [README.md](../README.md) | [ECG-Phone-Bridge](https://github.com/JoelAtHome/ECG-Phone-Bridge) |
 
