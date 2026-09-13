@@ -168,16 +168,19 @@ class FeatherProfileStoreTest {
         val store = FeatherProfileStore(tmp.newFolder("feather_profiles2"))
         store.ensureFactoryProfiles()
         assertEquals("demo", store.activeProfileId())
-        assertEquals(90, (store.load("joel")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
-        assertEquals(420, (store.load("joel")!!.coeffs["refractory_ms"] as Number).toInt())
-        assertEquals(2, store.listProfiles().size)
+        assertEquals("Typical patch torso", store.load("demo")!!.displayName)
+        assertEquals("Patient 1", store.load("patient-1")!!.displayName)
+        assertEquals(40, (store.load("patient-1")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+        assertEquals(90, (store.load("patient-2")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+        assertEquals(420, (store.load("patient-2")!!.coeffs["refractory_ms"] as Number).toInt())
+        assertEquals(3, store.listProfiles().size)
 
         val payton = store.addPatient("Payton")
         assertEquals("payton", payton.profileId)
         assertEquals("Payton", payton.displayName)
         assertEquals("payton", store.activeProfileId())
         assertFalse(payton.hardware.containsKey("demo_seed"))
-        assertEquals(3, store.listProfiles().size)
+        assertEquals(4, store.listProfiles().size)
 
         store.setActiveProfileId("demo")
         assertEquals("demo", store.activeProfileId())
@@ -187,14 +190,34 @@ class FeatherProfileStoreTest {
     }
 
     @Test
-    fun ensureFactory_does_not_overwrite_saved_joel() {
+    fun ensureFactory_does_not_overwrite_saved_patient2() {
         val store = FeatherProfileStore(tmp.newFolder("feather_profiles3"))
         store.ensureFactoryProfiles()
         store.save(
-            store.load("joel")!!.copy(coeffs = store.load("joel")!!.coeffs + ("fiducial_delay_ms" to 110)),
+            store.load("patient-2")!!.copy(
+                coeffs = store.load("patient-2")!!.coeffs + ("fiducial_delay_ms" to 110),
+            ),
         )
         store.ensureFactoryProfiles()
-        assertEquals(110, (store.load("joel")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+        assertEquals(110, (store.load("patient-2")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+    }
+
+    @Test
+    fun migrates_legacy_joel_to_patient2() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles4"))
+        store.save(
+            FeatherPatientProfile(
+                profileId = "joel",
+                displayName = "Joel",
+                coeffs = mapOf("fiducial_delay_ms" to 99, "refractory_ms" to 420),
+            ),
+        )
+        store.setActiveProfileId("joel")
+        store.ensureFactoryProfiles()
+        assertNull(store.load("joel"))
+        assertEquals(99, (store.load("patient-2")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+        assertEquals("Patient 2", store.load("patient-2")!!.displayName)
+        assertEquals("patient-2", store.activeProfileId())
     }
 
     @Test

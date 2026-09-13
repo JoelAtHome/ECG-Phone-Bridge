@@ -140,31 +140,20 @@ data class FeatherPatientProfile(
         }
 
         /**
-         * Demo seed aligned with ecg-box patch/torso known-good
-         * (`docs/FEATHER_BLE.md` § Known-good coeff sets). Bump [DEMO_SEED]
+         * Generic patch/torso known-good (`docs/FEATHER_BLE.md`). Bump [DEMO_SEED]
          * when those values change so [FeatherProfileStore.ensureDemoProfile]
-         * rewrites an already-saved demo file.
+         * rewrites an already-saved demo file. Display name: "Typical patch torso".
          */
         const val DEMO_SEED = 2
 
-        fun defaultDemo(profileId: String = "demo", displayName: String = "Demo"): FeatherPatientProfile =
+        fun defaultTypicalPatchTorso(
+            profileId: String = "demo",
+            displayName: String = "Typical patch torso",
+        ): FeatherPatientProfile =
             FeatherPatientProfile(
                 profileId = profileId,
                 displayName = displayName,
-                coeffs =
-                    mapOf(
-                        "refractory_ms" to 400,
-                        "ibi_min_ms" to 400,
-                        "ibi_max_ms" to 1500,
-                        "peak_search_ms" to 220,
-                        "peak_search_min_ms" to 60,
-                        "peak_end_frac" to 0.55,
-                        "r_peak_refine_ms" to 200,
-                        "fiducial_delay_ms" to 40,
-                        "ibi_outlier_lo" to 0.75,
-                        "ibi_outlier_hi" to 1.30,
-                        "ibi_rmssd_max_ms" to 1200,
-                    ),
+                coeffs = patchTorsoCoeffs(),
                 hardware =
                     mapOf(
                         "board" to "feather_huzzah32",
@@ -177,15 +166,41 @@ data class FeatherPatientProfile(
                 sessionTiming = defaultSessionTiming(),
             )
 
+        /** @deprecated Use [defaultTypicalPatchTorso]. */
+        fun defaultDemo(profileId: String = "demo", displayName: String = "Typical patch torso"): FeatherPatientProfile =
+            defaultTypicalPatchTorso(profileId, displayName)
+
         /**
-         * Joel / Aug 31 handgrip Lead I seed (`docs` handgrip known-good:
-         * `fiducial_delay_ms` 90, `refractory_ms` 420). Starting coeffs only —
-         * on-device Saves stay phone-local and are never written back to git.
+         * Patient 1 — Payton torso bring-up (shoulders + lower-right abdomen).
+         * Same detector knobs as patch/torso known-good; Payton Test 1 used
+         * fiducial 40 / refractory 400 / ibi_min 400 (outlier caps now known-good).
          */
-        fun defaultJoel(): FeatherPatientProfile =
+        fun defaultPatient1(): FeatherPatientProfile =
             FeatherPatientProfile(
-                profileId = "joel",
-                displayName = "Joel",
+                profileId = "patient-1",
+                displayName = "Patient 1",
+                coeffs = patchTorsoCoeffs(),
+                hardware =
+                    mapOf(
+                        "board" to "feather_huzzah32",
+                        "frontend" to "sparkfun_ad8232",
+                        "electrode_setup" to "patch_torso",
+                        "sample_hz" to 250,
+                        "notes" to
+                            "Payton — shoulders + lower right abdomen; coeffs from patch/torso " +
+                                "known-good (aligned with 2026-09-03 bring-up)",
+                    ),
+                sessionTiming = defaultSessionTiming(),
+            )
+
+        /**
+         * Patient 2 — Joel handgrip Lead I (Aug 31 Polar-agreeing knobs:
+         * `fiducial_delay_ms` 90, `refractory_ms` 420). Starting coeffs only.
+         */
+        fun defaultPatient2(): FeatherPatientProfile =
+            FeatherPatientProfile(
+                profileId = "patient-2",
+                displayName = "Patient 2",
                 coeffs =
                     mapOf(
                         "refractory_ms" to 420,
@@ -211,6 +226,21 @@ data class FeatherPatientProfile(
                                 "Polar-agreeing handgrip knobs (not the .txt capture itself)",
                     ),
                 sessionTiming = defaultSessionTiming(),
+            )
+
+        private fun patchTorsoCoeffs(): Map<String, Any?> =
+            mapOf(
+                "refractory_ms" to 400,
+                "ibi_min_ms" to 400,
+                "ibi_max_ms" to 1500,
+                "peak_search_ms" to 220,
+                "peak_search_min_ms" to 60,
+                "peak_end_frac" to 0.55,
+                "r_peak_refine_ms" to 200,
+                "fiducial_delay_ms" to 40,
+                "ibi_outlier_lo" to 0.75,
+                "ibi_outlier_hi" to 1.30,
+                "ibi_rmssd_max_ms" to 1200,
             )
 
         /** True when a stored demo still has pre-seed-2 outlier / RMSSD-cap values. */
@@ -288,27 +318,62 @@ class FeatherProfileStore(
     fun ensureDemoProfile(): FeatherPatientProfile {
         val existing = load("demo")
         if (existing == null) {
-            return save(FeatherPatientProfile.defaultDemo())
+            return save(FeatherPatientProfile.defaultTypicalPatchTorso())
         }
         if (FeatherPatientProfile.demoNeedsKnownGoodMigration(existing)) {
             val refreshed =
-                FeatherPatientProfile.defaultDemo().copy(
+                FeatherPatientProfile.defaultTypicalPatchTorso().copy(
                     createdAt = existing.createdAt,
-                    displayName = existing.displayName.ifBlank { "Demo" },
+                    displayName =
+                        when (existing.displayName) {
+                            "", "Demo" -> "Typical patch torso"
+                            else -> existing.displayName
+                        },
                 )
             return save(refreshed)
+        }
+        if (existing.displayName == "Demo") {
+            return save(existing.copy(displayName = "Typical patch torso"))
         }
         return existing
     }
 
     /**
-     * Ensure factory seeds exist. Does **not** overwrite a Joel profile that was
-     * already Saved on-device (your tuned coeffs stay phone-local).
+     * Ensure factory seeds exist. Does **not** overwrite Patient 1/2 coeffs that
+     * were already Saved on-device.
      */
     fun ensureFactoryProfiles() {
         ensureDemoProfile()
-        if (load("joel") == null) {
-            save(FeatherPatientProfile.defaultJoel())
+        migrateLegacyJoelToPatient2()
+        if (load("patient-1") == null) {
+            save(FeatherPatientProfile.defaultPatient1())
+        }
+        if (load("patient-2") == null) {
+            save(FeatherPatientProfile.defaultPatient2())
+        }
+    }
+
+    /** β.35 used profile id `joel`; rename to `patient-2` once, keeping coeffs. */
+    private fun migrateLegacyJoelToPatient2() {
+        if (load("patient-2") != null) {
+            // Drop leftover joel file if patient-2 already exists.
+            fileFor("joel").takeIf { it.exists() }?.delete()
+            return
+        }
+        val legacy = load("joel") ?: return
+        save(
+            legacy.copy(
+                profileId = "patient-2",
+                displayName =
+                    when (legacy.displayName) {
+                        "", "Joel" -> "Patient 2"
+                        else -> legacy.displayName
+                    },
+            ),
+        )
+        fileFor("joel").delete()
+        if (activeMetaFile().exists() && activeMetaFile().readText().trim() == "joel") {
+            activeMetaFile().writeText("patient-2")
         }
     }
 

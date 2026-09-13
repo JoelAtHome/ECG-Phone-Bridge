@@ -38,7 +38,7 @@ Prereqs: Feather flashed with `hframe_ecg_hrv` `ENABLE_BLE=1`, advertising **`EC
 5. **Start Stream** on the capture panel — `source_device: FEATHER`; hosts see live `rr` / `ecg`.  
 6. XOR: disconnect Feather before connecting Polar (and the reverse).
 
-Demo profile coeffs are written on connect when present (patch/torso known-good from β.32+). **β.35+:** Tech **Patient profile** picker — Change / Add patient (clone demo) / edit coeffs → Save; Connect Feather pushes the **active** profile (Save while connected also pushes). Session timing remains phone-default until wired.
+**β.36+:** Factory labels — Typical patch torso / Patient 1 (Payton) / Patient 2 (Joel). Active profile coeffs are written on Connect (patch/torso known-good from β.32+ for the typical seed). **β.35+:** Tech **Patient profile** picker — Change / Add patient (clone typical) / edit coeffs → Save; Connect Feather pushes the **active** profile (Save while connected also pushes). Session timing remains phone-default until wired.
 
 ---
 

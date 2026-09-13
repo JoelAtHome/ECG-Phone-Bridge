@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.35**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Tuner build-out (Polar referee) after field-verify Tech profiles/calibrate. β.35 Tech profile picker + Joel/Demo seeds; β.34 strip + sim IBI/ECG. **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs + Tech/Session layout) after features settle.
+**Status:** Shipping phone contract through **v1.0.0-beta.36**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Tuner build-out (Polar referee) after field-verify Tech profiles/calibrate. β.36 factory labels (Typical patch torso / Patient 1 / Patient 2); β.35 Tech profile picker. **Parked:** phone UI chrome polish; Delete profile UI.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
