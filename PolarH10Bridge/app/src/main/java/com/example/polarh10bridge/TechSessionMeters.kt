@@ -348,7 +348,7 @@ fun TechSessionMeters(
                     if (featherSimActive) {
                         "RSA IBIs + textbook PQRST ECG → bridge as FEATHER (strip + host)."
                     } else {
-                        "No ECG box needed — synthetic IBI and ECG for Tech strip / VNS bring-up."
+                        "No ECG-Box needed — synthetic IBI and ECG for Tech strip / VNS bring-up."
                     },
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,

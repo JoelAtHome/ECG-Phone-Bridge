@@ -1,8 +1,8 @@
-# Handoff — Feather / ecg-box agents (BLE → phone)
+# Handoff — Feather / ECG-Box agents (BLE → phone)
 
 **Date:** 2026-09-11 (refreshed same day after phone β.25–28)  
 **From:** ECG-Phone-Bridge (phone edge went first)  
-**To:** Agents / humans working in [ecg-box](https://github.com/JoelAtHome/ecg-box)  
+**To:** Agents / humans working in [ECG-Box](https://github.com/JoelAtHome/ecg-box)  
 **Not a medical device.**
 
 ---
@@ -11,7 +11,7 @@
 
 Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path:
 
-**Feather MCU (ecg-box) → phone over BLE → same Wi‑Fi NDJSON hosts already consume.**
+**Feather MCU (ECG-Box) → phone over BLE → same Wi‑Fi NDJSON hosts already consume.**
 
 **Phone status (as of v1.0.0-beta.29):**
 
@@ -93,7 +93,7 @@ Phone host-path smoke test without MCU: Tech **Simulate Feather** on APK **≥ v
 
 ---
 
-## 5. What phone already owns (do not reimplement in ecg-box)
+## 5. What phone already owns (do not reimplement in ECG-Box)
 
 - UDP discovery + TCP NDJSON to PC  
 - Official bridge RMSSD from IBI  
@@ -103,7 +103,7 @@ Phone host-path smoke test without MCU: Tech **Simulate Feather** on APK **≥ v
 - Feather packet codecs + Tech sim (RSA) for FEATHER-sourced host traffic  
 - Polar H10 path unchanged when sim is off; Disconnect sensor without killing the app  
 
-Tuner / deep calibrate UI may live partly in ecg-box `tools/pc-tuner/` later; **profile system of record for V1 is the phone.**
+Tuner / deep calibrate UI may live partly in ECG-Box `tools/pc-tuner/` later; **profile system of record for V1 is the phone.**
 
 ---
 
@@ -131,7 +131,7 @@ If GATT doc and firmware must diverge, **update `docs/FEATHER_BLE_GATT.md` in EC
 
 ---
 
-## 8. Copy-paste prompt for a Feather/ecg-box agent
+## 8. Copy-paste prompt for a Feather/ECG-Box agent
 
 ```text
 Implement BLE GATT for hframe_ecg_hrv so the phone bridge can consume IBI/ECG.

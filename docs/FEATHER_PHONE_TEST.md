@@ -5,7 +5,7 @@
 
 ---
 
-## A. Without the ECG box (Simulate Feather)
+## A. Without the ECG-Box (Simulate Feather)
 
 1. Install a build that includes Tech **Simulate Feather IBI + ECG** (**≥ v1.0.0-beta.34**; β.27+ for RSA IBIs only; β.26+ for Start-with-sim).  
 2. Open the app → switch to **Tech view**.  

@@ -14,7 +14,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | System architecture | [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | [SYSTEM_ARCHITECTURE.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/SYSTEM_ARCHITECTURE.md) |
 | Wire protocol (NDJSON) | [PROTOCOL.md](./PROTOCOL.md) | [PROTOCOL.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/PROTOCOL.md) |
 | Feather patient profiles | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | [FEATHER_PROFILE_SCHEMA.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/FEATHER_PROFILE_SCHEMA.md) |
-| Feather BLE GATT + ecg-box handoff | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) · [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) | same paths on GitHub |
+| Feather BLE GATT + ECG-Box handoff | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) · [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) | same paths on GitHub |
 | Phone-first Feather test | [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) | same on GitHub |
 | Repo README | [README.md](../README.md) | [ECG-Phone-Bridge](https://github.com/JoelAtHome/ECG-Phone-Bridge) |
 

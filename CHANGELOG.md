@@ -21,7 +21,7 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 - enhancement: Feather ECG notify enabled — host `ecg` NDJSON while streaming (like `rr`); Tech rolling ECG strip (~3 s).
 
 ## Version 1.0.0-beta.32
-- enhancement: Demo Feather coeffs match ecg-box patch/torso known-good (`ibi_outlier` 0.75/1.30, `ibi_rmssd_max_ms` 1200); migrate on-device `demo` via `demo_seed`.
+- enhancement: Demo Feather coeffs match ECG-Box patch/torso known-good (`ibi_outlier` 0.75/1.30, `ibi_rmssd_max_ms` 1200); migrate on-device `demo` via `demo_seed`.
 
 ## Version 1.0.0-beta.31
 - fix: Update banner always re-checks GitHub on app open (6h cache was hiding newer releases published the same day).
@@ -43,7 +43,7 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 - fix: Capture **Start** enables when Tech Feather sim is active (was gated on Polar `sensorConnected` only).
 
 ## Version 1.0.0-beta.25
-- enhancement: Phone-first Feather path — BLE GATT contract, profile store, packet codecs, Tech **Simulate Feather IBIs** (`source_device: FEATHER`), plus ecg-box handoff docs. Live GATT connect still next.
+- enhancement: Phone-first Feather path — BLE GATT contract, profile store, packet codecs, Tech **Simulate Feather IBIs** (`source_device: FEATHER`), plus ECG-Box handoff docs. Live GATT connect still next.
 
 ## Version 1.0.0-beta.24
 - fix: Keep Polar H10 and PC bridge connections across screen rotation (`configChanges` so the Activity is not recreated and torn down).

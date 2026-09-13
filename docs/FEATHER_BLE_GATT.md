@@ -1,8 +1,8 @@
-# Feather / ecg-box ↔ phone BLE GATT (draft v1)
+# Feather / ECG-Box ↔ phone BLE GATT (draft v1)
 
 **Date:** 2026-09-11  
 **Status:** Draft locked for phone-first implementation — firmware may implement against this  
-**Repos:** [ecg-box](https://github.com/JoelAtHome/ecg-box) (`firmware/hframe_ecg_hrv`), [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md), [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §5.2  
+**Repos:** [ECG-Box](https://github.com/JoelAtHome/ecg-box) (`firmware/hframe_ecg_hrv`), [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md), [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §5.2  
 **Not a medical device.**
 
 ---

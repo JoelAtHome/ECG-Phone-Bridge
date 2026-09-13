@@ -7,7 +7,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 - Hertz & Hearts
 - [VNS-TA](https://github.com/JoelAtHome/VNS-TA)
 - FlareTracker
-- Analog capture hardware: [ecg-box](https://github.com/JoelAtHome/ecg-box)
+- Analog capture hardware: [ECG-Box](https://github.com/JoelAtHome/ecg-box)
 
 ## Layout
 
@@ -20,7 +20,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | Wire protocol sketch (NDJSON, discovery, RMSSD) |
 | [`docs/FEATHER_PROFILE_SCHEMA.md`](docs/FEATHER_PROFILE_SCHEMA.md) | Per-patient Feather calibration JSON (phone-local V1) |
 | [`docs/FEATHER_BLE_GATT.md`](docs/FEATHER_BLE_GATT.md) | Draft Feather ↔ phone BLE GATT contract |
-| [`docs/FEATHER_REPO_HANDOFF.md`](docs/FEATHER_REPO_HANDOFF.md) | Handoff for ecg-box / Feather firmware agents |
+| [`docs/FEATHER_REPO_HANDOFF.md`](docs/FEATHER_REPO_HANDOFF.md) | Handoff for ECG-Box / Feather firmware agents |
 | [`docs/FEATHER_PHONE_TEST.md`](docs/FEATHER_PHONE_TEST.md) | Phone-first test procedure (sim + live BLE) |
 | [`docs/HOST_HANDOFF.md`](docs/HOST_HANDOFF.md) | What FlareTracker / VNS-TA / HnH should expect |
 | `docs/SYSTEM_ARCHITECTURE.pdf` | PDF export of the architecture doc |
@@ -30,7 +30,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 
 ## Architecture
 
-Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for system intent (sources, phone bridge, hosts, official RMSSD). Wire details: [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Host app checklists: [`docs/HOST_HANDOFF.md`](docs/HOST_HANDOFF.md). Feather: [profile schema](docs/FEATHER_PROFILE_SCHEMA.md), [BLE GATT](docs/FEATHER_BLE_GATT.md), [ecg-box handoff](docs/FEATHER_REPO_HANDOFF.md), [phone test](docs/FEATHER_PHONE_TEST.md).
+Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for system intent (sources, phone bridge, hosts, official RMSSD). Wire details: [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Host app checklists: [`docs/HOST_HANDOFF.md`](docs/HOST_HANDOFF.md). Feather: [profile schema](docs/FEATHER_PROFILE_SCHEMA.md), [BLE GATT](docs/FEATHER_BLE_GATT.md), [ECG-Box handoff](docs/FEATHER_REPO_HANDOFF.md), [phone test](docs/FEATHER_PHONE_TEST.md).
 
 ## Development
 
