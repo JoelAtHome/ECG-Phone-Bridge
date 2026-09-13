@@ -269,6 +269,11 @@ private data class BridgeScreenState(
     val featherEcgTraceMv: List<Float> = emptyList(),
     val featherEcgSampleHz: Int = 250,
     val featherEcgPacketCount: Int = 0,
+    /** Tech patient profile picker (Feather coeffs). */
+    val featherProfiles: List<com.example.polarh10bridge.feather.FeatherProfileSummary> = emptyList(),
+    val featherActiveProfileId: String = "demo",
+    val featherActiveDisplayName: String = "Demo",
+    val featherProfileStatus: String = "",
 )
 
 class MainActivity : ComponentActivity() {
@@ -619,16 +624,79 @@ class MainActivity : ComponentActivity() {
             return
         }
         setFeatherSimActive(false)
-        featherProfileStore?.ensureDemoProfile()
+        val active = featherProfileStore?.loadActive()
+        refreshFeatherProfileUi(
+            status = "Connect will push ${active?.displayName ?: "Demo"} coeffs",
+        )
         val coeffsBytes =
-            featherProfileStore
-                ?.load("demo")
-                ?.let {
-                    com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
-                        it.coeffsForBleWrite(),
-                    )
-                }
+            active?.let {
+                com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
+                    it.coeffsForBleWrite(),
+                )
+            }
         ensureFeatherBleClient().connectForTest(coeffsJsonUtf8 = coeffsBytes)
+    }
+
+    private fun refreshFeatherProfileUi(status: String? = null) {
+        val store = featherProfileStore ?: return
+        store.ensureFactoryProfiles()
+        val active = store.loadActive()
+        updateScreen {
+            it.copy(
+                featherProfiles = store.listSummaries(),
+                featherActiveProfileId = active.profileId,
+                featherActiveDisplayName = active.displayName,
+                featherProfileStatus = status ?: it.featherProfileStatus,
+            )
+        }
+    }
+
+    private fun selectFeatherProfile(profileId: String) {
+        val store = featherProfileStore ?: return
+        val selected = store.setActiveProfileId(profileId)
+        if (selected == null) {
+            refreshFeatherProfileUi(status = "Profile not found")
+            return
+        }
+        refreshFeatherProfileUi(status = "Active: ${selected.displayName}")
+    }
+
+    private fun addFeatherPatient(displayName: String) {
+        val store = featherProfileStore ?: return
+        val created =
+            try {
+                store.addPatient(displayName)
+            } catch (e: Exception) {
+                refreshFeatherProfileUi(status = "Add failed: ${e.message}")
+                return
+            }
+        refreshFeatherProfileUi(status = "Added ${created.displayName}")
+    }
+
+    private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
+        val store = featherProfileStore ?: return
+        val active = store.loadActive()
+        val (merged, err) =
+            com.example.polarh10bridge.feather.FeatherPatientProfile.mergeEditableCoeffDraft(
+                active.coeffs,
+                draft,
+            )
+        if (err != null) {
+            refreshFeatherProfileUi(status = err)
+            return
+        }
+        val saved = store.save(active.copy(coeffs = merged))
+        store.setActiveProfileId(saved.profileId)
+        var status = "Saved ${saved.displayName}"
+        if (screenState.value.featherBleConnected) {
+            val bytes =
+                com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
+                    saved.coeffsForBleWrite(),
+                )
+            featherBleClient?.writeCoeffsJson(bytes)
+            status += " · pushed to Feather"
+        }
+        refreshFeatherProfileUi(status = status)
     }
 
     private fun disconnectFeatherBle() {
@@ -751,7 +819,7 @@ class MainActivity : ComponentActivity() {
         featherSimElapsedMs = 0L
         featherSimCurrentIbiMs = 800
         featherSimEcgPhase01 = 0.0
-        featherProfileStore?.ensureDemoProfile()
+        featherProfileStore?.ensureFactoryProfiles()
         updateScreen {
             it.copy(
                 featherSimActive = true,
@@ -1539,7 +1607,7 @@ class MainActivity : ComponentActivity() {
             com.example.polarh10bridge.feather.FeatherProfileStore(
                 File(filesDir, "feather_profiles"),
             )
-        featherProfileStore?.ensureDemoProfile()
+        featherProfileStore?.ensureFactoryProfiles()
         sessionController.preferredMode = sessionModePref
         sessionController.preferredKind =
             when (sessionModePref) {
@@ -1547,6 +1615,7 @@ class MainActivity : ComponentActivity() {
                 BridgeSessionMode.Stream -> BridgeSessionKind.Session
             }
         val techViewPref = loadTechViewPref()
+        val activeProfile = featherProfileStore?.loadActive()
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -1557,6 +1626,9 @@ class MainActivity : ComponentActivity() {
                 techView = techViewPref,
                 settleTrimSec = sessionController.settleTrimSec,
                 sessionTargetSec = sessionController.sessionTargetSec,
+                featherProfiles = featherProfileStore?.listSummaries().orEmpty(),
+                featherActiveProfileId = activeProfile?.profileId ?: "demo",
+                featherActiveDisplayName = activeProfile?.displayName ?: "Demo",
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1993,6 +2065,13 @@ class MainActivity : ComponentActivity() {
                     onDisconnectFeatherBle = { disconnectFeatherBle() },
                     onFeatherStartStream = { featherBleClient?.startStream() },
                     onFeatherStopStream = { featherBleClient?.stopStream() },
+                    onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
+                    onAddFeatherPatient = { name -> addFeatherPatient(name) },
+                    onSaveFeatherProfileCoeffs = { draft -> saveFeatherActiveCoeffs(draft) },
+                    featherActiveCoeffs =
+                        featherProfileStore?.loadActive()?.let {
+                            com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
+                        }.orEmpty(),
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -2126,6 +2205,10 @@ private fun BridgeMainScreen(
     onDisconnectFeatherBle: () -> Unit,
     onFeatherStartStream: () -> Unit,
     onFeatherStopStream: () -> Unit,
+    onSelectFeatherProfile: (String) -> Unit,
+    onAddFeatherPatient: (String) -> Unit,
+    onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
+    featherActiveCoeffs: Map<String, String>,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -2562,6 +2645,14 @@ private fun BridgeMainScreen(
                         featherEcgTraceMv = state.featherEcgTraceMv,
                         featherEcgSampleHz = state.featherEcgSampleHz,
                         featherEcgPacketCount = state.featherEcgPacketCount,
+                        featherProfiles = state.featherProfiles,
+                        featherActiveProfileId = state.featherActiveProfileId,
+                        featherActiveDisplayName = state.featherActiveDisplayName,
+                        featherProfileStatus = state.featherProfileStatus,
+                        featherActiveCoeffs = featherActiveCoeffs,
+                        onSelectFeatherProfile = onSelectFeatherProfile,
+                        onAddFeatherPatient = onAddFeatherPatient,
+                        onSaveFeatherProfileCoeffs = onSaveFeatherProfileCoeffs,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {

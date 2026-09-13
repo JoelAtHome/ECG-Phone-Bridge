@@ -160,6 +160,54 @@ class FeatherProfileStoreTest {
         assertEquals(p.profileId, back.profileId)
         assertEquals(p.coeffs["ibi_max_ms"], back.coeffs["ibi_max_ms"])
         assertEquals(p.coeffs["ibi_outlier_lo"], back.coeffs["ibi_outlier_lo"])
+        assertEquals(45, (back.sessionTiming["settle_trim_s"] as Number).toInt())
+    }
+
+    @Test
+    fun active_profile_and_add_patient() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles2"))
+        store.ensureFactoryProfiles()
+        assertEquals("demo", store.activeProfileId())
+        assertEquals(90, (store.load("joel")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+        assertEquals(420, (store.load("joel")!!.coeffs["refractory_ms"] as Number).toInt())
+        assertEquals(2, store.listProfiles().size)
+
+        val payton = store.addPatient("Payton")
+        assertEquals("payton", payton.profileId)
+        assertEquals("Payton", payton.displayName)
+        assertEquals("payton", store.activeProfileId())
+        assertFalse(payton.hardware.containsKey("demo_seed"))
+        assertEquals(3, store.listProfiles().size)
+
+        store.setActiveProfileId("demo")
+        assertEquals("demo", store.activeProfileId())
+
+        val again = store.addPatient("Payton")
+        assertEquals("payton-2", again.profileId)
+    }
+
+    @Test
+    fun ensureFactory_does_not_overwrite_saved_joel() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles3"))
+        store.ensureFactoryProfiles()
+        store.save(
+            store.load("joel")!!.copy(coeffs = store.load("joel")!!.coeffs + ("fiducial_delay_ms" to 110)),
+        )
+        store.ensureFactoryProfiles()
+        assertEquals(110, (store.load("joel")!!.coeffs["fiducial_delay_ms"] as Number).toInt())
+    }
+
+    @Test
+    fun merge_editable_coeff_draft() {
+        val demo = FeatherPatientProfile.defaultDemo()
+        val draft = FeatherPatientProfile.coeffDraftFrom(demo).toMutableMap()
+        draft["fiducial_delay_ms"] = "90"
+        draft["ibi_outlier_lo"] = "0.70"
+        val (merged, err) = FeatherPatientProfile.mergeEditableCoeffDraft(demo.coeffs, draft)
+        assertNull(err)
+        assertEquals(90, (merged["fiducial_delay_ms"] as Number).toInt())
+        assertEquals(0.70, (merged["ibi_outlier_lo"] as Number).toDouble(), 1e-9)
+        assertEquals(400, (merged["refractory_ms"] as Number).toInt())
     }
 }
 

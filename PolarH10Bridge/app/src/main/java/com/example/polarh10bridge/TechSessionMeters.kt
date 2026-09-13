@@ -19,7 +19,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,9 +44,12 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.polarh10bridge.feather.FeatherPatientProfile
+import com.example.polarh10bridge.feather.FeatherProfileSummary
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.max
@@ -101,10 +107,25 @@ fun TechSessionMeters(
     featherEcgTraceMv: List<Float> = emptyList(),
     featherEcgSampleHz: Int = 250,
     featherEcgPacketCount: Int = 0,
+    featherProfiles: List<FeatherProfileSummary> = emptyList(),
+    featherActiveProfileId: String = "demo",
+    featherActiveDisplayName: String = "Demo",
+    featherProfileStatus: String = "",
+    featherActiveCoeffs: Map<String, String> = emptyMap(),
+    onSelectFeatherProfile: ((String) -> Unit)? = null,
+    onAddFeatherPatient: ((String) -> Unit)? = null,
+    onSaveFeatherProfileCoeffs: ((Map<String, String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     var showFlagHelp by remember { mutableStateOf(false) }
+    var showProfilePicker by remember { mutableStateOf(false) }
+    var showAddPatient by remember { mutableStateOf(false) }
+    var addPatientName by remember { mutableStateOf("") }
+    var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
+    LaunchedEffect(featherActiveProfileId, featherActiveCoeffs) {
+        coeffDraft = featherActiveCoeffs
+    }
     LaunchedEffect(sessionActive) {
         while (true) {
             nowElapsed = SystemClock.elapsedRealtime()
@@ -333,6 +354,105 @@ fun TechSessionMeters(
             )
         }
 
+        if (onSelectFeatherProfile != null && onSaveFeatherProfileCoeffs != null) {
+            Text(
+                text = "Patient profile",
+                color = TechTextDark,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
+                color = TechTextDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            if (featherProfileStatus.isNotBlank()) {
+                Text(
+                    text = featherProfileStatus,
+                    color = TechTextDark.copy(alpha = 0.7f),
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
+                TextButton(onClick = { showProfilePicker = true }) {
+                    Text("Change", color = TechInfoBlue, fontSize = 13.sp)
+                }
+                if (onAddFeatherPatient != null) {
+                    TextButton(
+                        onClick = {
+                            addPatientName = ""
+                            showAddPatient = true
+                        },
+                    ) {
+                        Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
+                    }
+                }
+            }
+            Text(
+                text =
+                    "Edit coeffs → Save (explicit). Connect Feather pushes the active profile. " +
+                        "Session timing stays phone-default for now.",
+                color = TechTextDark.copy(alpha = 0.62f),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+            )
+            FeatherPatientProfile.EDITABLE_COEFF_KEYS.forEach { key ->
+                OutlinedTextField(
+                    value = coeffDraft[key].orEmpty(),
+                    onValueChange = { v -> coeffDraft = coeffDraft + (key to v) },
+                    label = { Text(key, fontSize = 11.sp) },
+                    singleLine = true,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                if (key.contains("frac") || key.contains("outlier")) {
+                                    KeyboardType.Decimal
+                                } else {
+                                    KeyboardType.Number
+                                },
+                        ),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TechTextDark,
+                            unfocusedTextColor = TechTextDark,
+                            focusedBorderColor = TechInfoBlue,
+                            unfocusedBorderColor = TechPanelBorder,
+                            focusedLabelColor = TechInfoBlue,
+                            unfocusedLabelColor = TechTextDark.copy(alpha = 0.55f),
+                            cursorColor = TechInfoBlue,
+                        ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                )
+            }
+            TextButton(
+                onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Text(
+                    text =
+                        if (featherBleConnected) {
+                            "Save + push to Feather"
+                        } else {
+                            "Save profile"
+                        },
+                    color = TechInfoBlue,
+                    fontSize = 13.sp,
+                )
+            }
+        }
+
         if (onConnectFeatherBle != null) {
             Text(
                 text = "Feather BLE test",
@@ -416,7 +536,7 @@ fun TechSessionMeters(
             )
             Text(
                 text =
-                    "Scans for ECG-Box-Feather, enables IBI+ECG notify, writes demo coeffs, " +
+                    "Scans for ECG-Box-Feather, enables IBI+ECG notify, writes active profile coeffs, " +
                         "sends start_stream. Use this instead of fiddly third-party BLE apps.",
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
@@ -424,6 +544,109 @@ fun TechSessionMeters(
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
+    }
+
+    if (showProfilePicker && onSelectFeatherProfile != null) {
+        AlertDialog(
+            onDismissRequest = { showProfilePicker = false },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Select patient profile",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    featherProfiles.forEach { summary ->
+                        val selected = summary.profileId == featherActiveProfileId
+                        TextButton(
+                            onClick = {
+                                onSelectFeatherProfile(summary.profileId)
+                                showProfilePicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text =
+                                    buildString {
+                                        append(summary.displayName)
+                                        append(" (")
+                                        append(summary.profileId)
+                                        append(")")
+                                        if (selected) append(" ✓")
+                                    },
+                                color = if (selected) TechInfoBlue else TechHelpText,
+                                fontSize = 14.sp,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProfilePicker = false }) {
+                    Text("Close", color = TechInfoBlue)
+                }
+            },
+        )
+    }
+
+    if (showAddPatient && onAddFeatherPatient != null) {
+        AlertDialog(
+            onDismissRequest = { showAddPatient = false },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Add patient",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Clones demo coeffs into a new phone-local profile.",
+                        color = TechHelpTextMuted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = addPatientName,
+                        onValueChange = { addPatientName = it },
+                        label = { Text("Display name") },
+                        singleLine = true,
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TechHelpText,
+                                unfocusedTextColor = TechHelpText,
+                                focusedBorderColor = TechInfoBlue,
+                                unfocusedBorderColor = TechPanelBorder,
+                                focusedLabelColor = TechInfoBlue,
+                                unfocusedLabelColor = TechHelpTextMuted,
+                                cursorColor = TechInfoBlue,
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onAddFeatherPatient(addPatientName)
+                        showAddPatient = false
+                    },
+                    enabled = addPatientName.trim().isNotEmpty(),
+                ) {
+                    Text("Add", color = TechInfoBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddPatient = false }) {
+                    Text("Cancel", color = TechHelpTextMuted)
+                }
+            },
+        )
     }
 
     if (showFlagHelp) {

@@ -273,6 +273,27 @@ class FeatherBleClient(
         writeControl("""{"cmd":"ping"}""")
     }
 
+    /** Push detector coeffs while connected (Tech Save / Recheck). */
+    @SuppressLint("MissingPermission")
+    fun writeCoeffsJson(coeffsJsonUtf8: ByteArray, then: (() -> Unit)? = null) {
+        val g = gatt
+        if (g == null) {
+            emit(Phase.Error, "not connected")
+            return
+        }
+        val ch =
+            g.getService(FeatherBleContract.SERVICE_UUID)
+                ?.getCharacteristic(FeatherBleContract.COEFFS_WRITE_UUID)
+        if (ch == null) {
+            emit(Phase.Error, "coeffs characteristic missing")
+            return
+        }
+        writeCharacteristic(g, ch, coeffsJsonUtf8) {
+            emit(Phase.Ready, "coeffs written")
+            then?.invoke()
+        }
+    }
+
     @SuppressLint("MissingPermission")
     fun disconnect() {
         mainHandler.removeCallbacks(scanTimeoutRunnable)

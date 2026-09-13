@@ -247,7 +247,8 @@ Open item: exact share UX (share sheet vs Files app).
 
 ## 7. Implementation notes (phone)
 
-1. UI: pick patient → load profile → connect Feather **over BLE** → write coeffs → start IBI/ECG.  
+1. UI (Tech-only): pick patient → load profile → connect Feather **over BLE** → write coeffs → start IBI/ECG.  
 2. Never silently overwrite a profile; “Save” / “Recheck” is explicit.  
 3. Official session RMSSD stays on the phone from IBI (`RmssdCalculator`); do not treat `feather_rmssd` or Polar agreement fields as the FlareTracker value of record.  
-4. Sequence: BLE connect/stream + profile push first; calibrate MVP next; Tuner build-out after that contract works.
+4. Sequence: BLE connect/stream + profile push first; calibrate MVP next; Tuner build-out after that contract works.  
+5. **Shipping (β.35):** Tech picker + Add patient (clone demo) + thin coeff editor + Save; factory seeds Demo + Joel; active id in `feather_profiles/_active_profile_id`; Connect/Save push active coeffs. `session_timing` is stored on the JSON for Tuner co-edit but **not** applied to `RmssdCalculator` yet.

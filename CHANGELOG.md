@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.35
+- enhancement: Tech **patient profile** picker + thin coeff editor (explicit Save); Add patient clones demo; factory seeds **Demo** (patch/torso) + **Joel** (handgrip Aug 31 knobs); Connect Feather / Save-while-connected push **active** profile coeffs. Session timing stored on profile JSON but not yet applied to RMSSD. On-device Saves stay phone-local (not in git).
+
 ## Version 1.0.0-beta.34
 - fix: Tech ECG strip always visible under Feather BLE (stronger chrome + packet count); high BLE connection priority.
 - enhancement: **Simulate Feather IBI + ECG** — textbook PQRST feeds Tech strip and host `ecg` (with existing RSA IBIs).

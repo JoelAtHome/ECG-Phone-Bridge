@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.34**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Feather profiles/calibrate → Tuner. β.33 live ECG; β.34 strip always visible + sim IBI/ECG.
+**Status:** Shipping phone contract through **v1.0.0-beta.35**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** Tuner build-out (Polar referee) after field-verify Tech profiles/calibrate. β.35 Tech profile picker + Joel/Demo seeds; β.34 strip + sim IBI/ECG. **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs + Tech/Session layout) after features settle.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -96,8 +96,9 @@ Later (phone bridge + hosts): ritual buffer dump, `session_summary`, last-sessio
 
 1. Field-verify Stream with phone **≥ v1.0.0-beta.18** (same write-thread fixes FT needed). Keep Polar Stream usable while Feather lands.  
 2. ~~Phone **contact / quality gates** (RSSI ≠ on-chest)~~ — shipped **β.21** (`sensor_quality`; RR/ECG gated on Polar `contactStatus`).  
-3. Phone **Feather BLE** + per-patient profiles + calibrate MVP; then build out **Tuner** as co-editor of the same profile JSON (Polar referee). Hosts keep consuming the same `rr` / `ecg` / optional bridge `rmssd` — no Feather-specific host wire.  
-4. Park: `session_control`, ritual buffer dump / last-session reuse, Feather MCU Wi‑Fi as a session path.
+3. Phone **Feather BLE** + per-patient profiles + calibrate MVP (Tech picker/editor in **β.35**); then build out **Tuner** as co-editor of the same profile JSON (Polar referee). Hosts keep consuming the same `rr` / `ecg` / optional bridge `rmssd` — no Feather-specific host wire.  
+4. Park: `session_control`, ritual buffer dump / last-session reuse, Feather MCU Wi‑Fi as a session path.  
+5. Park (after profiles/calibrate land): **phone UI chrome polish** — unify Polar vs Feather connect CTAs; other Tech/Session polish from field use (see [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) § Later).
 
 ### Expect from the bridge
 

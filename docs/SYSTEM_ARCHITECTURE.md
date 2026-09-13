@@ -114,6 +114,7 @@ flowchart TD
 - Feather MCU Wi‑Fi as optional escape hatch (not a second host contract)
 - Additional ECG peripherals
 - Optional HTTP/WebSocket transport if TCP NDJSON proves insufficient
+- **Phone UI chrome polish** (defer until Feather profiles/calibrate feature additions settle): unify Polar H10 vs Feather connect CTAs (today separate scan/list vs Tech Connect Feather), plus other Tech/Session layout/copy polish from field use — function first, chrome second
 
 ---
 
