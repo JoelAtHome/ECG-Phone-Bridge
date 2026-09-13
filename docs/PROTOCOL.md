@@ -371,7 +371,7 @@ Phone:   {"type":"session_state","state":"completed",…}
 | Host–mode negotiation / conflict UI | Later (intent in §5.3) |
 | Record buffer dump / last-session reuse | Later |
 | New discover prefix | Later |
-| Feather **profile sync** for ECG-Box Tuner (`profile_*`) | **Coded** (§13; rebuild APK to field-verify) |
+| Feather **profile sync** for ECG-Box Tuner (`profile_*`) | **Shipping** β.38 (§13) |
 
 ---
 

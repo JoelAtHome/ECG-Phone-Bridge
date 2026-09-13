@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.37**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner Phase 3** profile sync (`PROTOCOL.md` §13) + USB Apply — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md). Phone profiles field-verified (Patient 2 knobs live). **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
+**Status:** Shipping phone contract through **v1.0.0-beta.38**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner** USB Apply + profile sync field-verify — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md). β.38 renames PolarH10Bridge → `phone-bridge` / `ECG-Phone-Bridge` APK + Tuner profile sync wire. **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
