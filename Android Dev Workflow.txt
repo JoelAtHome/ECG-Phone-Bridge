@@ -9,7 +9,7 @@ This enters Developer Mode.
 
 4) Launch Android Studio.
 
-5) Open the PolarH10Bridge folder from this repo (e.g. C:\Cursor_Projects\ECG-Phone-Bridge\PolarH10Bridge)
+5) Open the `phone-bridge` folder from this repo (e.g. C:\Cursor_Projects\ECG-Phone-Bridge\phone-bridge)
    in Android Studio. Make sure Cursor can reach the same path for Kotlin edits.
 Expect Android Studio to silently see changes made by Cursor.
 

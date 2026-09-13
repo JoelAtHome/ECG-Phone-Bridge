@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.37**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner** USB MVP — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md) in the ECG-Box repo. Phone profiles field-verified (Patient 2 knobs live). **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
+**Status:** Shipping phone contract through **v1.0.0-beta.37**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner Phase 3** profile sync (`PROTOCOL.md` §13) + USB Apply — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md). Phone profiles field-verified (Patient 2 knobs live). **Parked:** phone UI chrome polish (unified H10/Feather connect CTAs).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -28,7 +28,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | Reply | JSON with at least `app`, `role`, `hostname`, `port` |
 | Session | TCP to phone `port` (default **8765**); **one** PC connection at a time |
 | Framing | NDJSON (one JSON object per line, UTF-8) |
-| Shipping types today | Phone→PC: `status`, `session_state`, `rmssd`, `rr`, `ecg`. PC→phone: `client_info` (optional `pc_user`). Phone listens for `session_control` but hosts should not send it until a later pass. |
+| Shipping types today | Phone→PC: `status`, `session_state`, `rmssd`, `rr`, `ecg`, **`profile` / `profile_list` / `profile_ack`**. PC→phone: `client_info`, `session_control`, **`profile_get_active` / `profile_list` / `profile_get` / `profile_put`**. |
 | Phone APK | Sideload **v1.0.0-beta.18** (`com.joelathome.ecgphonebridge`, versionCode 18) or newer. Earlier builds drop Stop `rmssd` (and any other write started on the UI thread). |
 | Sources | **Either Polar or Feather** per session — never both. Feather → phone is **BLE** (not Feather Wi‑Fi as the V1 product path). |
 | Official RMSSD | Computed **on the phone from IBI**; FlareTracker must not reimplement HRV math |

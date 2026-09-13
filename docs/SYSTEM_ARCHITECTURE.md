@@ -86,7 +86,7 @@ flowchart TD
 
 ## 3. Now / next / later
 
-### Now (shipping PolarH10Bridge)
+### Now (shipping ECG-Phone-Bridge)
 
 - Polar H10 via Polar BLE SDK: HR/IBI + ECG stream
 - UDP discovery (`HnH_PHONE_BRIDGE_DISCOVER_V1`, port **45124**) + TCP NDJSON (default port **8765**)
@@ -335,7 +335,7 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 - `docs/PROTOCOL.md` — NDJSON / discovery / RMSSD / session-control sketch  
 - `docs/FEATHER_PROFILE_SCHEMA.md` — per-patient Feather calibration JSON  
 - `docs/HOST_HANDOFF.md` — consumer checklists for FT / VNS-TA / HnH  
-- `PolarH10Bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
+- `phone-bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
 - `PASSDOWN.md` — Android Studio / network tooling passdown  
 - `CHANGELOG.md` — bridge release notes  
 - [ECG-Box](https://github.com/JoelAtHome/ecg-box) — analog ECG firmware, plans, `protocol.md`; tuning notes under `firmware/Tuning Data/`  

@@ -91,7 +91,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.polarh10bridge.ui.theme.PolarH10BridgeTheme
+import com.example.polarh10bridge.ui.theme.ECGPhoneBridgeTheme
 import com.polar.androidcommunications.api.ble.model.DisInfo
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
@@ -1153,6 +1153,9 @@ class MainActivity : ComponentActivity() {
                     val user = payload.optString("pc_user", "").trim().ifEmpty { null }
                     val app = payload.optString("client_app", "").trim().ifEmpty { null }
                     updateScreen { it.copy(pcBridgeUserName = user, pcClientApp = app) }
+                    if (app.equals("ecg_box_tuner", ignoreCase = true)) {
+                        sendActiveFeatherProfileToPc()
+                    }
                 }
                 "session_control" -> {
                     when (payload.optString("action").lowercase(Locale.US)) {
@@ -1183,12 +1186,177 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                "profile_get_active" -> sendActiveFeatherProfileToPc()
+                "profile_list" -> sendFeatherProfileListToPc()
+                "profile_get" -> {
+                    val id = payload.optString("profile_id", "").trim()
+                    sendFeatherProfileToPc(id)
+                }
+                "profile_put" -> handleFeatherProfilePutFromPc(payload)
                 else -> {
                     // Ignore unknown types for forward compatibility.
                 }
             }
         } catch (_: Exception) {
             // Keep stream compatibility with older/newer clients.
+        }
+    }
+
+    private fun sendActiveFeatherProfileToPc() {
+        val store = featherProfileStore
+        if (store == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "Profile store not ready")
+                    .toString(),
+            )
+            return
+        }
+        val active = store.loadActive()
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "profile")
+                .put("active", true)
+                .put("profile", active.toJsonObject())
+                .toString(),
+        )
+    }
+
+    private fun sendFeatherProfileToPc(profileId: String) {
+        val store = featherProfileStore
+        if (store == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "Profile store not ready")
+                    .toString(),
+            )
+            return
+        }
+        if (profileId.isEmpty()) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "profile_id required")
+                    .toString(),
+            )
+            return
+        }
+        val profile = store.load(profileId)
+        if (profile == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "Profile not found")
+                    .toString(),
+            )
+            return
+        }
+        val activeId = store.activeProfileId()
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "profile")
+                .put("active", profile.profileId == activeId)
+                .put("profile", profile.toJsonObject())
+                .toString(),
+        )
+    }
+
+    private fun sendFeatherProfileListToPc() {
+        val store = featherProfileStore
+        if (store == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "Profile store not ready")
+                    .toString(),
+            )
+            return
+        }
+        val summaries = org.json.JSONArray()
+        for (s in store.listSummaries()) {
+            summaries.put(
+                JSONObject()
+                    .put("profile_id", s.profileId)
+                    .put("display_name", s.displayName),
+            )
+        }
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "profile_list")
+                .put("active_profile_id", store.activeProfileId())
+                .put("profiles", summaries)
+                .toString(),
+        )
+    }
+
+    private fun handleFeatherProfilePutFromPc(payload: JSONObject) {
+        val store = featherProfileStore
+        if (store == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "Profile store not ready")
+                    .toString(),
+            )
+            return
+        }
+        val profileObj = payload.optJSONObject("profile")
+        if (profileObj == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", "profile object required")
+                    .toString(),
+            )
+            return
+        }
+        try {
+            val incoming =
+                com.example.polarh10bridge.feather.FeatherPatientProfile.fromJsonObject(profileObj)
+            val existing = store.load(incoming.profileId)
+            if (existing == null) {
+                sendBridgeJsonLine(
+                    JSONObject()
+                        .put("type", "profile_error")
+                        .put("ok", false)
+                        .put("message", "Unknown profile_id (Tuner cannot create patients yet)")
+                        .toString(),
+                )
+                return
+            }
+            val saved =
+                store.save(
+                    incoming.copy(createdAt = existing.createdAt),
+                )
+            mainHandler.post {
+                refreshFeatherProfileUi(status = "Tuner saved ${saved.displayName}")
+            }
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_ack")
+                    .put("ok", true)
+                    .put("profile_id", saved.profileId)
+                    .put("message", "Saved ${saved.displayName}")
+                    .toString(),
+            )
+        } catch (e: Exception) {
+            Log.e("HnHBridge", "profile_put failed", e)
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "profile_error")
+                    .put("ok", false)
+                    .put("message", e.message ?: "profile_put failed")
+                    .toString(),
+            )
         }
     }
 
@@ -1878,7 +2046,7 @@ class MainActivity : ComponentActivity() {
                         val hostLabel = Build.MODEL.orEmpty().ifBlank { "Android" }
                         val replyJson =
                             JSONObject()
-                                .put("app", "PolarH10Bridge")
+                                .put("app", "ECG-Phone-Bridge")
                                 .put("role", "phone_bridge")
                                 .put("hostname", hostLabel)
                                 .put("port", bridgePort)
@@ -1887,7 +2055,12 @@ class MainActivity : ComponentActivity() {
                                 .put(
                                     "features",
                                     org.json.JSONArray(
-                                        listOf("stream", "record", "rmssd_snapshot"),
+                                        listOf(
+                                            "stream",
+                                            "record",
+                                            "rmssd_snapshot",
+                                            "feather_profiles",
+                                        ),
                                     ),
                                 )
                                 .toString() + "\n"
@@ -2033,7 +2206,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            PolarH10BridgeTheme {
+            ECGPhoneBridgeTheme {
                 val state by screenState
                 val ipHintRefreshSession by bridgeIpHintRefreshSession
                 BridgeMainScreen(

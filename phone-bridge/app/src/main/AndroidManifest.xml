@@ -42,12 +42,12 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PolarH10Bridge">
+        android:theme="@style/Theme.ECGPhoneBridge">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.PolarH10Bridge"
+            android:theme="@style/Theme.ECGPhoneBridge"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
             <!-- Keep Activity (and Polar/PC sockets) alive across rotation; Compose still recomposes. -->
             <intent-filter>

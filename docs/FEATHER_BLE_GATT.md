@@ -152,7 +152,7 @@ If payload exceeds MTU, use **Write with long write** / queued chunks: phone sen
 ## 6. Versioning
 
 - Bump packet `version` / JSON `schema_version` only on breaking changes.  
-- Phone codecs live in `PolarH10Bridge/.../feather/` and are unit-tested.  
+- Phone codecs live in `phone-bridge/.../feather/` and are unit-tested.  
 - Firmware should match this doc; if you must diverge, update **this file first** in ECG-Phone-Bridge, then implement.
 
 ---

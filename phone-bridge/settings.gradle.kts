@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Polar H10 Bridge"
+rootProject.name = "ECG-Phone-Bridge"
 include(":app")

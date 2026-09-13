@@ -1,8 +1,11 @@
 # Phone Bridge Changelog
 
-This changelog tracks changes specific to the Android Phone Bridge app (`PolarH10Bridge`).
+This changelog tracks changes specific to the Android Phone Bridge app (`phone-bridge` project / **ECG-Phone-Bridge** product).
 
 ## Unreleased
+
+- maintenance: Retire **PolarH10Bridge** naming — Gradle project folder `phone-bridge/`, discovery `app` **`ECG-Phone-Bridge`**, release APK `ECG-Phone-Bridge-<tag>.apk`. `applicationId` unchanged (`com.joelathome.ecgphonebridge`). Hosts still match on `role: phone_bridge`.
+- enhancement: NDJSON **Feather profile sync** for ECG-Box Tuner (`PROTOCOL.md` §13) — `profile_get_active` / `profile_list` / `profile_get` / `profile_put`; discover `features` includes `feather_profiles`; `client_app: ecg_box_tuner` auto-pushes active profile.
 
 ## Version 1.0.0-beta.37
 - enhancement: Tech **Delete** active patient profile (confirm; keep ≥1); factory seeds no longer reappear after delete.
@@ -125,7 +128,7 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Version 1.0.0-beta.4
 - enhancement: Changed application id to `com.joelathome.ecgphonebridge` (away from `com.example.*`) and display name to “ECG Phone Bridge” for clearer sideloads / less Play Protect friction.
-- enhancement: CI now builds a **signed release** APK for GitHub Releases (`PolarH10Bridge-<tag>.apk`) instead of a debug artifact.
+- enhancement: CI now builds a **signed release** APK for GitHub Releases (`ECG-Phone-Bridge-<tag>.apk`) instead of a debug artifact.
 - fix: Bumped in-app `versionName` to match release tagging (was stuck at `1.0.0-beta.2` while GitHub already had a `v1.0.0-beta.3` tag).
 - docs: Architecture, protocol, Feather profile schema, and host handoff notes.
 - enhancement: Pure-Kotlin `RmssdCalculator` with unit tests (not yet on the TCP wire).
@@ -139,5 +142,5 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 - docs: Added an Android Bridge development workflow note (`Android Dev Workflow.txt`) covering USB debugging and deploy-from-Android-Studio steps.
 
 ## Version 1.0.0-beta.1
-- release: Published `PolarH10Bridge-debug-v1.0.0-beta.1.apk` to GitHub Releases via the Android bridge release workflow.
-- maintenance: Aligned APK asset naming with release tag format (`PolarH10Bridge-debug-<tag>.apk`) for predictable install/update guidance.
+- release: Published `ECG-Phone-Bridge-debug-v1.0.0-beta.1.apk` to GitHub Releases via the Android bridge release workflow.
+- maintenance: Aligned APK asset naming with release tag format (`ECG-Phone-Bridge-debug-<tag>.apk`) for predictable install/update guidance.

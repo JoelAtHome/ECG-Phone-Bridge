@@ -13,7 +13,7 @@ Originally developed inside [HertzAndHearts](https://github.com/JoelAtHome/Hertz
 
 | Path | Purpose |
 |------|---------|
-| `PolarH10Bridge/` | Android Studio / Gradle project (open this folder) |
+| `phone-bridge/` | Android Studio / Gradle project (open this folder) |
 | `polar-ble-sdk/` | Polar BLE SDK used by the app |
 | `CHANGELOG.md` | Bridge-specific release notes |
 | [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) | Target architecture & RMSSD / session intent |
@@ -34,7 +34,7 @@ Start with [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) for syst
 
 ## Development
 
-1. Open `PolarH10Bridge` in Android Studio.
+1. Open `phone-bridge` in Android Studio.
 2. Enable USB debugging on the phone and connect it.
 3. Build/run from Android Studio (see `Android Dev Workflow.txt`).
 
@@ -44,7 +44,7 @@ Local clone path (Windows): `C:\Cursor_Projects\ECG-Phone-Bridge`
 
 Signed release APKs are built by GitHub Actions (`.github/workflows/android-bridge.yml`) and attached to GitHub Releases as:
 
-`PolarH10Bridge-<tag>.apk`
+`ECG-Phone-Bridge-<tag>.apk`
 
 Example: [v1.0.0-beta.4](https://github.com/JoelAtHome/ECG-Phone-Bridge/releases) (after publish).
 
@@ -58,4 +58,4 @@ Example: [v1.0.0-beta.4](https://github.com/JoelAtHome/ECG-Phone-Bridge/releases
 
 Discovery and TCP framing are currently HnH-oriented (`HnH_PHONE_BRIDGE_DISCOVER_V1`, etc.). See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the versioned NDJSON sketch (RMSSD snapshots, record vs stream, multi-app `client_info`). Treat the wire protocol as a versioned contract when adding FlareTracker / VNS-TA clients; branding and multi-app identity can evolve in later releases.
 
-Official session RMSSD math (testable, not yet on the wire) lives in `PolarH10Bridge/app/src/main/java/com/example/polarh10bridge/rmssd/`.
+Official session RMSSD math (testable, not yet on the wire) lives in `phone-bridge/app/src/main/java/com/example/phone-bridge/rmssd/`.

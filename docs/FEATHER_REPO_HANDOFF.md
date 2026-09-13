@@ -35,7 +35,7 @@ Firmware can implement BLE against the GATT doc. Joint test: flash MCU + phone *
 | [PROTOCOL.md](./PROTOCOL.md) | Host NDJSON (do **not** fork) |
 | [HOST_HANDOFF.md](./HOST_HANDOFF.md) | What VNS-TA / FT / HnH expect |
 
-Phone codecs: `PolarH10Bridge/app/src/main/java/com/example/polarh10bridge/feather/`.
+Phone codecs: `phone-bridge/app/src/main/java/com/example/phone-bridge/feather/`.
 
 ---
 
@@ -103,7 +103,7 @@ Phone host-path smoke test without MCU: Tech **Simulate Feather** on APK **≥ v
 - Feather packet codecs + Tech sim (RSA) for FEATHER-sourced host traffic  
 - Polar H10 path unchanged when sim is off; Disconnect sensor without killing the app  
 
-Tuner / deep calibrate UI may live partly in ECG-Box `tools/pc-tuner/` later; **profile system of record for V1 is the phone.**
+Tuner / deep calibrate UI lives in ECG-Box `tools/pc-tuner/`. **Profile system of record for V1 is the phone.** Phase 3: Tuner discovers the bridge (same UDP/TCP as hosts), syncs the Tech-active profile, Accept → `profile_put` ([PROTOCOL.md](./PROTOCOL.md) §13). USB remains the Tuner path for live plot + `SET_COEFFS`.
 
 ---
 

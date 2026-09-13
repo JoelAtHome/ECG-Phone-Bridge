@@ -34,8 +34,10 @@ Plain text starting with the prefix (HnH may append more). Phone ignores non-mat
 Single JSON object + newline (or as currently sent):
 
 ```json
-{"app":"PolarH10Bridge","role":"phone_bridge","hostname":"Pixel 7","port":8765}
+{"app":"ECG-Phone-Bridge","role":"phone_bridge","hostname":"Pixel 7","port":8765}
 ```
+
+Hosts **must** match on `role: "phone_bridge"`. The `app` string is display/metadata; shipping value is **`ECG-Phone-Bridge`** (older phones may still send `PolarH10Bridge` — treat as equivalent).
 
 ### 2.3 Phone → PC (UDP reply) — additive fields (next)
 
@@ -43,7 +45,7 @@ Same object; new fields optional so old HnH still works:
 
 ```json
 {
-  "app": "PolarH10Bridge",
+  "app": "ECG-Phone-Bridge",
   "role": "phone_bridge",
   "hostname": "Pixel 7",
   "port": 8765,
@@ -298,6 +300,7 @@ Options under discussion (open item in architecture): NDJSON replay of buffered 
 | `hertz_and_hearts` | HnH (default if omitted — backward compatible) |
 | `vns_ta` | VNS-TA |
 | `flaretracker` | FlareTracker |
+| `ecg_box_tuner` | ECG-Box PC Tuner (profile sync / Accept) |
 
 Phone may show user + app on the connection UI.
 
@@ -328,7 +331,7 @@ Phone may show user + app on the connection UI.
 
 ```text
 PC UDP:  HnH_PHONE_BRIDGE_DISCOVER_V1
-Phone:   {"app":"PolarH10Bridge","role":"phone_bridge","hostname":"Pixel","port":8765,"protocol":"phone_bridge_ndjson_v1"}
+Phone:   {"app":"ECG-Phone-Bridge","role":"phone_bridge","hostname":"Pixel","port":8765,"protocol":"phone_bridge_ndjson_v1"}
 PC TCP:  {"type":"client_info","pc_user":"Joel","client_app":"vns_ta"}
 PC TCP:  {"type":"session_control","action":"start","mode":"stream","kind":"session"}
 Phone:   {"type":"session_state","session_id":"…","mode":"stream","state":"streaming","source_device":"POLAR_H10"}
@@ -368,3 +371,64 @@ Phone:   {"type":"session_state","state":"completed",…}
 | Host–mode negotiation / conflict UI | Later (intent in §5.3) |
 | Record buffer dump / last-session reuse | Later |
 | New discover prefix | Later |
+| Feather **profile sync** for ECG-Box Tuner (`profile_*`) | **Coded** (§13; rebuild APK to field-verify) |
+
+---
+
+## 13. Feather profile sync (ECG-Box Tuner)
+
+**Product rules (Phase 3):**
+
+- Phone remains **system of record** (`files/feather_profiles/*.json`).
+- **Phone Tech picks** the active patient; Tuner **syncs** that profile (does not own a second picker as SoR).
+- Live detector **Apply** to the MCU stays on **USB `SET_COEFFS`** in the Tuner (bench markers). Bridge is for **profile load/save**.
+- Tuner **Accept** → immediate `profile_put` to the phone (overwrite that `profile_id`).
+
+Advertise capability: discover `features` may include `"feather_profiles"`.
+
+### 13.1 PC → phone
+
+```json
+{"type":"client_info","pc_user":"Joel","client_app":"ecg_box_tuner","client_version":"0.1.0"}
+{"type":"profile_get_active"}
+{"type":"profile_list"}
+{"type":"profile_get","profile_id":"patient-2"}
+{"type":"profile_put","profile":{ "...": "FEATHER_PROFILE_SCHEMA document" }}
+```
+
+| `type` | Purpose |
+|--------|---------|
+| `profile_get_active` | Return the Tech-selected active profile |
+| `profile_list` | Summaries + `active_profile_id` |
+| `profile_get` | Full document by id |
+| `profile_put` | Save full document (Accept). Phone stamps `updated_at`. |
+
+When `client_app` is `ecg_box_tuner`, phone **should** push the active `profile` once after `client_info` (same as an implicit `profile_get_active`).
+
+### 13.2 Phone → PC
+
+```json
+{
+  "type": "profile",
+  "active": true,
+  "profile": { "schema_version": 1, "profile_id": "patient-2", "display_name": "Joel", "coeffs": { } }
+}
+```
+
+```json
+{
+  "type": "profile_list",
+  "active_profile_id": "patient-2",
+  "profiles": [
+    {"profile_id": "demo", "display_name": "Typical patch torso"},
+    {"profile_id": "patient-2", "display_name": "Joel"}
+  ]
+}
+```
+
+```json
+{"type":"profile_ack","ok":true,"profile_id":"patient-2","message":"Saved Joel"}
+{"type":"profile_error","ok":false,"message":"Profile not found"}
+```
+
+Unknown keys inside `profile` follow the schema (phone may ignore extras). `profile_put` for an unknown `profile_id` → `profile_error` (Tuner does not create patients over the wire in V1).

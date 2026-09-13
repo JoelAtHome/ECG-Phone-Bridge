@@ -15,13 +15,13 @@ on:
     branches:
       - main
     paths:
-      - "PolarH10Bridge/**"
+      - "phone-bridge/**"
       - ".github/workflows/android-bridge.yml"
   pull_request:
     branches:
       - main
     paths:
-      - "PolarH10Bridge/**"
+      - "phone-bridge/**"
       - ".github/workflows/android-bridge.yml"
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: PolarH10Bridge
+        working-directory: phone-bridge
 
     steps:
       - name: Check out repository
@@ -70,8 +70,8 @@ jobs:
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v7
         with:
-          name: PolarH10Bridge-release-apk
-          path: PolarH10Bridge/app/build/outputs/apk/release/app-release.apk
+          name: ECG-Phone-Bridge-release-apk
+          path: phone-bridge/app/build/outputs/apk/release/app-release.apk
 
   upload-to-release:
     needs: build-apk
@@ -103,7 +103,7 @@ jobs:
       - name: Download release APK artifact
         uses: actions/download-artifact@v7
         with:
-          name: PolarH10Bridge-release-apk
+          name: ECG-Phone-Bridge-release-apk
           path: apk
 
       - name: Attach APK to GitHub release
@@ -113,8 +113,8 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.release_tag.outputs.tag }}"
           test -f apk/app-release.apk
-          cp apk/app-release.apk "PolarH10Bridge-${TAG}.apk"
-          FILE="PolarH10Bridge-${TAG}.apk"
+          cp apk/app-release.apk "ECG-Phone-Bridge-${TAG}.apk"
+          FILE="ECG-Phone-Bridge-${TAG}.apk"
           found=
           for i in $(seq 1 30); do
             if gh release view "$TAG" --json tagName >/dev/null 2>&1; then

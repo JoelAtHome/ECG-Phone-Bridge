@@ -1,8 +1,8 @@
 # Feather / patient profile schema
 
-**Date:** 2026-09-11  
-**Status:** Draft — phone-local V1; export/import later  
-**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2 / §7, [PROTOCOL.md](./PROTOCOL.md)
+**Date:** 2026-09-13  
+**Status:** Phone-local V1 shipping (Tech β.35+); Tuner co-edit via NDJSON `profile_*` (PROTOCOL §13)  
+**Related:** [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) §6.2 / §7, [PROTOCOL.md](./PROTOCOL.md) §13
 
 ---
 
@@ -15,7 +15,7 @@ Per-patient **profile** on the phone:
 
 **Link:** Product path is **phone ← Feather BLE** (same edge as Polar). Feather MCU Wi‑Fi is not the V1 session path. Hosts (including VNS-TA) keep consuming phone NDJSON (`rr` / `ecg` / optional bridge `rmssd`); they do not talk to Feather directly.
 
-**Calibrate / Tuner:** Phone owns the profile store and session push. A thin Tech UI or thin Tuner may create/edit the same JSON; full Tuner (Polar referee, guided Accept) comes after the phone can connect, push coeffs, and stream. Do not put settle windows only in Tuner.
+**Calibrate / Tuner:** Phone owns the profile store and session push. Tech picker selects the active patient; ECG-Box Tuner **Find phone / Sync** pulls that profile and **Accept** writes it back (`profile_put`). Live MCU Apply stays USB `SET_COEFFS` on the Tuner bench. Do not put settle windows only in Tuner.
 
 | Phase | Storage |
 |-------|---------|
@@ -251,4 +251,5 @@ Open item: exact share UX (share sheet vs Files app).
 2. Never silently overwrite a profile; “Save” / “Recheck” is explicit.  
 3. Official session RMSSD stays on the phone from IBI (`RmssdCalculator`); do not treat `feather_rmssd` or Polar agreement fields as the FlareTracker value of record.  
 4. Sequence: BLE connect/stream + profile push first; calibrate MVP next; Tuner build-out after that contract works.  
-5. **Shipping (β.35+):** Tech picker + Add patient + thin coeff editor + Save + **Delete** (β.37; confirm; keep ≥1); factory seeds **Typical patch torso**, **Patient 1**, **Patient 2** (once; deleted stay deleted); active id in `feather_profiles/_active_profile_id`; Connect/Save push active coeffs. `session_timing` stored but not yet applied to `RmssdCalculator`.
+5. **Shipping (β.35+):** Tech picker + Add patient + thin coeff editor + Save + **Delete** (β.37; confirm; keep ≥1); factory seeds **Typical patch torso**, **Patient 1**, **Patient 2** (once; deleted stay deleted); active id in `feather_profiles/_active_profile_id`; Connect/Save push active coeffs. `session_timing` stored but not yet applied to `RmssdCalculator`.  
+6. **Tuner Phase 3 (code):** PROTOCOL §13 `profile_*` over the existing Wi‑Fi NDJSON session; discover `features` may include `feather_profiles`. Rebuild APK before field-verify with ECG-Box Tuner Find/Sync/Accept.

@@ -21,7 +21,7 @@
 **Unit tests (dev machine):**
 
 ```bat
-cd PolarH10Bridge
+cd phone-bridge
 gradlew.bat test --tests com.example.polarh10bridge.FeatherCodecAndProfileTest
 ```
 
