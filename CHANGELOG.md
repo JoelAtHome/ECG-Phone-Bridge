@@ -4,8 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`PolarH1
 
 ## Unreleased
 
+## Version 1.0.0-beta.37
+- enhancement: Tech **Delete** active patient profile (confirm; keep ≥1); factory seeds no longer reappear after delete.
+
 ## Version 1.0.0-beta.36
-- polish: Factory profile labels — **Typical patch torso** (was Demo), **Patient 1** (Payton patch/torso), **Patient 2** (Joel handgrip; migrates legacy `joel` id). Delete-profile UI still later.
+- polish: Factory profile labels — **Typical patch torso** (was Demo), **Patient 1** (Payton patch/torso), **Patient 2** (Joel handgrip; migrates legacy `joel` id).
 
 ## Version 1.0.0-beta.35
 - enhancement: Tech **patient profile** picker + thin coeff editor (explicit Save); Add patient clones demo; factory seeds **Demo** (patch/torso) + **Joel** (handgrip Aug 31 knobs); Connect Feather / Save-while-connected push **active** profile coeffs. Session timing stored on profile JSON but not yet applied to RMSSD. On-device Saves stay phone-local (not in git).

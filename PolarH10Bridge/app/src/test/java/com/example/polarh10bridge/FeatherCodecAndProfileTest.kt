@@ -221,6 +221,34 @@ class FeatherProfileStoreTest {
     }
 
     @Test
+    fun delete_profile_and_does_not_reseed() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles5"))
+        store.ensureFactoryProfiles()
+        assertEquals(3, store.listProfiles().size)
+        store.setActiveProfileId("patient-1")
+        val (ok, msg) = store.deleteProfile("patient-1")
+        assertTrue(msg, ok)
+        assertNull(store.load("patient-1"))
+        assertEquals(2, store.listProfiles().size)
+        assertTrue(store.activeProfileId() != "patient-1")
+        store.ensureFactoryProfiles()
+        assertNull(store.load("patient-1"))
+        assertEquals(2, store.listProfiles().size)
+    }
+
+    @Test
+    fun delete_refuses_last_profile() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles6"))
+        store.ensureFactoryProfiles()
+        store.deleteProfile("patient-1")
+        store.deleteProfile("patient-2")
+        val (ok, msg) = store.deleteProfile("demo")
+        assertFalse(ok)
+        assertTrue(msg.contains("at least one"))
+        assertNotNull(store.load("demo"))
+    }
+
+    @Test
     fun merge_editable_coeff_draft() {
         val demo = FeatherPatientProfile.defaultDemo()
         val draft = FeatherPatientProfile.coeffDraftFrom(demo).toMutableMap()

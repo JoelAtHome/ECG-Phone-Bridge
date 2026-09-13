@@ -673,6 +673,13 @@ class MainActivity : ComponentActivity() {
         refreshFeatherProfileUi(status = "Added ${created.displayName}")
     }
 
+    private fun deleteFeatherProfile(profileId: String) {
+        val store = featherProfileStore ?: return
+        val (ok, msg) = store.deleteProfile(profileId)
+        refreshFeatherProfileUi(status = msg)
+        if (!ok) return
+    }
+
     private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
         val store = featherProfileStore ?: return
         val active = store.loadActive()
@@ -2067,6 +2074,7 @@ class MainActivity : ComponentActivity() {
                     onFeatherStopStream = { featherBleClient?.stopStream() },
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
+                    onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
                     onSaveFeatherProfileCoeffs = { draft -> saveFeatherActiveCoeffs(draft) },
                     featherActiveCoeffs =
                         featherProfileStore?.loadActive()?.let {
@@ -2207,6 +2215,7 @@ private fun BridgeMainScreen(
     onFeatherStopStream: () -> Unit,
     onSelectFeatherProfile: (String) -> Unit,
     onAddFeatherPatient: (String) -> Unit,
+    onDeleteFeatherProfile: (String) -> Unit,
     onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
     featherActiveCoeffs: Map<String, String>,
 ) {
@@ -2652,6 +2661,7 @@ private fun BridgeMainScreen(
                         featherActiveCoeffs = featherActiveCoeffs,
                         onSelectFeatherProfile = onSelectFeatherProfile,
                         onAddFeatherPatient = onAddFeatherPatient,
+                        onDeleteFeatherProfile = onDeleteFeatherProfile,
                         onSaveFeatherProfileCoeffs = onSaveFeatherProfileCoeffs,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )

@@ -114,6 +114,7 @@ fun TechSessionMeters(
     featherActiveCoeffs: Map<String, String> = emptyMap(),
     onSelectFeatherProfile: ((String) -> Unit)? = null,
     onAddFeatherPatient: ((String) -> Unit)? = null,
+    onDeleteFeatherProfile: ((String) -> Unit)? = null,
     onSaveFeatherProfileCoeffs: ((Map<String, String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -121,6 +122,7 @@ fun TechSessionMeters(
     var showFlagHelp by remember { mutableStateOf(false) }
     var showProfilePicker by remember { mutableStateOf(false) }
     var showAddPatient by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     var addPatientName by remember { mutableStateOf("") }
     var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
     LaunchedEffect(featherActiveProfileId, featherActiveCoeffs) {
@@ -395,6 +397,11 @@ fun TechSessionMeters(
                         Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
                     }
                 }
+                if (onDeleteFeatherProfile != null) {
+                    TextButton(onClick = { showDeleteConfirm = true }) {
+                        Text("Delete", color = TechInfoBlue, fontSize = 13.sp)
+                    }
+                }
             }
             Text(
                 text =
@@ -643,6 +650,44 @@ fun TechSessionMeters(
             },
             dismissButton = {
                 TextButton(onClick = { showAddPatient = false }) {
+                    Text("Cancel", color = TechHelpTextMuted)
+                }
+            },
+        )
+    }
+
+    if (showDeleteConfirm && onDeleteFeatherProfile != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Delete profile?",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Text(
+                    text =
+                        "Remove “$featherActiveDisplayName” ($featherActiveProfileId) from this phone. " +
+                            "Cannot undo. Keep at least one profile.",
+                    color = TechHelpTextMuted,
+                    fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteFeatherProfile(featherActiveProfileId)
+                        showDeleteConfirm = false
+                    },
+                ) {
+                    Text("Delete", color = Color(0xFFFF8A80))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
                     Text("Cancel", color = TechHelpTextMuted)
                 }
             },

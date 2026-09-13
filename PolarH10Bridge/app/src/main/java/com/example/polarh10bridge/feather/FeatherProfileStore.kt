@@ -320,8 +320,12 @@ class FeatherProfileStore(
         if (existing == null) {
             return save(FeatherPatientProfile.defaultTypicalPatchTorso())
         }
+        return polishDemoIfNeeded(existing)
+    }
+
+    private fun polishDemoIfNeeded(existing: FeatherPatientProfile): FeatherPatientProfile {
         if (FeatherPatientProfile.demoNeedsKnownGoodMigration(existing)) {
-            val refreshed =
+            return save(
                 FeatherPatientProfile.defaultTypicalPatchTorso().copy(
                     createdAt = existing.createdAt,
                     displayName =
@@ -329,8 +333,8 @@ class FeatherProfileStore(
                             "", "Demo" -> "Typical patch torso"
                             else -> existing.displayName
                         },
-                )
-            return save(refreshed)
+                ),
+            )
         }
         if (existing.displayName == "Demo") {
             return save(existing.copy(displayName = "Typical patch torso"))
@@ -339,17 +343,33 @@ class FeatherProfileStore(
     }
 
     /**
-     * Ensure factory seeds exist. Does **not** overwrite Patient 1/2 coeffs that
-     * were already Saved on-device.
+     * Seed factory profiles **once** (marker file). After that, deleted profiles
+     * stay deleted. Does not overwrite coeffs already Saved on-device.
      */
     fun ensureFactoryProfiles() {
-        ensureDemoProfile()
         migrateLegacyJoelToPatient2()
-        if (load("patient-1") == null) {
-            save(FeatherPatientProfile.defaultPatient1())
+        val marker = factorySeededFile()
+        if (!marker.exists()) {
+            // First run or upgrade into this policy: seed any missing factory ids once.
+            load("demo")?.let { polishDemoIfNeeded(it) }
+                ?: save(FeatherPatientProfile.defaultTypicalPatchTorso())
+            if (load("patient-1") == null) {
+                save(FeatherPatientProfile.defaultPatient1())
+            }
+            if (load("patient-2") == null) {
+                save(FeatherPatientProfile.defaultPatient2())
+            }
+            marker.writeText("1")
+            if (!activeMetaFile().exists()) {
+                setActiveProfileId("demo")
+            }
+        } else {
+            load("demo")?.let { polishDemoIfNeeded(it) }
         }
-        if (load("patient-2") == null) {
-            save(FeatherPatientProfile.defaultPatient2())
+        if (listProfiles().isEmpty()) {
+            save(FeatherPatientProfile.defaultTypicalPatchTorso())
+            setActiveProfileId("demo")
+            if (!marker.exists()) marker.writeText("1")
         }
     }
 
@@ -384,6 +404,11 @@ class FeatherProfileStore(
             val id = meta.readText().trim()
             if (id.isNotEmpty() && load(id) != null) return id
         }
+        val first = listProfiles().firstOrNull()?.profileId
+        if (first != null) {
+            activeMetaFile().writeText(first)
+            return first
+        }
         return "demo"
     }
 
@@ -396,7 +421,34 @@ class FeatherProfileStore(
     fun loadActive(): FeatherPatientProfile {
         ensureFactoryProfiles()
         val id = activeProfileId()
-        return load(id) ?: ensureDemoProfile().also { setActiveProfileId("demo") }
+        load(id)?.let { return it }
+        val first = listProfiles().firstOrNull()
+        if (first != null) {
+            setActiveProfileId(first.profileId)
+            return first
+        }
+        return ensureDemoProfile().also { setActiveProfileId(it.profileId) }
+    }
+
+    /**
+     * Explicit delete. Refuses if this is the last profile. If active is deleted,
+     * switches to another remaining profile. Factory seeds are not recreated afterward.
+     */
+    fun deleteProfile(profileId: String): Pair<Boolean, String> {
+        ensureFactoryProfiles()
+        factorySeededFile().takeIf { !it.exists() }?.writeText("1")
+        val target = load(profileId) ?: return false to "Profile not found"
+        if (listProfiles().size <= 1) {
+            return false to "Keep at least one profile"
+        }
+        if (!fileFor(profileId).delete()) {
+            return false to "Delete failed"
+        }
+        if (activeMetaFile().exists() && activeMetaFile().readText().trim() == profileId) {
+            val next = listProfiles().first()
+            setActiveProfileId(next.profileId)
+        }
+        return true to "Deleted ${target.displayName}"
     }
 
     /**
@@ -408,7 +460,9 @@ class FeatherProfileStore(
         cloneFromId: String = "demo",
     ): FeatherPatientProfile {
         ensureFactoryProfiles()
-        val source = load(cloneFromId) ?: ensureDemoProfile()
+        val source =
+            load(cloneFromId)
+                ?: loadActive()
         val label = displayName.trim().ifBlank { "Patient" }
         val baseId = FeatherPatientProfile.sanitizeProfileId(label)
         var id = baseId
@@ -436,6 +490,8 @@ class FeatherProfileStore(
     }
 
     private fun activeMetaFile(): File = File(rootDir, "_active_profile_id")
+
+    private fun factorySeededFile(): File = File(rootDir, "_factory_seeded")
 
     private fun fileFor(profileId: String): File {
         val safe = FeatherPatientProfile.sanitizeProfileId(profileId)
