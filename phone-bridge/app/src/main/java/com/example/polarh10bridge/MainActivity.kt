@@ -117,9 +117,9 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
 
-private val BannerRed = Color(0xFFC1121F)
-private val UiWhite = Color.White
-private val TextDark = Color(0xFF1A1A1A)
+internal val BannerRed = Color(0xFFC1121F)
+internal val UiWhite = Color.White
+internal val TextDark = Color(0xFF1A1A1A)
 
 /** UDP port: Hertz & Hearts broadcasts here; we reply so the PC can find this phone. */
 private const val PHONE_UDP_DISCOVERY_PORT = 45124
@@ -131,6 +131,7 @@ private const val BRIDGE_BG_KEEPALIVE_PREF_KEY = "bridge_bg_keepalive"
 private const val BRIDGE_PACER_PRESET_PREF_KEY = "bridge_pacer_preset"
 private const val BRIDGE_SESSION_MODE_PREF_KEY = "bridge_session_mode"
 private const val BRIDGE_TECH_VIEW_PREF_KEY = "bridge_tech_view"
+private const val BRIDGE_SOURCE_KIND_PREF_KEY = "bridge_source_kind"
 private const val BRIDGE_PROTOCOL_ID = "phone_bridge_ndjson_v1"
 private const val BRIDGE_PORT_DEFAULT = 8765
 private const val BRIDGE_PORT_MIN = 1024
@@ -149,7 +150,7 @@ private const val BLE_RSSI_POLAR_BURST_MS = 3_500L
 /** Min time between on-screen connected-sensor dBm updates (scan may run faster). */
 private const val BLE_RSSI_UI_THROTTLE_MS = 1_500L
 
-private data class BleDeviceRow(
+internal data class BleDeviceRow(
     val deviceId: String,
     val address: String,
     val displayName: String,
@@ -222,7 +223,7 @@ private fun connectedSensorSingleLine(name: String, deviceId: String): String {
     return n
 }
 
-private data class BridgeScreenState(
+internal data class BridgeScreenState(
     val bleDialogVisible: Boolean = false,
     val bleScanning: Boolean = false,
     val bleRows: List<BleDeviceRow> = emptyList(),
@@ -277,6 +278,9 @@ private data class BridgeScreenState(
     /** Editable coeff draft source; bump [featherCoeffsEpoch] whenever disk SoR changes. */
     val featherActiveCoeffs: Map<String, String> = emptyMap(),
     val featherCoeffsEpoch: Int = 0,
+    val selectedSourceKind: SourceKind = SourceKind.PolarH10,
+    /** Feather Find overlay; hide without cancel keeps BLE work going. */
+    val featherConnectOverlayVisible: Boolean = false,
 )
 
 class MainActivity : ComponentActivity() {
@@ -463,12 +467,64 @@ class MainActivity : ComponentActivity() {
         updateScreen { it.copy(techView = enabled) }
     }
 
-    private fun sourceDeviceWire(): String =
-        if (screenState.value.featherSimActive || screenState.value.featherBleConnected) {
-            com.example.polarh10bridge.feather.FeatherBleContract.SOURCE_DEVICE_WIRE
-        } else {
-            "POLAR_H10"
+    private fun loadSourceKindPref(): SourceKind =
+        SourceKind.fromPref(
+            getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(BRIDGE_SOURCE_KIND_PREF_KEY, null),
+        )
+
+    private fun saveSourceKindPref(kind: SourceKind) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(BRIDGE_SOURCE_KIND_PREF_KEY, kind.wireValue())
+            .apply()
+    }
+
+    private fun setSelectedSourceKind(kind: SourceKind) {
+        val prev = screenState.value.selectedSourceKind
+        if (kind == prev) return
+        saveSourceKindPref(kind)
+        when (kind) {
+            SourceKind.PolarH10 -> {
+                disconnectFeatherBle()
+                setFeatherSimActive(false)
+            }
+            SourceKind.Feather -> {
+                if (screenState.value.sensorConnected) {
+                    disconnectConnectedSensor()
+                }
+            }
         }
+        updateScreen {
+            it.copy(
+                selectedSourceKind = kind,
+                featherConnectOverlayVisible = false,
+            )
+        }
+    }
+
+    private fun beginFindSource() {
+        when (screenState.value.selectedSourceKind) {
+            SourceKind.PolarH10 -> {
+                if (screenState.value.featherBleConnected ||
+                    screenState.value.featherBlePhase != "Idle"
+                ) {
+                    disconnectFeatherBle()
+                }
+                setFeatherSimActive(false)
+                beginSensorScan()
+            }
+            SourceKind.Feather -> {
+                if (screenState.value.sensorConnected) {
+                    disconnectConnectedSensor()
+                }
+                updateScreen { it.copy(featherConnectOverlayVisible = true) }
+                beginFeatherBleTest()
+            }
+        }
+    }
+
+    private fun sourceDeviceWire(): String = screenState.value.sourceDeviceWire()
 
     private fun ensureFeatherBleClient(): com.example.polarh10bridge.feather.FeatherBleClient {
         featherBleClient?.let { return it }
@@ -494,6 +550,9 @@ class MainActivity : ComponentActivity() {
                                     phase ==
                                     com.example.polarh10bridge.feather.FeatherBleClient.Phase
                                         .Connecting
+                            if (connected) {
+                                saveSourceKindPref(SourceKind.Feather)
+                            }
                             updateScreen {
                                 it.copy(
                                     featherBlePhase = phase.name,
@@ -543,6 +602,21 @@ class MainActivity : ComponentActivity() {
                                             if (it.sensorConnected) it.connectedSensorName else ""
                                         } else {
                                             it.connectedSensorName
+                                        },
+                                    selectedSourceKind =
+                                        if (connected) {
+                                            SourceKind.Feather
+                                        } else {
+                                            it.selectedSourceKind
+                                        },
+                                    featherConnectOverlayVisible =
+                                        when (phase) {
+                                            com.example.polarh10bridge.feather.FeatherBleClient
+                                                .Phase.Streaming,
+                                            com.example.polarh10bridge.feather.FeatherBleClient
+                                                .Phase.Idle,
+                                            -> false
+                                            else -> it.featherConnectOverlayVisible
                                         },
                                 )
                             }
@@ -886,9 +960,11 @@ class MainActivity : ComponentActivity() {
         featherSimCurrentIbiMs = 800
         featherSimEcgPhase01 = 0.0
         featherProfileStore?.ensureFactoryProfiles()
+        saveSourceKindPref(SourceKind.Feather)
         updateScreen {
             it.copy(
                 featherSimActive = true,
+                selectedSourceKind = SourceKind.Feather,
                 sensorContact = SensorContactState.InContact,
                 featherEcgTraceMv = emptyList(),
                 featherEcgPacketCount = 0,
@@ -1066,7 +1142,8 @@ class MainActivity : ComponentActivity() {
 
     private fun shouldKeepBridgeAliveInBackground(): Boolean {
         val s = screenState.value
-        return s.keepAliveInBackground && (s.sensorConnected || s.pcBridgeConnected)
+        return s.keepAliveInBackground &&
+            (s.sensorConnected || s.featherBleConnected || s.pcBridgeConnected)
     }
 
     private fun startBridgeForegroundService() {
@@ -2048,6 +2125,7 @@ class MainActivity : ComponentActivity() {
                 BridgeSessionMode.Stream -> BridgeSessionKind.Session
             }
         val techViewPref = loadTechViewPref()
+        val sourceKindPref = loadSourceKindPref()
         val activeProfile = featherProfileStore?.loadActive()
         val activeCoeffs =
             activeProfile?.let {
@@ -2061,6 +2139,7 @@ class MainActivity : ComponentActivity() {
                 sessionMode = sessionModePref,
                 sessionKind = sessionController.preferredKind,
                 techView = techViewPref,
+                selectedSourceKind = sourceKindPref,
                 settleTrimSec = sessionController.settleTrimSec,
                 sessionTargetSec = sessionController.sessionTargetSec,
                 featherProfiles = featherProfileStore?.listSummaries().orEmpty(),
@@ -2113,6 +2192,7 @@ class MainActivity : ComponentActivity() {
                     mainHandler.post {
                         disconnectFeatherBle()
                         setFeatherSimActive(false)
+                        saveSourceKindPref(SourceKind.PolarH10)
                         val nameFromRow =
                             screenState.value.bleRows.find {
                                 it.deviceId == polarDeviceInfo.deviceId ||
@@ -2122,6 +2202,7 @@ class MainActivity : ComponentActivity() {
                             screenState.value.copy(
                                 bleDialogVisible = false,
                                 bleConnecting = false,
+                                selectedSourceKind = SourceKind.PolarH10,
                                 sensorConnected = true,
                                 connectedSensorName =
                                     polarDeviceInfo.name.ifBlank {
@@ -2483,7 +2564,8 @@ class MainActivity : ComponentActivity() {
                         schedulePhoneWifiLinkRefreshWithRetries()
                         bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
                     },
-                    onScanSensors = { beginSensorScan() },
+                    onFindSource = { beginFindSource() },
+                    onChangeSourceKind = { setSelectedSourceKind(it) },
                     onDisconnectSensor = { disconnectConnectedSensor() },
                     onSaveBridgePort = { newPort ->
                         val clamped = newPort.coerceIn(BRIDGE_PORT_MIN, BRIDGE_PORT_MAX)
@@ -2507,7 +2589,6 @@ class MainActivity : ComponentActivity() {
                     onToggleFeatherSim = {
                         setFeatherSimActive(!screenState.value.featherSimActive)
                     },
-                    onConnectFeatherBle = { beginFeatherBleTest() },
                     onDisconnectFeatherBle = { disconnectFeatherBle() },
                     onFeatherStartStream = { featherBleClient?.startStream() },
                     onFeatherStopStream = { featherBleClient?.stopStream() },
@@ -2530,6 +2611,19 @@ class MainActivity : ComponentActivity() {
                         onDismissRequest = { cancelSensorDialog() },
                         onCancel = { cancelSensorDialog() },
                         onOk = { confirmSensorSelection() },
+                    )
+                }
+                if (state.featherConnectOverlayVisible) {
+                    FeatherConnectingDialog(
+                        phase = state.featherBlePhase,
+                        detail = state.featherBleDetail,
+                        onCancel = {
+                            disconnectFeatherBle()
+                            updateScreen { it.copy(featherConnectOverlayVisible = false) }
+                        },
+                        onDismissRequest = {
+                            updateScreen { it.copy(featherConnectOverlayVisible = false) }
+                        },
                     )
                 }
             }
@@ -2636,7 +2730,8 @@ private fun BridgeMainScreen(
     /** Live read from Activity screen state (Compose may miss invalidations from Handler-delayed updates). */
     readPhoneWifiIpv4: () -> String?,
     onWifiRadioAvailabilityChanged: (enabled: Boolean) -> Unit,
-    onScanSensors: () -> Unit,
+    onFindSource: () -> Unit,
+    onChangeSourceKind: (SourceKind) -> Unit,
     onDisconnectSensor: () -> Unit,
     onSaveBridgePort: (Int) -> Unit,
     onSaveKeepAliveInBackground: (Boolean) -> Unit,
@@ -2646,7 +2741,6 @@ private fun BridgeMainScreen(
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
     onToggleFeatherSim: () -> Unit,
-    onConnectFeatherBle: () -> Unit,
     onDisconnectFeatherBle: () -> Unit,
     onFeatherStartStream: () -> Unit,
     onFeatherStopStream: () -> Unit,
@@ -2664,6 +2758,7 @@ private fun BridgeMainScreen(
     val onWifiRadioAvailabilityChangedState by rememberUpdatedState(onWifiRadioAvailabilityChanged)
     val peekPhoneWifiIpv4 by rememberUpdatedState(readPhoneWifiIpv4)
     var connectHintIpv4 by remember { mutableStateOf<String?>(null) }
+    var showSourcePicker by remember { mutableStateOf(false) }
     LaunchedEffect(state.phoneWifiIpv4, ipHintRefreshSession) {
         connectHintIpv4 = null
         var best: String? = null
@@ -2921,15 +3016,18 @@ private fun BridgeMainScreen(
                 }
 
                 BridgeFlowDiagram(
-                    sensorConnected = state.sensorConnected,
+                    sourceKind = state.selectedSourceKind,
+                    sourceLinked = state.diagramSourceActive(),
+                    inProgressLine = state.featherInProgressLine(),
                     pcBridgeConnected = state.pcBridgeConnected,
                     pcBridgeUserName = state.pcBridgeUserName,
                     pcClientApp = state.pcClientApp,
-                    onScanSensors = onScanSensors,
+                    onFindSource = onFindSource,
+                    onChangeSource = { showSourcePicker = true },
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
 
-                if (state.sensorConnected) {
+                if (state.anySourceLinked()) {
                     Text(
                         text = "Connected to:",
                         color = TextDark,
@@ -2951,7 +3049,14 @@ private fun BridgeMainScreen(
                         text = buildString {
                             append(
                                 connectedSensorSingleLine(
-                                    state.connectedSensorName,
+                                    state.connectedSensorName.ifBlank {
+                                        if (state.featherBleConnected) {
+                                            com.example.polarh10bridge.feather.FeatherBleContract
+                                                .ADVERTISED_NAME_PRIMARY
+                                        } else {
+                                            state.selectedSourceKind.displayName()
+                                        }
+                                    },
                                     state.connectedSensorId,
                                 ),
                             )
@@ -2959,10 +3064,21 @@ private fun BridgeMainScreen(
                                 append(" · ")
                                 append(label)
                             }
-                            state.connectedSensorRssi?.let { rssi ->
-                                append(" · ")
-                                append(rssi)
-                                append(" dBm link")
+                            if (state.sensorConnected) {
+                                state.connectedSensorRssi?.let { rssi ->
+                                    append(" · ")
+                                    append(rssi)
+                                    append(" dBm link")
+                                }
+                            } else if (state.featherBleConnected) {
+                                val phase = featherHumanPhase(
+                                    state.featherBlePhase,
+                                    state.featherBleDetail,
+                                )
+                                if (phase.isNotBlank()) {
+                                    append(" · ")
+                                    append(phase)
+                                }
                             }
                         },
                         color =
@@ -3085,7 +3201,6 @@ private fun BridgeMainScreen(
                         featherBleDetail = state.featherBleDetail,
                         featherBleLastIbiMs = state.featherBleLastIbiMs,
                         featherBleConnected = state.featherBleConnected,
-                        onConnectFeatherBle = onConnectFeatherBle,
                         onDisconnectFeatherBle = onDisconnectFeatherBle,
                         onFeatherStartStream = onFeatherStartStream,
                         onFeatherStopStream = onFeatherStopStream,
@@ -3175,6 +3290,16 @@ private fun BridgeMainScreen(
             availableUpdate = availableUpdate,
             onOpenUpdate = { update -> uriHandler.openUri(update.releaseUrl) },
             onDismissRequest = { showAbout = false },
+        )
+    }
+    if (showSourcePicker) {
+        SourcePickerDialog(
+            selected = state.selectedSourceKind,
+            onSelect = { kind ->
+                onChangeSourceKind(kind)
+                showSourcePicker = false
+            },
+            onDismissRequest = { showSourcePicker = false },
         )
     }
 }

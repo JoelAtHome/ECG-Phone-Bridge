@@ -1,4 +1,4 @@
-# ECG Phone Bridge — UI layout map (β.40)
+# ECG Phone Bridge — UI layout map (β.45)
 
 Printable wireframes of **what ships today**. Mark up freely; this is not a redesign proposal.
 
@@ -31,16 +31,18 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  ┌─ DATA PATH (BridgeFlowDiagram) ────┐ │
 │  │         [ heart glyph ]            │ │
 │  │              │                     │ │
-│  │   [ TAP TO FIND SENSORS / H10 ]    │ │  ← Polar CTA
-│  │     "Polar H10 button: Bluetooth"  │ │
+│  │   [ TAP TO FIND / Polar or Feather]│ │  ← remembered kind
+│  │     "Polar H10: Bluetooth"         │ │
+│  │     [opt in-progress line]         │ │
+│  │     [ Change source ]              │ │
 │  │              │                     │ │
 │  │         [ this phone ]             │ │
 │  │              │                     │ │
 │  │         [ PC / host ]              │ │  ← user + client_app
 │  └────────────────────────────────────┘ │
 │                                         │
-│  [if Polar linked]                      │
-│    Connected to: name · contact · dBm   │
+│  [if Polar or Feather BLE linked]       │
+│    Connected to: name · contact · …     │
 │    [ Disconnect sensor ]                │
 │    Phone IP / hotspot line              │
 │                                         │
@@ -48,7 +50,8 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  ║  TECH VIEW ONLY                   ║  │
 │  ║  · Capture session panel          ║  │
 │  ║  · Tech meters (+ profile/BLE)    ║  │
-│  ║  · (no breathing pacer)           ║  │
+│  ║  · (no breathing pacer in docs;   ║  │
+│  ║     pacer also composes in Tech)  ║  │
 │  ╚═══════════════════════════════════╝  │
 │                                         │
 │  ╔═══════════════════════════════════╗  │
@@ -69,7 +72,8 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 ```
 ┌─────────────────────────────────────────┐
 │  [hints + Data path diagram]            │
-│  [optional Polar connected block]       │
+│  [Change source] [Find Polar or Feather]│
+│  [optional connected block]             │
 │                                         │
 │  ┌─ BREATHING PACER ──────────────────┐ │
 │  │  title / short help                │ │
@@ -84,8 +88,8 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 └─────────────────────────────────────────┘
 ```
 
-**Patient can:** find Polar (diagram button), disconnect Polar, pace breath, open menu (settings / Tech / About).  
-**Patient cannot:** Start/Stop capture, Feather connect, edit coeffs, see Tech meters.
+**Patient can:** Change source (Polar / Feather), Find / Disconnect, pace breath, open menu (settings / Tech / About).  
+**Patient cannot:** Start/Stop capture, Feather sim, edit coeffs, see Tech meters / ECG strip.
 
 ---
 
@@ -94,7 +98,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 ```
 ┌─────────────────────────────────────────┐
 │  [hints + Data path diagram]            │
-│  [optional Polar connected block]       │
+│  [optional connected block]             │
 │                                         │
 │  ┌─ CAPTURE SESSION ──────────────────┐ │
 │  │  Stream ○     Record ○             │ │
@@ -112,15 +116,15 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  │                                    │ │
 │  │  [ Simulate Feather IBI + ECG ]    │ │
 │  │                                    │ │
-│  │  ── Patient profile ──             │ │
+│  │  ── Offline coeffs ──              │ │
 │  │  Active: name (id)                 │ │
 │  │  [Change] [Add patient] [Delete]   │ │
 │  │  coeff fields (editable keys)      │ │
 │  │  [ Save profile / Save+push ] *    │ │
 │  │                                    │ │
-│  │  ── Feather BLE test ──            │ │
+│  │  ── Feather BLE ──                 │ │
 │  │  phase — detail · Last IBI         │ │
-│  │  [Connect Feather]                 │ │
+│  │  "Find Feather on the data path."  │ │
 │  │    or [Start][Stop][Disconnect]    │ │
 │  │  ECG strip label                   │ │
 │  │  ┌─────────────────────────────┐   │ │
@@ -147,9 +151,18 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
   ├─ Switch Patient ↔ Tech
   └─ About ──► Dialog (date, version, Close)
 
-Sensor list (from Data path H10 button)
+Change source (under Data path node)
+  Polar H10 / Feather radio list
+  [Close]
+
+Sensor list (Find when Polar is selected)
   Scanning… / radio list / Connecting…
   [Cancel] [Connect]
+
+Feather connecting (Find when Feather is selected)
+  Spinner + "Looking for ECG-Box-Feather…" / "Connecting…" / "Setting up link…"
+  Error stays with message + [Close]
+  [Cancel] stops BLE; tap outside hides overlay but connect continues
 
 Tech-only nested dialogs
   ├─ Profile picker (Change)
@@ -167,8 +180,8 @@ flowchart TB
   subgraph main [Main scroll screen]
     Banner[Red banner + hamburger]
     Flow[Data path diagram]
-    PolarBlk[Polar connected block]
-    Banner --> Flow --> PolarBlk
+    SrcBlk[Connected block Polar or Feather]
+    Banner --> Flow --> SrcBlk
   end
 
   Menu{☰ menu}
@@ -177,12 +190,14 @@ flowchart TB
   Menu --> Toggle[Patient ↔ Tech]
   Menu --> About[About]
 
-  Flow -->|TAP TO FIND SENSORS| SensorDlg[Sensor list dialog]
+  Flow -->|Change source| KindDlg[Source picker]
+  Flow -->|Find Polar| SensorDlg[Sensor list dialog]
+  Flow -->|Find Feather| FeatherDlg[Feather connecting dialog]
 
   Toggle -->|Patient| Pacer[Breathing pacer]
   Toggle -->|Tech| Cap[Capture session]
   Cap --> Tech[Tech meters]
-  Tech --> Prof[Patient profile + coeffs]
+  Tech --> Prof[Offline coeffs]
   Tech --> Fble[Feather BLE + ECG strip]
 ```
 
@@ -194,14 +209,12 @@ Known parked / cleanup themes from handoff (not commitments):
 
 | Area | Today | Notes / ideas |
 |------|--------|----------------|
-| Polar CTA | Big capsule in Data path | |
-| Feather CTA | Buried in Tech meters | Unify with Polar? |
+| Source CTA | Remembered Polar / Feather node + Change | Future kinds = extra picker rows |
 | Capture Start/Stop | Tech only | OK for patient? |
-| Breathing pacer | Patient only | |
+| Breathing pacer | Intended Patient-only; also composes in Tech | |
 | Profile + coeffs | Long Tech scroll | Collapse / Tuner-only? |
 | ECG strip | Always under Feather BLE | |
-| Two connect stories | H10 vs Feather vs Sim | |
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.40. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.45. Update when chrome changes.*

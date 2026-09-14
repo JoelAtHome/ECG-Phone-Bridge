@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.45
+- enhancement: Unified **source picker** on the Data path — Polar H10 or Feather (remembered), Patient and Tech. **Change source** opens the chooser; Find connects that kind. Feather Find shows a connecting overlay (scan can take ~12s) plus an in-progress line so the bridge does not look stuck. Tech **Connect Feather** link removed; sim / coeffs / ECG strip stay Tech-only.
+
 ## Version 1.0.0-beta.44
 - enhancement: NDJSON `coeffs_get` → BLE `get_coeffs`; forward status `type:coeffs` to Tuner as `mcu_coeffs` (Online GET).
 

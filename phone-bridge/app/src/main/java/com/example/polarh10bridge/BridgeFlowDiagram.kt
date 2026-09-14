@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,6 +49,8 @@ private val HeartVibrant = Color(0xFFEF4444)
 private val EcgActive = Color.White
 private val H10GlowBg = Color(0xFFFFE4EC)
 private val H10GlowBorder = Color(0xFFF06292)
+private val FeatherGlowBg = Color(0xFFE0F2F1)
+private val FeatherGlowBorder = Color(0xFF26A69A)
 private val PhoneActiveBorder = Color(0xFF64B5F6)
 private val PhoneIdleBorder = Color(0xFFE0E0E0)
 private val PcGlowBorder = Color(0xFF42A5F5)
@@ -58,11 +62,14 @@ private val NodeGrayTint = Color(0xFF9E9E9E)
 
 @Composable
 internal fun BridgeFlowDiagram(
-    sensorConnected: Boolean,
+    sourceKind: SourceKind,
+    sourceLinked: Boolean,
+    inProgressLine: String? = null,
     pcBridgeConnected: Boolean,
     pcBridgeUserName: String?,
     pcClientApp: String? = null,
-    onScanSensors: () -> Unit,
+    onFindSource: () -> Unit,
+    onChangeSource: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val infinite = rememberInfiniteTransition(label = "bridgePulse")
@@ -159,63 +166,102 @@ internal fun BridgeFlowDiagram(
         }
 
         Spacer(modifier = Modifier.height(0.5f.dp))
-        VerticalFlowArrow(active = sensorConnected)
+        VerticalFlowArrow(active = sourceLinked)
 
-        val h10Bg by animateColorAsState(
-            targetValue = if (sensorConnected) H10GlowBg else Color(0xFFFAFAFA),
+        val sourceGlowBg =
+            if (sourceKind == SourceKind.Feather) FeatherGlowBg else H10GlowBg
+        val sourceGlowBorder =
+            if (sourceKind == SourceKind.Feather) FeatherGlowBorder else H10GlowBorder
+        val sourceBg by animateColorAsState(
+            targetValue = if (sourceLinked) sourceGlowBg else Color(0xFFFAFAFA),
             animationSpec = tween(380),
-            label = "h10bg",
+            label = "sourceBg",
         )
-        val h10Border by animateColorAsState(
-            targetValue = if (sensorConnected) H10GlowBorder else DiagramLineInactive,
+        val sourceBorder by animateColorAsState(
+            targetValue = if (sourceLinked) sourceGlowBorder else DiagramLineInactive,
             animationSpec = tween(380),
-            label = "h10bd",
+            label = "sourceBd",
         )
 
         Button(
-            onClick = onScanSensors,
+            onClick = onFindSource,
             modifier =
                 Modifier
                     .fillMaxWidth(0.86f),
             shape = RoundedCornerShape(18.dp),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = h10Bg,
+                    containerColor = sourceBg,
                     contentColor = DiagramTextDark,
                 ),
-            border = androidx.compose.foundation.BorderStroke(3.dp, h10Border),
+            border = androidx.compose.foundation.BorderStroke(3.dp, sourceBorder),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 7.dp, horizontal = 12.dp),
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(
-                painter = painterResource(R.drawable.bridge_h10_capsule),
-                contentDescription = null,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
+                Image(
+                    painter =
+                        painterResource(
+                            if (sourceKind == SourceKind.Feather) {
+                                R.drawable.bridge_feather_box
+                            } else {
+                                R.drawable.bridge_h10_capsule
+                            },
+                        ),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
                             .height(30.dp),
-                colorFilter = if (sensorConnected) null else ColorFilter.tint(NodeGrayTint),
-            )
+                    colorFilter = if (sourceLinked) null else ColorFilter.tint(NodeGrayTint),
+                )
                 Text(
-                    text = if (sensorConnected) "CONNECTED (tap to rescan)" else "TAP TO FIND SENSORS",
+                    text =
+                        if (sourceLinked) {
+                            "CONNECTED (tap to rescan)"
+                        } else {
+                            "TAP TO FIND SENSORS"
+                        },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (sensorConnected) FlowRed else DiagramTextDark,
+                    color = if (sourceLinked) FlowRed else DiagramTextDark,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
         Text(
-            text = "Polar H10 button: Bluetooth",
+            text = sourceKind.diagramCaption(),
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             color = DiagramTextDark,
             lineHeight = 10.sp,
             style = TextStyle(lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both)),
         )
+        if (!inProgressLine.isNullOrBlank()) {
+            Text(
+                text = inProgressLine,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = FlowRed,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+            )
+        }
+        TextButton(onClick = onChangeSource) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Change source",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = FlowRed,
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(0.5f.dp))
-        VerticalFlowArrow(active = sensorConnected)
+        VerticalFlowArrow(active = sourceLinked)
 
         val phoneBorder by animateColorAsState(
             targetValue =

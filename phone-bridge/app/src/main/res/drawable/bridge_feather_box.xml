@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="56dp"
+    android:viewportWidth="120"
+    android:viewportHeight="56">
+    <!-- Simple ECG-Box: rounded enclosure, status LED, ECG window. -->
+    <path
+        android:fillColor="#1B4F72"
+        android:pathData="M18,8L102,8C108.6,8 114,13.4 114,20L114,36C114,42.6 108.6,48 102,48L18,48C11.4,48 6,42.6 6,36L6,20C6,13.4 11.4,8 18,8Z" />
+    <path
+        android:fillColor="#E8F6F3"
+        android:pathData="M22,18h76v20h-76z" />
+    <path
+        android:fillColor="#1B4F72"
+        android:pathData="M26,27h12v3h-12z M40,22h4v13h-4z M46,25h8v8h-8z M56,20h4v17h-4z M62,26h10v5h-10z M74,23h6v11h-6z M82,27h10v3h-10z" />
+    <path
+        android:fillColor="#C1121F"
+        android:pathData="M100,12c2.2,0 4,1.8 4,4s-1.8,4 -4,4 -4,-1.8 -4,-4 1.8,-4 4,-4z" />
+</vector>

@@ -529,9 +529,13 @@ fun TechSessionMeters(
             }
         }
 
-        if (onConnectFeatherBle != null) {
+        if (onDisconnectFeatherBle != null ||
+            onFeatherStartStream != null ||
+            onFeatherStopStream != null ||
+            onConnectFeatherBle != null
+        ) {
             Text(
-                text = "Feather BLE test",
+                text = "Feather BLE",
                 color = TechTextDark,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
@@ -558,8 +562,17 @@ fun TechSessionMeters(
                 modifier = Modifier.padding(top = 4.dp),
             ) {
                 if (!featherBleConnected) {
-                    TextButton(onClick = onConnectFeatherBle) {
-                        Text("Connect Feather", color = TechInfoBlue, fontSize = 13.sp)
+                    if (onConnectFeatherBle != null) {
+                        TextButton(onClick = onConnectFeatherBle) {
+                            Text("Connect Feather", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    } else {
+                        Text(
+                            text = "Find Feather on the data path.",
+                            color = TechTextDark.copy(alpha = 0.62f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 6.dp),
+                        )
                     }
                 } else {
                     if (onFeatherStartStream != null) {
@@ -591,7 +604,7 @@ fun TechSessionMeters(
                         featherSimActive ->
                             "ECG strip — waiting for sim samples…"
                         else ->
-                            "ECG strip — Connect Feather or Simulate Feather IBI + ECG to start"
+                            "ECG strip — Find Feather on the data path, or Simulate Feather IBI + ECG"
                     },
                 color = TechTextDark,
                 fontSize = 12.sp,
@@ -612,8 +625,8 @@ fun TechSessionMeters(
             )
             Text(
                 text =
-                    "Scans for ECG-Box-Feather, enables IBI+ECG notify, writes active profile coeffs, " +
-                        "sends start_stream. Use this instead of fiddly third-party BLE apps.",
+                    "Find Feather on the data path (scan ECG-Box, notify, active coeffs, start_stream). " +
+                        "Start/Stop stream here is Tech-only.",
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
