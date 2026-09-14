@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.39
+- polish: Gray out Tech **Save profile** and Connection **Save** until the associated fields are dirty.
+- fix: Tuner `profile_put` merges coeffs/hardware instead of wiping phone metadata; stop re-polishing demo on every UI refresh; only migrate legacy demo outliers (0.65/1.4/1000).
+
 ## Version 1.0.0-beta.38
 - maintenance: Retire **PolarH10Bridge** naming — Gradle project folder `phone-bridge/`, discovery `app` **`ECG-Phone-Bridge`**, release APK `ECG-Phone-Bridge-<tag>.apk`. `applicationId` unchanged (`com.joelathome.ecgphonebridge`). Hosts still match on `role: phone_bridge`.
 - enhancement: NDJSON **Feather profile sync** for ECG-Box Tuner (`PROTOCOL.md` §13) — `profile_get_active` / `profile_list` / `profile_get` / `profile_put`; discover `features` includes `feather_profiles`; `client_app: ecg_box_tuner` auto-pushes active profile.

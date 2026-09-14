@@ -112,6 +112,7 @@ fun TechSessionMeters(
     featherActiveDisplayName: String = "Demo",
     featherProfileStatus: String = "",
     featherActiveCoeffs: Map<String, String> = emptyMap(),
+    featherCoeffsEpoch: Int = 0,
     onSelectFeatherProfile: ((String) -> Unit)? = null,
     onAddFeatherPatient: ((String) -> Unit)? = null,
     onDeleteFeatherProfile: ((String) -> Unit)? = null,
@@ -125,7 +126,7 @@ fun TechSessionMeters(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var addPatientName by remember { mutableStateOf("") }
     var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
-    LaunchedEffect(featherActiveProfileId, featherActiveCoeffs) {
+    LaunchedEffect(featherActiveProfileId, featherCoeffsEpoch) {
         coeffDraft = featherActiveCoeffs
     }
     LaunchedEffect(sessionActive) {
@@ -443,8 +444,13 @@ fun TechSessionMeters(
                             .padding(top = 4.dp),
                 )
             }
+            val coeffsDirty =
+                FeatherPatientProfile.EDITABLE_COEFF_KEYS.any { key ->
+                    coeffDraft[key].orEmpty() != featherActiveCoeffs[key].orEmpty()
+                }
             TextButton(
                 onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
+                enabled = coeffsDirty,
                 modifier = Modifier.padding(top = 4.dp),
             ) {
                 Text(
@@ -454,7 +460,12 @@ fun TechSessionMeters(
                         } else {
                             "Save profile"
                         },
-                    color = TechInfoBlue,
+                    color =
+                        if (coeffsDirty) {
+                            TechInfoBlue
+                        } else {
+                            TechTextDark.copy(alpha = 0.35f)
+                        },
                     fontSize = 13.sp,
                 )
             }

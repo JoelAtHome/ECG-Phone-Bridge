@@ -274,6 +274,9 @@ private data class BridgeScreenState(
     val featherActiveProfileId: String = "demo",
     val featherActiveDisplayName: String = "Demo",
     val featherProfileStatus: String = "",
+    /** Editable coeff draft source; bump [featherCoeffsEpoch] whenever disk SoR changes. */
+    val featherActiveCoeffs: Map<String, String> = emptyMap(),
+    val featherCoeffsEpoch: Int = 0,
 )
 
 class MainActivity : ComponentActivity() {
@@ -639,14 +642,19 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshFeatherProfileUi(status: String? = null) {
         val store = featherProfileStore ?: return
-        store.ensureFactoryProfiles()
+        // Do not call ensureFactoryProfiles here — polishDemo ran on every Tuner
+        // save and could rewrite demo coeffs. Seeding stays on store init / first use.
         val active = store.loadActive()
+        val coeffs =
+            com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(active)
         updateScreen {
             it.copy(
                 featherProfiles = store.listSummaries(),
                 featherActiveProfileId = active.profileId,
                 featherActiveDisplayName = active.displayName,
                 featherProfileStatus = status ?: it.featherProfileStatus,
+                featherActiveCoeffs = coeffs,
+                featherCoeffsEpoch = it.featherCoeffsEpoch + 1,
             )
         }
     }
@@ -1333,9 +1341,36 @@ class MainActivity : ComponentActivity() {
                 )
                 return
             }
+            // Merge onto existing so missing hardware/session_timing from the PC
+            // cannot drop demo_seed or wipe factory metadata.
+            val mergedCoeffs =
+                linkedMapOf<String, Any?>().apply {
+                    putAll(existing.coeffs)
+                    putAll(incoming.coeffs)
+                }
             val saved =
                 store.save(
-                    incoming.copy(createdAt = existing.createdAt),
+                    existing.copy(
+                        displayName =
+                            incoming.displayName.ifBlank { existing.displayName },
+                        coeffs = mergedCoeffs,
+                        hardware =
+                            if (incoming.hardware.isNotEmpty()) {
+                                linkedMapOf<String, Any?>().apply {
+                                    putAll(existing.hardware)
+                                    putAll(incoming.hardware)
+                                }
+                            } else {
+                                existing.hardware
+                            },
+                        sessionTiming =
+                            if (incoming.sessionTiming.isNotEmpty()) {
+                                incoming.sessionTiming
+                            } else {
+                                existing.sessionTiming
+                            },
+                        createdAt = existing.createdAt,
+                    ),
                 )
             mainHandler.post {
                 refreshFeatherProfileUi(status = "Tuner saved ${saved.displayName}")
@@ -1791,6 +1826,10 @@ class MainActivity : ComponentActivity() {
             }
         val techViewPref = loadTechViewPref()
         val activeProfile = featherProfileStore?.loadActive()
+        val activeCoeffs =
+            activeProfile?.let {
+                com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
+            }.orEmpty()
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -1804,6 +1843,8 @@ class MainActivity : ComponentActivity() {
                 featherProfiles = featherProfileStore?.listSummaries().orEmpty(),
                 featherActiveProfileId = activeProfile?.profileId ?: "demo",
                 featherActiveDisplayName = activeProfile?.displayName ?: "Demo",
+                featherActiveCoeffs = activeCoeffs,
+                featherCoeffsEpoch = 1,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -2249,10 +2290,6 @@ class MainActivity : ComponentActivity() {
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
                     onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
                     onSaveFeatherProfileCoeffs = { draft -> saveFeatherActiveCoeffs(draft) },
-                    featherActiveCoeffs =
-                        featherProfileStore?.loadActive()?.let {
-                            com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
-                        }.orEmpty(),
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -2390,7 +2427,6 @@ private fun BridgeMainScreen(
     onAddFeatherPatient: (String) -> Unit,
     onDeleteFeatherProfile: (String) -> Unit,
     onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
-    featherActiveCoeffs: Map<String, String>,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -2831,7 +2867,8 @@ private fun BridgeMainScreen(
                         featherActiveProfileId = state.featherActiveProfileId,
                         featherActiveDisplayName = state.featherActiveDisplayName,
                         featherProfileStatus = state.featherProfileStatus,
-                        featherActiveCoeffs = featherActiveCoeffs,
+                        featherActiveCoeffs = state.featherActiveCoeffs,
+                        featherCoeffsEpoch = state.featherCoeffsEpoch,
                         onSelectFeatherProfile = onSelectFeatherProfile,
                         onAddFeatherPatient = onAddFeatherPatient,
                         onDeleteFeatherProfile = onDeleteFeatherProfile,
@@ -2929,6 +2966,7 @@ private fun ConnectionSettingsDialog(
     var portMenuExpanded by remember { mutableStateOf(false) }
     val parsedPort = portText.toIntOrNull()
     val portValid = parsedPort != null && parsedPort in BRIDGE_PORT_MIN..BRIDGE_PORT_MAX
+    val portDirty = parsedPort != null && parsedPort != bridgePort
     val commonPorts = listOf(8765, 7777, 5000, 8080, 9000)
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(shape = RoundedCornerShape(10.dp), color = UiWhite) {
@@ -3033,13 +3071,20 @@ private fun ConnectionSettingsDialog(
                                 } else {
                                     showPortWarning = true
                                 }
-                            } else {
-                                onSavePort(target)
                             }
                         },
-                        enabled = portValid,
+                        enabled = portValid && portDirty,
                     ) {
-                        Text("Save", color = BannerRed, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Save",
+                            color =
+                                if (portValid && portDirty) {
+                                    BannerRed
+                                } else {
+                                    TextDark.copy(alpha = 0.35f)
+                                },
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }

@@ -146,6 +146,21 @@ data class FeatherPatientProfile(
          */
         const val DEMO_SEED = 2
 
+        /**
+         * Only rewrite the known legacy factory outliers (0.65 / 1.4 / 1000).
+         * Never treat a Tuner- or Tech-edited demo as "needs migration" just because
+         * outliers differ from current known-good — that wiped Save-to-phone.
+         */
+        fun demoNeedsKnownGoodMigration(profile: FeatherPatientProfile): Boolean {
+            if (profile.profileId != "demo") return false
+            val seed = (profile.hardware["demo_seed"] as? Number)?.toInt()
+            if (seed != null && seed >= DEMO_SEED) return false
+            val lo = (profile.coeffs["ibi_outlier_lo"] as? Number)?.toDouble()
+            val hi = (profile.coeffs["ibi_outlier_hi"] as? Number)?.toDouble()
+            val maxMs = (profile.coeffs["ibi_rmssd_max_ms"] as? Number)?.toInt()
+            return lo == 0.65 && hi == 1.4 && maxMs == 1000
+        }
+
         fun defaultTypicalPatchTorso(
             profileId: String = "demo",
             displayName: String = "Typical patch torso",
@@ -242,19 +257,6 @@ data class FeatherPatientProfile(
                 "ibi_outlier_hi" to 1.30,
                 "ibi_rmssd_max_ms" to 1200,
             )
-
-        /** True when a stored demo still has pre-seed-2 outlier / RMSSD-cap values. */
-        fun demoNeedsKnownGoodMigration(profile: FeatherPatientProfile): Boolean {
-            if (profile.profileId != "demo") return false
-            val seed = (profile.hardware["demo_seed"] as? Number)?.toInt()
-            if (seed != null && seed >= DEMO_SEED) return false
-            val lo = (profile.coeffs["ibi_outlier_lo"] as? Number)?.toDouble()
-            val hi = (profile.coeffs["ibi_outlier_hi"] as? Number)?.toDouble()
-            val maxMs = (profile.coeffs["ibi_rmssd_max_ms"] as? Number)?.toInt()
-            // Legacy seed used 0.65 / 1.4 / 1000.
-            if (lo == 0.75 && hi == 1.30 && maxMs == 1200) return false
-            return true
-        }
 
         fun sanitizeProfileId(raw: String): String =
             raw
