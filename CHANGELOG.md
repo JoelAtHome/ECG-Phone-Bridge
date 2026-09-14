@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.44
+- enhancement: NDJSON `coeffs_get` → BLE `get_coeffs`; forward status `type:coeffs` to Tuner as `mcu_coeffs` (Online GET).
+
 ## Version 1.0.0-beta.43
 - enhancement: Tech Offline **Get / Store / Send to Feather** chrome; Offline locked (read-only) while Tuner linked.
 - enhancement: NDJSON `offline_echo` — Tuner Offline → phone Tech display (no SoR / MCU write).

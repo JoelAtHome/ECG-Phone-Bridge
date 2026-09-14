@@ -599,6 +599,7 @@ class MainActivity : ComponentActivity() {
                             updateScreen {
                                 it.copy(featherBleDetail = json.take(120))
                             }
+                            forwardMcuCoeffsStatusToTunerIfNeeded(json)
                         }
 
                         override fun onEcgSamplesUv(
@@ -1272,6 +1273,7 @@ class MainActivity : ComponentActivity() {
                 "profile_put" -> handleFeatherProfilePutFromPc(payload)
                 "coeffs_push" -> handleCoeffsPushFromPc(payload)
                 "offline_echo" -> handleOfflineEchoFromPc(payload)
+                "coeffs_get" -> handleCoeffsGetFromPc()
                 else -> {
                     // Ignore unknown types for forward compatibility.
                 }
@@ -1563,6 +1565,56 @@ class MainActivity : ComponentActivity() {
                     featherProfileStatus = "Tuner Offline echo (read-only)",
                 )
             }
+        }
+    }
+
+    /** Tuner Refresh Online → BLE get_coeffs; reply arrives via status notify. */
+    private fun handleCoeffsGetFromPc() {
+        if (!screenState.value.featherBleConnected) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "mcu_coeffs")
+                    .put("ok", false)
+                    .put(
+                        "message",
+                        "Feather not connected — Connect Feather on phone, then Refresh Online",
+                    )
+                    .toString(),
+            )
+            return
+        }
+        mainHandler.post {
+            try {
+                featherBleClient?.requestCoeffs()
+            } catch (e: Exception) {
+                Log.e("HnHBridge", "coeffs_get failed", e)
+                sendBridgeJsonLine(
+                    JSONObject()
+                        .put("type", "mcu_coeffs")
+                        .put("ok", false)
+                        .put("message", e.message ?: "coeffs_get failed")
+                        .toString(),
+                )
+            }
+        }
+    }
+
+    /** Forward Feather status `{"type":"coeffs",...}` to Tuner as `mcu_coeffs`. */
+    private fun forwardMcuCoeffsStatusToTunerIfNeeded(json: String) {
+        if (!isTunerLinked()) return
+        try {
+            val obj = JSONObject(json)
+            if (!obj.optString("type").equals("coeffs", ignoreCase = true)) return
+            val coeffs = obj.optJSONObject("coeffs") ?: return
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "mcu_coeffs")
+                    .put("ok", true)
+                    .put("coeffs", coeffs)
+                    .toString(),
+            )
+        } catch (_: Exception) {
+            // Ignore non-JSON status / heartbeat payloads.
         }
     }
 

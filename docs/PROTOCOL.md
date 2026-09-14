@@ -798,6 +798,8 @@ Advertise capability: discover `features` may include `"feather_profiles"`.
 
 {"type":"offline_echo","coeffs":{"refractory_ms":420,"peak_end_frac":0.55}}
 
+{"type":"coeffs_get"}
+
 ```
 
 
@@ -817,6 +819,8 @@ Advertise capability: discover `features` may include `"feather_profiles"`.
 | `coeffs_push` | Push `coeffs` JSON to Feather over BLE (Send). No library write. |
 
 | `offline_echo` | Mirror Tuner Offline coeffs to Tech display while linked. No SoR / MCU write. |
+
+| `coeffs_get` | Request Feather BLE `get_coeffs`; phone replies with `mcu_coeffs`. |
 
 
 
@@ -875,6 +879,10 @@ When `client_app` is `ecg_box_tuner`, phone **should** push the active `profile`
 {"type":"coeffs_ack","ok":true,"ble":true,"message":"Pushed coeffs to Feather"}
 
 {"type":"coeffs_ack","ok":false,"ble":false,"message":"Feather not connected — Connect Feather on phone, then Send"}
+
+{"type":"mcu_coeffs","ok":true,"coeffs":{"refractory_ms":420}}
+
+{"type":"mcu_coeffs","ok":false,"message":"Feather not connected — Connect Feather on phone, then Refresh Online"}
 
 ```
 
