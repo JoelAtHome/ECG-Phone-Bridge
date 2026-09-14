@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.41
+- enhancement: While Tuner is linked, Tech active-patient change / Add / Delete / Save re-pushes the active `profile` over NDJSON.
+- docs: Printable UI layout map (`docs/UI_LAYOUT_MAP.md`) for chrome cleanup markup.
+
 ## Version 1.0.0-beta.40
 - enhancement: Feather ECG notify **v2** lookback peak bit-mask → host `ecg.peak_flags`; control `get_coeffs`.
 - enhancement: Tuner link auto-starts Feather stream when connected; `profile_put` pushes coeffs to Feather over BLE.

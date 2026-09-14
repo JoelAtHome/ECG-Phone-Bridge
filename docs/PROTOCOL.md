@@ -404,7 +404,7 @@ Advertise capability: discover `features` may include `"feather_profiles"`.
 | `profile_get` | Full document by id |
 | `profile_put` | Save full document (Accept). Phone stamps `updated_at`. |
 
-When `client_app` is `ecg_box_tuner`, phone **should** push the active `profile` once after `client_info` (same as an implicit `profile_get_active`).
+When `client_app` is `ecg_box_tuner`, phone **should** push the active `profile` once after `client_info` (same as an implicit `profile_get_active`), and again whenever Tech changes the active patient (or saves Offline coeffs) while the Tuner is linked.
 
 ### 13.2 Phone → PC
 

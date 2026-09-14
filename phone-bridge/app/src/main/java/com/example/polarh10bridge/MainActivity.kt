@@ -671,6 +671,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         refreshFeatherProfileUi(status = "Active: ${selected.displayName}")
+        pushActiveProfileToTunerIfLinked()
     }
 
     private fun addFeatherPatient(displayName: String) {
@@ -683,6 +684,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
         refreshFeatherProfileUi(status = "Added ${created.displayName}")
+        pushActiveProfileToTunerIfLinked()
     }
 
     private fun deleteFeatherProfile(profileId: String) {
@@ -690,6 +692,7 @@ class MainActivity : ComponentActivity() {
         val (ok, msg) = store.deleteProfile(profileId)
         refreshFeatherProfileUi(status = msg)
         if (!ok) return
+        pushActiveProfileToTunerIfLinked()
     }
 
     private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
@@ -716,6 +719,7 @@ class MainActivity : ComponentActivity() {
             status += " · pushed to Feather"
         }
         refreshFeatherProfileUi(status = status)
+        pushActiveProfileToTunerIfLinked()
     }
 
     private fun disconnectFeatherBle() {
@@ -1243,6 +1247,12 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {
             // Keep stream compatibility with older/newer clients.
         }
+    }
+
+    private fun pushActiveProfileToTunerIfLinked() {
+        val app = screenState.value.pcClientApp ?: return
+        if (!app.equals("ecg_box_tuner", ignoreCase = true)) return
+        sendActiveFeatherProfileToPc()
     }
 
     private fun sendActiveFeatherProfileToPc() {
