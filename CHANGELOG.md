@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.43
+- enhancement: Tech Offline **Get / Store / Send to Feather** chrome; Offline locked (read-only) while Tuner linked.
+- enhancement: NDJSON `offline_echo` — Tuner Offline → phone Tech display (no SoR / MCU write).
+- change: Tech Store is library-only; Send to Feather is MCU-only (aligned with Tuner Send/Store split).
+
 ## Version 1.0.0-beta.42
 - enhancement: NDJSON `coeffs_push` / `coeffs_ack` — Tuner **Send** → Feather BLE coeffs only (no SoR write).
 - change: `profile_put` (Tuner **Store**) is phone library only; no longer auto-pushes BLE coeffs.

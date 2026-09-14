@@ -113,10 +113,14 @@ fun TechSessionMeters(
     featherProfileStatus: String = "",
     featherActiveCoeffs: Map<String, String> = emptyMap(),
     featherCoeffsEpoch: Int = 0,
+    /** When true, Offline fields mirror Tuner (read-only); Store/Get/Send locked. */
+    tunerLinked: Boolean = false,
     onSelectFeatherProfile: ((String) -> Unit)? = null,
     onAddFeatherPatient: ((String) -> Unit)? = null,
     onDeleteFeatherProfile: ((String) -> Unit)? = null,
     onSaveFeatherProfileCoeffs: ((Map<String, String>) -> Unit)? = null,
+    onGetFeatherOffline: (() -> Unit)? = null,
+    onSendFeatherOffline: ((Map<String, String>) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -359,7 +363,7 @@ fun TechSessionMeters(
 
         if (onSelectFeatherProfile != null && onSaveFeatherProfileCoeffs != null) {
             Text(
-                text = "Patient profile",
+                text = "Offline coeffs",
                 color = TechTextDark,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
@@ -406,8 +410,13 @@ fun TechSessionMeters(
             }
             Text(
                 text =
-                    "Edit coeffs → Save (explicit). Connect Feather pushes the active profile. " +
-                        "Session timing stays phone-default for now.",
+                    if (tunerLinked) {
+                        "Tuner linked — Offline is a read-only mirror of Tuner. " +
+                            "Edit on PC; Store/Get/Send on phone are locked."
+                    } else {
+                        "Offline working set. Get ← library · Store → library · " +
+                            "Send → Feather (MCU). Connect Feather pushes active profile once."
+                    },
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
@@ -416,7 +425,13 @@ fun TechSessionMeters(
             FeatherPatientProfile.EDITABLE_COEFF_KEYS.forEach { key ->
                 OutlinedTextField(
                     value = coeffDraft[key].orEmpty(),
-                    onValueChange = { v -> coeffDraft = coeffDraft + (key to v) },
+                    onValueChange = { v ->
+                        if (!tunerLinked) {
+                            coeffDraft = coeffDraft + (key to v)
+                        }
+                    },
+                    enabled = !tunerLinked,
+                    readOnly = tunerLinked,
                     label = { Text(key, fontSize = 11.sp) },
                     singleLine = true,
                     keyboardOptions =
@@ -432,10 +447,13 @@ fun TechSessionMeters(
                         OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TechTextDark,
                             unfocusedTextColor = TechTextDark,
+                            disabledTextColor = TechTextDark.copy(alpha = 0.72f),
                             focusedBorderColor = TechInfoBlue,
                             unfocusedBorderColor = TechPanelBorder,
+                            disabledBorderColor = TechPanelBorder.copy(alpha = 0.55f),
                             focusedLabelColor = TechInfoBlue,
                             unfocusedLabelColor = TechTextDark.copy(alpha = 0.55f),
+                            disabledLabelColor = TechTextDark.copy(alpha = 0.45f),
                             cursorColor = TechInfoBlue,
                         ),
                     modifier =
@@ -448,26 +466,66 @@ fun TechSessionMeters(
                 FeatherPatientProfile.EDITABLE_COEFF_KEYS.any { key ->
                     coeffDraft[key].orEmpty() != featherActiveCoeffs[key].orEmpty()
                 }
-            TextButton(
-                onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
-                enabled = coeffsDirty,
+            // When Tuner-linked, epoch updates from echo replace the draft — dirty vs echo is N/A.
+            val libraryDirty =
+                if (tunerLinked) {
+                    false
+                } else {
+                    coeffsDirty
+                }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(top = 4.dp),
             ) {
-                Text(
-                    text =
-                        if (featherBleConnected) {
-                            "Save + push to Feather"
-                        } else {
-                            "Save profile"
-                        },
-                    color =
-                        if (coeffsDirty) {
-                            TechInfoBlue
-                        } else {
-                            TechTextDark.copy(alpha = 0.35f)
-                        },
-                    fontSize = 13.sp,
-                )
+                if (onGetFeatherOffline != null) {
+                    TextButton(
+                        onClick = onGetFeatherOffline,
+                        enabled = !tunerLinked && libraryDirty,
+                    ) {
+                        Text(
+                            text = "Get",
+                            color =
+                                if (!tunerLinked && libraryDirty) {
+                                    TechInfoBlue
+                                } else {
+                                    TechTextDark.copy(alpha = 0.35f)
+                                },
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
+                    enabled = !tunerLinked && libraryDirty,
+                ) {
+                    Text(
+                        text = "Store",
+                        color =
+                            if (!tunerLinked && libraryDirty) {
+                                TechInfoBlue
+                            } else {
+                                TechTextDark.copy(alpha = 0.35f)
+                            },
+                        fontSize = 13.sp,
+                    )
+                }
+                if (onSendFeatherOffline != null && featherBleConnected) {
+                    TextButton(
+                        onClick = { onSendFeatherOffline(coeffDraft) },
+                        enabled = !tunerLinked,
+                    ) {
+                        Text(
+                            text = "Send to Feather",
+                            color =
+                                if (!tunerLinked) {
+                                    TechInfoBlue
+                                } else {
+                                    TechTextDark.copy(alpha = 0.35f)
+                                },
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
             }
         }
 

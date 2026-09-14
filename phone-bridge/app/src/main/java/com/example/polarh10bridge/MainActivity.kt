@@ -695,7 +695,16 @@ class MainActivity : ComponentActivity() {
         pushActiveProfileToTunerIfLinked()
     }
 
-    private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
+    private fun isTunerLinked(): Boolean =
+        screenState.value.pcClientApp.equals("ecg_box_tuner", ignoreCase = true)
+
+    /** Offline ← phone library (SoR). Does not touch MCU. */
+    private fun getFeatherOfflineFromLibrary() {
+        refreshFeatherProfileUi(status = "Get — Offline ← library")
+    }
+
+    /** Offline → phone library (SoR). Does not push MCU (use Send to Feather). */
+    private fun storeFeatherOfflineCoeffs(draft: Map<String, String>) {
         val store = featherProfileStore ?: return
         val active = store.loadActive()
         val (merged, err) =
@@ -709,17 +718,38 @@ class MainActivity : ComponentActivity() {
         }
         val saved = store.save(active.copy(coeffs = merged))
         store.setActiveProfileId(saved.profileId)
-        var status = "Saved ${saved.displayName}"
-        if (screenState.value.featherBleConnected) {
-            val bytes =
-                com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
-                    saved.coeffsForBleWrite(),
-                )
-            featherBleClient?.writeCoeffsJson(bytes)
-            status += " · pushed to Feather"
-        }
-        refreshFeatherProfileUi(status = status)
+        refreshFeatherProfileUi(status = "Store — library updated (${saved.displayName})")
         pushActiveProfileToTunerIfLinked()
+    }
+
+    /** Offline → MCU over BLE. Does not write phone library. */
+    private fun sendFeatherOfflineToMcu(draft: Map<String, String>) {
+        if (!screenState.value.featherBleConnected) {
+            refreshFeatherProfileUi(status = "Send failed — Connect Feather first")
+            return
+        }
+        val store = featherProfileStore ?: return
+        val active = store.loadActive()
+        val (merged, err) =
+            com.example.polarh10bridge.feather.FeatherPatientProfile.mergeEditableCoeffDraft(
+                active.coeffs,
+                draft,
+            )
+        if (err != null) {
+            refreshFeatherProfileUi(status = err)
+            return
+        }
+        val bytes =
+            com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
+                active.copy(coeffs = merged).coeffsForBleWrite(),
+            )
+        featherBleClient?.writeCoeffsJson(bytes)
+        refreshFeatherProfileUi(status = "Send — Offline → Feather (not stored)")
+    }
+
+    private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
+        // Back-compat alias for older call sites → Store (SoR only).
+        storeFeatherOfflineCoeffs(draft)
     }
 
     private fun disconnectFeatherBle() {
@@ -1241,6 +1271,7 @@ class MainActivity : ComponentActivity() {
                 }
                 "profile_put" -> handleFeatherProfilePutFromPc(payload)
                 "coeffs_push" -> handleCoeffsPushFromPc(payload)
+                "offline_echo" -> handleOfflineEchoFromPc(payload)
                 else -> {
                     // Ignore unknown types for forward compatibility.
                 }
@@ -1499,6 +1530,37 @@ class MainActivity : ComponentActivity() {
                         .put("ble", true)
                         .put("message", e.message ?: "coeffs_push failed")
                         .toString(),
+                )
+            }
+        }
+    }
+
+    /**
+     * Tuner Offline mirror while linked — display only (no SoR write).
+     * Fields stay read-only in Tech UI until the Tuner disconnects.
+     */
+    private fun handleOfflineEchoFromPc(payload: JSONObject) {
+        if (!isTunerLinked()) return
+        val coeffsObj = payload.optJSONObject("coeffs") ?: return
+        val draft = linkedMapOf<String, String>()
+        for (key in com.example.polarh10bridge.feather.FeatherPatientProfile.EDITABLE_COEFF_KEYS) {
+            if (!coeffsObj.has(key)) continue
+            val v = coeffsObj.opt(key)
+            if (v == null || v == JSONObject.NULL) continue
+            draft[key] = v.toString()
+        }
+        if (draft.isEmpty()) return
+        val merged =
+            linkedMapOf<String, String>().apply {
+                putAll(screenState.value.featherActiveCoeffs)
+                putAll(draft)
+            }
+        mainHandler.post {
+            updateScreen {
+                it.copy(
+                    featherActiveCoeffs = merged,
+                    featherCoeffsEpoch = it.featherCoeffsEpoch + 1,
+                    featherProfileStatus = "Tuner Offline echo (read-only)",
                 )
             }
         }
@@ -2331,6 +2393,8 @@ class MainActivity : ComponentActivity() {
                                                 pcClientApp = null,
                                             )
                                         }
+                                        // Restore Offline from SoR after Tuner echo mirror ends.
+                                        refreshFeatherProfileUi(status = "PC disconnected")
                                         syncSessionUiFromController()
                                     }
                                     Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
@@ -2398,7 +2462,9 @@ class MainActivity : ComponentActivity() {
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
                     onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
-                    onSaveFeatherProfileCoeffs = { draft -> saveFeatherActiveCoeffs(draft) },
+                    onSaveFeatherProfileCoeffs = { draft -> storeFeatherOfflineCoeffs(draft) },
+                    onGetFeatherOffline = { getFeatherOfflineFromLibrary() },
+                    onSendFeatherOffline = { draft -> sendFeatherOfflineToMcu(draft) },
                 )
                 if (state.bleDialogVisible) {
                     SensorListDialog(
@@ -2536,6 +2602,8 @@ private fun BridgeMainScreen(
     onAddFeatherPatient: (String) -> Unit,
     onDeleteFeatherProfile: (String) -> Unit,
     onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
+    onGetFeatherOffline: () -> Unit,
+    onSendFeatherOffline: (Map<String, String>) -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -2978,10 +3046,14 @@ private fun BridgeMainScreen(
                         featherProfileStatus = state.featherProfileStatus,
                         featherActiveCoeffs = state.featherActiveCoeffs,
                         featherCoeffsEpoch = state.featherCoeffsEpoch,
+                        tunerLinked =
+                            state.pcClientApp.equals("ecg_box_tuner", ignoreCase = true),
                         onSelectFeatherProfile = onSelectFeatherProfile,
                         onAddFeatherPatient = onAddFeatherPatient,
                         onDeleteFeatherProfile = onDeleteFeatherProfile,
                         onSaveFeatherProfileCoeffs = onSaveFeatherProfileCoeffs,
+                        onGetFeatherOffline = onGetFeatherOffline,
+                        onSendFeatherOffline = onSendFeatherOffline,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 } else if (state.sessionActive) {
