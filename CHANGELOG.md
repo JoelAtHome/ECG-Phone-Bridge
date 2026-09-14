@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.42
+- enhancement: NDJSON `coeffs_push` / `coeffs_ack` — Tuner **Send** → Feather BLE coeffs only (no SoR write).
+- change: `profile_put` (Tuner **Store**) is phone library only; no longer auto-pushes BLE coeffs.
+
 ## Version 1.0.0-beta.41
 - enhancement: While Tuner is linked, Tech active-patient change / Add / Delete / Save re-pushes the active `profile` over NDJSON.
 - docs: Printable UI layout map (`docs/UI_LAYOUT_MAP.md`) for chrome cleanup markup.

@@ -1240,6 +1240,7 @@ class MainActivity : ComponentActivity() {
                     sendFeatherProfileToPc(id)
                 }
                 "profile_put" -> handleFeatherProfilePutFromPc(payload)
+                "coeffs_push" -> handleCoeffsPushFromPc(payload)
                 else -> {
                     // Ignore unknown types for forward compatibility.
                 }
@@ -1417,15 +1418,10 @@ class MainActivity : ComponentActivity() {
                         createdAt = existing.createdAt,
                     ),
                 )
+            // SoR only — MCU RAM is updated by Tuner Send (`coeffs_push`) or Tech
+            // Connect / Save-while-connected, not by profile_put.
             mainHandler.post {
                 refreshFeatherProfileUi(status = "Tuner saved ${saved.displayName}")
-                if (screenState.value.featherBleConnected) {
-                    val bytes =
-                        com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
-                            saved.coeffsForBleWrite(),
-                        )
-                    featherBleClient?.writeCoeffsJson(bytes)
-                }
             }
             sendBridgeJsonLine(
                 JSONObject()
@@ -1444,6 +1440,67 @@ class MainActivity : ComponentActivity() {
                     .put("message", e.message ?: "profile_put failed")
                     .toString(),
             )
+        }
+    }
+
+    /** Tuner Send → MCU RAM over BLE only (does not touch phone profile SoR). */
+    private fun handleCoeffsPushFromPc(payload: JSONObject) {
+        val coeffsObj = payload.optJSONObject("coeffs")
+        if (coeffsObj == null) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "coeffs_ack")
+                    .put("ok", false)
+                    .put("message", "coeffs object required")
+                    .toString(),
+            )
+            return
+        }
+        if (!screenState.value.featherBleConnected) {
+            sendBridgeJsonLine(
+                JSONObject()
+                    .put("type", "coeffs_ack")
+                    .put("ok", false)
+                    .put("ble", false)
+                    .put(
+                        "message",
+                        "Feather not connected — Connect Feather on phone, then Send",
+                    )
+                    .toString(),
+            )
+            return
+        }
+        val map = linkedMapOf<String, Any?>()
+        val keys = coeffsObj.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val v = coeffsObj.get(k)
+            map[k] = if (v == JSONObject.NULL) null else v
+        }
+        mainHandler.post {
+            try {
+                val bytes =
+                    com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(map)
+                featherBleClient?.writeCoeffsJson(bytes)
+                sendBridgeJsonLine(
+                    JSONObject()
+                        .put("type", "coeffs_ack")
+                        .put("ok", true)
+                        .put("ble", true)
+                        .put("message", "Pushed coeffs to Feather")
+                        .toString(),
+                )
+            } catch (e: Exception) {
+                Log.e("HnHBridge", "coeffs_push failed", e)
+                sendBridgeJsonLine(
+                    JSONObject()
+                        .put("type", "coeffs_ack")
+                        .put("ok", false)
+                        .put("ble", true)
+                        .put("message", e.message ?: "coeffs_push failed")
+                        .toString(),
+                )
+            }
         }
     }
 
