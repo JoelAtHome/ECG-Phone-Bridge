@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.40
+- enhancement: Feather ECG notify **v2** lookback peak bit-mask → host `ecg.peak_flags`; control `get_coeffs`.
+- enhancement: Tuner link auto-starts Feather stream when connected; `profile_put` pushes coeffs to Feather over BLE.
+
 ## Version 1.0.0-beta.39
 - polish: Gray out Tech **Save profile** and Connection **Save** until the associated fields are dirty.
 - fix: Tuner `profile_put` merges coeffs/hardware instead of wiping phone metadata; stop re-polishing demo on every UI refresh; only migrate legacy demo outliers (0.65/1.4/1000).

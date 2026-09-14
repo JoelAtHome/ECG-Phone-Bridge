@@ -77,10 +77,11 @@ Same object; new fields optional so old HnH still works:
 ```json
 {"type":"status","message":"Phone bridge connected","connected":true}
 {"type":"rr","rr_ms":812}
-{"type":"ecg","sample_rate_hz":130,"samples_mv":[0.12,-0.05,0.08]}
+{"type":"ecg","sample_rate_hz":130,"samples_mv":[0.12,-0.05,0.08],"peak_flags":[0,1,0]}
 {"type":"sensor_quality","contact_state":"in_contact","contact":true,"contact_supported":true,"rssi_dbm":-67,"rssi_is_contact":false}
 ```
 
+Optional on Feather ECG notifies (packet v2+): `peak_flags` — parallel `0`/`1` array marking lookback R-peak samples (same length as `samples_mv`). Absent or all zeros on Polar / legacy Feather.
 | `sensor_quality` field | Meaning |
 |------------------------|---------|
 | `contact_state` | `unknown` \| `in_contact` \| `no_contact` (from sensor contact bit, **not** RSSI) |

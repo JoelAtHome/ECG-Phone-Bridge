@@ -117,6 +117,7 @@ If payload exceeds MTU, use **Write with long write** / queued chunks: phone sen
 | `start_stream` | Begin IBI (+ ECG if supported) notifies |
 | `stop_stream` | Stop notifies |
 | `apply_coeffs` | Apply last successfully written coeffs object (optional if write already applies) |
+| `get_coeffs` | Dump RAM knobs via status notify `{"type":"coeffs","coeffs":{…}}` |
 | `ping` | Optional; expect status notify |
 
 ### 4.5 Status notify (`c3f0a005-…`) — UTF-8 JSON (optional)

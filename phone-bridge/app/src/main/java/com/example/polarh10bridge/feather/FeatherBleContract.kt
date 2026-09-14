@@ -19,6 +19,8 @@ object FeatherBleContract {
     val STATUS_NOTIFY_UUID: UUID = UUID.fromString("c3f0a005-7a1e-4f3b-9c2d-8e5f6a7b8c9d")
 
     const val PACKET_VERSION: Int = 1
+    /** ECG notifies with lookback peak bit-mask (FW 2026-09+). */
+    const val PACKET_VERSION_ECG: Int = 2
     const val SOURCE_DEVICE_WIRE: String = "FEATHER"
 
     fun matchesAdvertisedName(name: String?): Boolean {
@@ -45,6 +47,8 @@ data class FeatherEcgPacket(
     val sampleHz: Int,
     /** Microvolts. */
     val samplesUv: List<Int>,
+    /** Parallel to [samplesUv]; true where lookback marker is set (v2+). */
+    val peakFlags: List<Boolean> = emptyList(),
 )
 
 object FeatherPacketCodec {
@@ -78,14 +82,37 @@ object FeatherPacketCodec {
 
     fun encodeEcg(packet: FeatherEcgPacket): ByteArray {
         require(packet.samplesUv.size <= 255)
+        val count = packet.samplesUv.size
+        val version =
+            if (packet.peakFlags.isNotEmpty() || packet.version >= FeatherBleContract.PACKET_VERSION_ECG) {
+                FeatherBleContract.PACKET_VERSION_ECG
+            } else {
+                FeatherBleContract.PACKET_VERSION
+            }
+        val maskBytes = if (version >= FeatherBleContract.PACKET_VERSION_ECG) (count + 7) / 8 else 0
         val buf =
-            ByteBuffer.allocate(9 + packet.samplesUv.size * 2).order(ByteOrder.LITTLE_ENDIAN)
-        buf.putShort(packet.version.toShort())
+            ByteBuffer.allocate(9 + count * 2 + maskBytes).order(ByteOrder.LITTLE_ENDIAN)
+        buf.putShort(version.toShort())
         buf.putInt(packet.timestampMs.toInt())
         buf.putShort(packet.sampleHz.toShort())
-        buf.put(packet.samplesUv.size.toByte())
+        buf.put(count.toByte())
         for (s in packet.samplesUv) {
             buf.putShort(s.toShort())
+        }
+        if (maskBytes > 0) {
+            val mask = ByteArray(maskBytes)
+            val flags =
+                if (packet.peakFlags.size == count) {
+                    packet.peakFlags
+                } else {
+                    List(count) { false }
+                }
+            for (i in 0 until count) {
+                if (flags[i]) {
+                    mask[i / 8] = (mask[i / 8].toInt() or (1 shl (i % 8))).toByte()
+                }
+            }
+            buf.put(mask)
         }
         return buf.array()
     }
@@ -94,7 +121,11 @@ object FeatherPacketCodec {
         if (bytes.size < 9) return null
         val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         val version = buf.short.toInt() and 0xFFFF
-        if (version != FeatherBleContract.PACKET_VERSION) return null
+        if (version != FeatherBleContract.PACKET_VERSION &&
+            version != FeatherBleContract.PACKET_VERSION_ECG
+        ) {
+            return null
+        }
         val timestampMs = buf.int.toLong() and 0xFFFFFFFFL
         val sampleHz = buf.short.toInt() and 0xFFFF
         val count = buf.get().toInt() and 0xFF
@@ -103,7 +134,19 @@ object FeatherPacketCodec {
         repeat(count) {
             samples.add(buf.short.toInt())
         }
-        return FeatherEcgPacket(version, timestampMs, sampleHz, samples)
+        val peaks = ArrayList<Boolean>(count)
+        if (version >= FeatherBleContract.PACKET_VERSION_ECG) {
+            val maskBytes = (count + 7) / 8
+            if (bytes.size < 9 + count * 2 + maskBytes) return null
+            val mask = ByteArray(maskBytes)
+            buf.get(mask)
+            for (i in 0 until count) {
+                peaks.add((mask[i / 8].toInt() and (1 shl (i % 8))) != 0)
+            }
+        } else {
+            repeat(count) { peaks.add(false) }
+        }
+        return FeatherEcgPacket(version, timestampMs, sampleHz, samples, peaks)
     }
 
     fun samplesUvToMv(samplesUv: List<Int>): List<Double> =

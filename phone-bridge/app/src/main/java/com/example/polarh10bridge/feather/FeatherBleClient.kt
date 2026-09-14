@@ -35,7 +35,11 @@ class FeatherBleClient(
 
         fun onStatusJson(json: String)
 
-        fun onEcgSamplesUv(sampleHz: Int, samplesUv: List<Int>)
+        fun onEcgSamplesUv(
+            sampleHz: Int,
+            samplesUv: List<Int>,
+            peakFlags: List<Boolean> = emptyList(),
+        )
     }
 
     enum class Phase {
@@ -294,6 +298,12 @@ class FeatherBleClient(
         }
     }
 
+    /** Request RAM coeffs dump via status notify `{"type":"coeffs",...}`. */
+    @SuppressLint("MissingPermission")
+    fun requestCoeffs() {
+        writeControl("""{"cmd":"get_coeffs"}""")
+    }
+
     @SuppressLint("MissingPermission")
     fun disconnect() {
         mainHandler.removeCallbacks(scanTimeoutRunnable)
@@ -451,7 +461,7 @@ class FeatherBleClient(
                     return
                 }
                 mainHandler.post {
-                    listener.onEcgSamplesUv(pkt.sampleHz, pkt.samplesUv)
+                    listener.onEcgSamplesUv(pkt.sampleHz, pkt.samplesUv, pkt.peakFlags)
                 }
             }
             FeatherBleContract.STATUS_NOTIFY_UUID -> {

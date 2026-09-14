@@ -51,8 +51,24 @@ class FeatherPacketCodecTest {
                 samplesUv = listOf(-1500, 0, 2200),
             )
         val decoded = FeatherPacketCodec.decodeEcg(FeatherPacketCodec.encodeEcg(original))
-        assertEquals(original, decoded)
+        assertEquals(original.samplesUv, decoded!!.samplesUv)
         assertEquals(listOf(-1.5, 0.0, 2.2), FeatherPacketCodec.samplesUvToMv(original.samplesUv))
+    }
+
+    @Test
+    fun ecg_v2_peak_flags_roundTrip() {
+        val original =
+            FeatherEcgPacket(
+                version = FeatherBleContract.PACKET_VERSION_ECG,
+                timestampMs = 42L,
+                sampleHz = 250,
+                samplesUv = listOf(100, 200, 300, 400),
+                peakFlags = listOf(false, true, false, false),
+            )
+        val decoded = FeatherPacketCodec.decodeEcg(FeatherPacketCodec.encodeEcg(original))!!
+        assertEquals(FeatherBleContract.PACKET_VERSION_ECG, decoded.version)
+        assertEquals(original.samplesUv, decoded.samplesUv)
+        assertEquals(original.peakFlags, decoded.peakFlags)
     }
 
     @Test

@@ -601,13 +601,17 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        override fun onEcgSamplesUv(sampleHz: Int, samplesUv: List<Int>) {
+                        override fun onEcgSamplesUv(
+                            sampleHz: Int,
+                            samplesUv: List<Int>,
+                            peakFlags: List<Boolean>,
+                        ) {
                             if (samplesUv.isEmpty()) return
                             val mv =
                                 com.example.polarh10bridge.feather.FeatherPacketCodec
                                     .samplesUvToMv(samplesUv)
                                     .map { it.toFloat() }
-                            ingestFeatherEcgMv(sampleHz, mv)
+                            ingestFeatherEcgMv(sampleHz, mv, peakFlags)
                         }
                     },
             )
@@ -782,7 +786,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun ingestFeatherEcgMv(sampleHz: Int, samplesMv: List<Float>) {
+    private fun ingestFeatherEcgMv(
+        sampleHz: Int,
+        samplesMv: List<Float>,
+        peakFlags: List<Boolean> = emptyList(),
+    ) {
         if (samplesMv.isEmpty()) return
         val hz = sampleHz.coerceAtLeast(1)
         updateScreen { state ->
@@ -803,8 +811,16 @@ class MainActivity : ComponentActivity() {
             )
         }
         val samplesJson = samplesMv.joinToString(prefix = "[", postfix = "]")
+        val peaks =
+            if (peakFlags.size == samplesMv.size) {
+                peakFlags
+            } else {
+                List(samplesMv.size) { false }
+            }
+        val peaksJson =
+            peaks.joinToString(prefix = "[", postfix = "]") { if (it) "1" else "0" }
         sendBridgeJsonLine(
-            """{"type":"ecg","sample_rate_hz":$hz,"samples_mv":$samplesJson}""",
+            """{"type":"ecg","sample_rate_hz":$hz,"samples_mv":$samplesJson,"peak_flags":$peaksJson}""",
         )
     }
 
@@ -1163,6 +1179,25 @@ class MainActivity : ComponentActivity() {
                     updateScreen { it.copy(pcBridgeUserName = user, pcClientApp = app) }
                     if (app.equals("ecg_box_tuner", ignoreCase = true)) {
                         sendActiveFeatherProfileToPc()
+                        // Light tech stream: ensure Feather notifies if already connected.
+                        mainHandler.post {
+                            if (screenState.value.featherBleConnected) {
+                                featherBleClient?.startStream()
+                            }
+                            sendBridgeJsonLine(
+                                JSONObject()
+                                    .put("type", "status")
+                                    .put(
+                                        "message",
+                                        if (screenState.value.featherBleConnected) {
+                                            "Tuner tech stream — Feather ECG+markers"
+                                        } else {
+                                            "Tuner linked — Connect Feather on phone for Live ECG"
+                                        },
+                                    )
+                                    .toString(),
+                            )
+                        }
                     }
                 }
                 "session_control" -> {
@@ -1374,6 +1409,13 @@ class MainActivity : ComponentActivity() {
                 )
             mainHandler.post {
                 refreshFeatherProfileUi(status = "Tuner saved ${saved.displayName}")
+                if (screenState.value.featherBleConnected) {
+                    val bytes =
+                        com.example.polarh10bridge.feather.FeatherPacketCodec.encodeCoeffsJson(
+                            saved.coeffsForBleWrite(),
+                        )
+                    featherBleClient?.writeCoeffsJson(bytes)
+                }
             }
             sendBridgeJsonLine(
                 JSONObject()
