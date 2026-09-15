@@ -23,8 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -132,56 +130,41 @@ internal fun ConnectedSensorActionsDialog(
                     color = TextDark.copy(alpha = 0.7f),
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     TextButton(
                         onClick = onDisconnect,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = "Disconnect",
                             color = BannerRed,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                            textAlign = TextAlign.Center,
+                            fontSize = 15.sp,
                         )
                     }
                     TextButton(
                         onClick = onRescan,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = "Rescan",
                             color = BannerRed,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                            textAlign = TextAlign.Center,
+                            fontSize = 15.sp,
                         )
                     }
                     TextButton(
                         onClick = onDismissRequest,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = "Cancel",
                             color = BannerRed,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                            textAlign = TextAlign.Center,
+                            fontSize = 15.sp,
                         )
                     }
                 }

@@ -152,7 +152,9 @@ Change ECG sensor (under Data path node)
   [Close]
 
 Connected sensor pill → ECG sensor
-  [Disconnect]  [Rescan]  [Cancel]   (one row)
+  [Disconnect]
+  [Rescan]
+  [Cancel]   (stacked, center-aligned)
 
 Sensor list (Find when Polar is selected)
   Scanning… / radio list / Connecting…
