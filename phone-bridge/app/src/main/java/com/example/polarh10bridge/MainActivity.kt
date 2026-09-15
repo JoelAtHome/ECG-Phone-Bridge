@@ -23,6 +23,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -2324,6 +2327,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        hideNavigationBarSticky()
         bridgePort = loadBridgePortPref()
         val keepAlivePref = loadKeepAliveInBackgroundPref()
         val sessionModePref = loadSessionModePref()
@@ -2853,6 +2857,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onSourceKindChosen = { kind -> setSelectedSourceKind(kind) },
                         onFindSource = { beginFindSource() },
+                        onDisconnectSensor = { disconnectConnectedSensor() },
                         onStartSession = { startBridgeSession() },
                         onFinished = { markCompleted ->
                             if (markCompleted) {
@@ -2895,6 +2900,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        hideNavigationBarSticky()
         screenState.value =
             screenState.value.copy(
                 foregroundServiceActive = BridgeForegroundService.isRunning,
@@ -2902,6 +2908,21 @@ class MainActivity : ComponentActivity() {
         // Always refresh — Wi-Fi client off does not mean no LAN IP (mobile hotspot).
         schedulePhoneWifiLinkRefreshWithRetries()
         bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideNavigationBarSticky()
+        }
+    }
+
+    /** Bottom nav auto-hides; swipe edge briefly reveals it (does not keep a permanent chrome strip). */
+    private fun hideNavigationBarSticky() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
     override fun onStart() {

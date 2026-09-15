@@ -10,10 +10,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -107,6 +116,7 @@ private enum class WizardStep {
     Connect,
     Host,
     Ready,
+    FinishTip,
 }
 
 private enum class HostChoice {
@@ -143,6 +153,16 @@ private fun bridgeBlePermissionArray(): Array<String> =
         arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
+private fun wizardPcAppLabel(clientApp: String?): String =
+    when (clientApp?.trim()?.lowercase()) {
+        "hertz_and_hearts", "hnh" -> "Hertz & Hearts"
+        "vns_ta" -> "VNS-TA"
+        "flaretracker" -> "FlareTracker"
+        "ecg_box_tuner" -> "ECG-Box Tuner"
+        null, "" -> "PC"
+        else -> clientApp.trim()
+    }
+
 /**
  * Full-screen session coach. Reuses Find / session Start via callbacks; no Simulate or Tech chrome.
  */
@@ -156,6 +176,7 @@ internal fun StartupWizardOverlay(
     onJobChosen: (WizardJob) -> Unit,
     onSourceKindChosen: (SourceKind) -> Unit,
     onFindSource: () -> Unit,
+    onDisconnectSensor: () -> Unit,
     onStartSession: () -> Unit,
     onFinished: (markCompleted: Boolean) -> Unit,
 ) {
@@ -173,6 +194,7 @@ internal fun StartupWizardOverlay(
     }
     var hostChoice by remember { mutableStateOf(HostChoice.WaitForPc) }
     var permissionsOk by remember { mutableStateOf(bridgeBlePermissionsGranted(context)) }
+    var findPressed by remember { mutableStateOf(false) }
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
@@ -192,6 +214,7 @@ internal fun StartupWizardOverlay(
     }
     LaunchedEffect(sensorKind) {
         onSourceKindChosen(sensorKind)
+        findPressed = false
     }
 
     val sensorLinked =
@@ -217,7 +240,8 @@ internal fun StartupWizardOverlay(
                 WizardStep.Connect ->
                     if (job == WizardJob.Breathe) WizardStep.Ready else WizardStep.Host
                 WizardStep.Host -> WizardStep.Ready
-                WizardStep.Ready -> step
+                WizardStep.Ready -> WizardStep.FinishTip
+                WizardStep.FinishTip -> step
             }
     }
 
@@ -238,6 +262,8 @@ internal fun StartupWizardOverlay(
                 WizardStep.Host -> WizardStep.Connect
                 WizardStep.Ready ->
                     if (job == WizardJob.Breathe) WizardStep.Connect else WizardStep.Host
+                // Session may already be running — tip is forward-only.
+                WizardStep.FinishTip -> WizardStep.FinishTip
             }
     }
 
@@ -248,7 +274,7 @@ internal fun StartupWizardOverlay(
             WizardStep.Connect -> sensorLinked
             WizardStep.Host ->
                 hostChoice == HostChoice.PhoneAlone || state.pcBridgeConnected
-            WizardStep.Ready -> true
+            WizardStep.Ready, WizardStep.FinishTip -> true
         }
 
     Surface(
@@ -262,6 +288,11 @@ internal fun StartupWizardOverlay(
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .windowInsetsPadding(
+                        WindowInsets.statusBars.union(
+                            WindowInsets.displayCutout.only(WindowInsetsSides.Top),
+                        ),
+                    )
                     .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             Text(
@@ -271,7 +302,7 @@ internal fun StartupWizardOverlay(
                 color = TextDark,
             )
             Text(
-                text = stepSubtitle(step),
+                text = stepSubtitle(step, job),
                 fontSize = 13.sp,
                 color = TextDark.copy(alpha = 0.65f),
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
@@ -325,7 +356,7 @@ internal fun StartupWizardOverlay(
                             onClick = { permissionLauncher.launch(bridgeBlePermissionArray()) },
                             colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
                         ) {
-                            Text("Allow permissions")
+                            Text("Allow permissions", maxLines = 1, softWrap = false)
                         }
                         if (permissionsOk) {
                             Text(
@@ -351,77 +382,130 @@ internal fun StartupWizardOverlay(
                         )
                     }
                     WizardStep.Connect -> {
-                        Text(
-                            text =
-                                when (sensorKind) {
-                                    SourceKind.PolarH10 ->
-                                        "Wet the Polar H10 strap, wear it, then tap Find."
-                                    else ->
-                                        "Power the ECG-Box, keep it nearby, then tap Find."
-                                },
-                            fontSize = 14.sp,
-                            color = TextDark,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = onFindSource,
-                            colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
-                        ) {
-                            Text("Find sensor")
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text =
-                                if (sensorLinked) {
-                                    val name =
-                                        state.connectedSensorName.ifBlank {
-                                            sensorKind.displayName()
-                                        }
-                                    "Connected: $name"
-                                } else {
-                                    state.featherInProgressLine()
-                                        ?: "Waiting for sensor…"
-                                },
-                            fontSize = 13.sp,
-                            color = TextDark.copy(alpha = 0.75f),
-                        )
-                    }
-                    WizardStep.Host -> {
-                        WizardRadio(
-                            selected = hostChoice == HostChoice.WaitForPc,
-                            title = "Wait for PC",
-                            subtitle =
-                                "Open FlareTracker Companion, VNS-TA, or Hertz & Hearts " +
-                                    "on this Wi‑Fi.",
-                            onClick = { hostChoice = HostChoice.WaitForPc },
-                        )
-                        WizardRadio(
-                            selected = hostChoice == HostChoice.PhoneAlone,
-                            title = "Phone alone for now",
-                            subtitle =
-                                if (job == WizardJob.RecordHrv) {
-                                    "Record on the phone; Send HRV when a PC connects."
-                                } else {
-                                    "You can still stream once a PC links later."
-                                },
-                            onClick = { hostChoice = HostChoice.PhoneAlone },
-                        )
-                        if (hostChoice == HostChoice.WaitForPc) {
-                            val ip = phoneIpHint ?: state.phoneWifiIpv4
+                        if (!sensorLinked) {
                             Text(
                                 text =
-                                    if (state.pcBridgeConnected) {
-                                        val app = state.pcClientApp?.ifBlank { null } ?: "PC"
-                                        "PC linked ($app)."
-                                    } else if (ip != null) {
-                                        "On your PC, connect to $ip:${state.bridgePort}"
-                                    } else {
-                                        "Waiting for Wi‑Fi IP…"
+                                    when (sensorKind) {
+                                        SourceKind.PolarH10 ->
+                                            "Wet the Polar H10 strap, wear it, then tap " +
+                                                "Find sensor button."
+                                        else ->
+                                            "Power the ECG-Box, keep it nearby, then tap " +
+                                                "Find sensor button."
                                     },
+                                fontSize = 14.sp,
+                                color = TextDark,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    findPressed = true
+                                    onFindSource()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
+                            ) {
+                                Text("Find sensor", maxLines = 1, softWrap = false)
+                            }
+                            if (findPressed) {
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text =
+                                        state.featherInProgressLine()
+                                            ?: "Waiting for sensor…",
+                                    fontSize = 13.sp,
+                                    color = TextDark.copy(alpha = 0.75f),
+                                )
+                            }
+                        } else {
+                            val name =
+                                state.connectedSensorName.ifBlank {
+                                    sensorKind.displayName()
+                                }
+                            Text(
+                                text = "Connected: $name",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextDark,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    findPressed = false
+                                    onDisconnectSensor()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
+                            ) {
+                                Text("Disconnect sensor", maxLines = 1, softWrap = false)
+                            }
+                        }
+                    }
+                    WizardStep.Host -> {
+                        if (state.pcBridgeConnected) {
+                            Text(
+                                text =
+                                    "PC linked: ${wizardPcAppLabel(state.pcClientApp)}.",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextDark,
+                            )
+                            Text(
+                                text =
+                                    "You chose ${job.title()}. Continue when you are ready " +
+                                        "to start.",
                                 fontSize = 13.sp,
                                 color = TextDark.copy(alpha = 0.75f),
                                 modifier = Modifier.padding(top = 8.dp),
                             )
+                        } else {
+                            Text(
+                                text =
+                                    when (job) {
+                                        WizardJob.RecordHrv ->
+                                            "You chose Record HRV. Link a PC now for live " +
+                                                "upload, or stay phone-alone and Send HRV later."
+                                        WizardJob.Stream ->
+                                            "You chose Stream. Link a PC on this Wi‑Fi for " +
+                                                "the live session, or continue phone-alone."
+                                        WizardJob.Breathe ->
+                                            "Optional PC link."
+                                    },
+                                fontSize = 14.sp,
+                                color = TextDark,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            WizardRadio(
+                                selected = hostChoice == HostChoice.WaitForPc,
+                                title = "Wait for PC",
+                                subtitle =
+                                    "Open FlareTracker Companion, VNS-TA, or Hertz & Hearts " +
+                                        "on this Wi‑Fi.",
+                                onClick = { hostChoice = HostChoice.WaitForPc },
+                            )
+                            WizardRadio(
+                                selected = hostChoice == HostChoice.PhoneAlone,
+                                title = "Phone alone for now",
+                                subtitle =
+                                    if (job == WizardJob.RecordHrv) {
+                                        "Send HRV from Tech when a PC connects later."
+                                    } else {
+                                        "A PC can link later; stream needs the host open."
+                                    },
+                                onClick = { hostChoice = HostChoice.PhoneAlone },
+                            )
+                            if (hostChoice == HostChoice.WaitForPc) {
+                                val ip = phoneIpHint ?: state.phoneWifiIpv4
+                                Text(
+                                    text =
+                                        if (ip != null) {
+                                            "On your PC, connect to $ip:${state.bridgePort}"
+                                        } else {
+                                            "Waiting for Wi‑Fi IP…"
+                                        },
+                                    fontSize = 13.sp,
+                                    color = TextDark.copy(alpha = 0.75f),
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
                         }
                     }
                     WizardStep.Ready -> {
@@ -429,7 +513,8 @@ internal fun StartupWizardOverlay(
                             when {
                                 job == WizardJob.Breathe -> "No PC needed"
                                 hostChoice == HostChoice.PhoneAlone -> "Phone alone"
-                                state.pcBridgeConnected -> "PC linked"
+                                state.pcBridgeConnected ->
+                                    "PC linked (${wizardPcAppLabel(state.pcClientApp)})"
                                 else -> "PC optional"
                             }
                         Text(
@@ -452,38 +537,82 @@ internal fun StartupWizardOverlay(
                                 if (job == WizardJob.RecordHrv || job == WizardJob.Stream) {
                                     onStartSession()
                                 }
-                                onFinished(true)
+                                step = WizardStep.FinishTip
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(primaryLabel)
+                            Text(primaryLabel, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    WizardStep.FinishTip -> {
+                        Text(
+                            text =
+                                when (job) {
+                                    WizardJob.RecordHrv, WizardJob.Stream ->
+                                        "When this session is finished, tap Stop on the " +
+                                            "Capture panel on the main screen."
+                                    WizardJob.Breathe ->
+                                        "Use Start / Stop on the breathing pacer on the " +
+                                            "main screen."
+                                },
+                            fontSize = 15.sp,
+                            color = TextDark,
+                            lineHeight = 22.sp,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { onFinished(true) },
+                            colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Go to main screen", maxLines = 1, softWrap = false)
                         }
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
             ) {
-                TextButton(onClick = { onFinished(true) }) {
-                    Text("Exit to main screen", color = TextDark.copy(alpha = 0.7f))
+                TextButton(
+                    onClick = { onFinished(true) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Exit this Wizard to Main screen",
+                        color = TextDark.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                Row {
-                    if (step != WizardStep.Role) {
-                        TextButton(onClick = { goBack() }) {
-                            Text("Back", color = TextDark)
+                if (step != WizardStep.FinishTip) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (step != WizardStep.Role) {
+                            TextButton(onClick = { goBack() }) {
+                                Text("Back", color = TextDark, maxLines = 1, softWrap = false)
+                            }
                         }
-                    }
-                    if (step != WizardStep.Ready) {
-                        Button(
-                            onClick = { goNext() },
-                            enabled = canContinue,
-                            colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
-                        ) {
-                            Text("Continue")
+                        if (step != WizardStep.Ready) {
+                            Button(
+                                onClick = { goNext() },
+                                enabled = canContinue,
+                                colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
+                                modifier = Modifier.defaultMinSize(minWidth = 132.dp),
+                            ) {
+                                Text(
+                                    text = "Continue",
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
                         }
                     }
                 }
@@ -520,7 +649,7 @@ private fun WizardRadio(
                     unselectedColor = UnselectedRadioRing,
                 ),
         )
-        Column(modifier = Modifier.padding(start = 4.dp)) {
+        Column(modifier = Modifier.padding(start = 4.dp).weight(1f)) {
             Text(
                 text = title,
                 fontWeight = FontWeight.Medium,
@@ -536,13 +665,22 @@ private fun WizardRadio(
     }
 }
 
-private fun stepSubtitle(step: WizardStep): String =
+private fun stepSubtitle(
+    step: WizardStep,
+    job: WizardJob,
+): String =
     when (step) {
         WizardStep.Role -> "Who is using this phone?"
         WizardStep.Job -> "What do you want to do?"
         WizardStep.Permissions -> "Allow sensor access"
         WizardStep.Sensor -> "Which ECG sensor?"
         WizardStep.Connect -> "Connect the sensor"
-        WizardStep.Host -> "PC / host link"
+        WizardStep.Host ->
+            when (job) {
+                WizardJob.RecordHrv -> "PC link for Record HRV"
+                WizardJob.Stream -> "PC link for Stream"
+                WizardJob.Breathe -> "PC / host link"
+            }
         WizardStep.Ready -> "Ready"
+        WizardStep.FinishTip -> "When you are done"
     }

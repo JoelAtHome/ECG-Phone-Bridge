@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.55
+- polish: Auto-hide Android navigation bar (sticky immersive; swipe to peek) so bottom chrome does not steal session UX.
+- polish: Startup Wizard — Continue button width, status-bar inset on title, Find/Disconnect connect states, PC-link copy (not re-ask job), FlareTracker label, finish-tip Stop prompt, exit wording.
+
 ## Version 1.0.0-beta.54
 - enhancement: **Startup Wizard** (session coach) — first-run + menu **Start session**; role → job → permissions → sensor → Find → optional PC → Start (see `docs/UI_LAYOUT_MAP.md` §7).
 - docs: HOST_HANDOFF — wizard is phone-only (no host wire/code); optional FT/VNS-TA/HnH/Companion help strings for ☰ **Start session**.
