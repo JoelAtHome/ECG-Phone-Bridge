@@ -127,36 +127,36 @@ internal fun ConnectedSensorActionsDialog(
                     text = sourceLabel,
                     fontSize = 13.sp,
                     color = TextDark.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
-                TextButton(
-                    onClick = onDisconnect,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        text = "Disconnect",
-                        color = BannerRed,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 15.sp,
-                    )
-                }
-                TextButton(
-                    onClick = onRescan,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        text = "Rescan",
-                        color = BannerRed,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 15.sp,
-                    )
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    TextButton(onClick = onDisconnect) {
+                        Text(
+                            text = "Disconnect",
+                            color = BannerRed,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                        )
+                    }
+                    TextButton(onClick = onRescan) {
+                        Text(
+                            text = "Rescan",
+                            color = BannerRed,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                        )
+                    }
                     TextButton(onClick = onDismissRequest) {
-                        Text("Cancel", color = BannerRed)
+                        Text(
+                            text = "Cancel",
+                            color = BannerRed,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                        )
                     }
                 }
             }

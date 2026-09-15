@@ -100,6 +100,8 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │                                         │
 │  ┌─ CAPTURE SESSION ──────────────────┐ │
 │  │  Stream ○     Record ○             │ │
+│  │  blurb: Stream=VNS-TA / Record=FT  │ │
+│  │         HnH: either                │ │
 │  │  Idle|Running · kind · session_id  │ │
 │  │  IBIs · RMSSD                      │ │
 │  │  [hint if no source]               │ │
@@ -149,6 +151,9 @@ Change ECG sensor (under Data path node)
   Polar H10 / Feather radio list
   [Close]
 
+Connected sensor pill → ECG sensor
+  [Disconnect]  [Rescan]  [Cancel]   (one row)
+
 Sensor list (Find when Polar is selected)
   Scanning… / radio list / Connecting…
   [Cancel] [Connect]
@@ -162,7 +167,8 @@ Tech-only nested dialogs
   ├─ Profile picker (Change)
   ├─ Add patient (name → OK)
   ├─ Delete confirm
-  └─ Quality flag help [i]
+  ├─ Quality flag help [i]
+  └─ Simulate Feather blocked (live Polar / ECG-Box connected → OK)
 ```
 
 ---

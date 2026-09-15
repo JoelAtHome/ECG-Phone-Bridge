@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.47**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner** Online GET / Send / Store field-verify — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md). β.47: Tech chrome simplify (ECG-Box detector, no Start/Stop stream UI). β.46: source-picker chrome polish + Feather contact honesty. β.45: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+**Status:** Shipping phone contract through **v1.0.0-beta.48**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Priority:** ECG-Box **Tuner** Online GET / Send / Store field-verify — see [`TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md). β.48: Capture Stream/Record host hints; Simulate Feather blocked modal; ECG sensor actions row. β.47: Tech chrome simplify. β.46: source-picker chrome polish + Feather contact honesty. β.45: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 

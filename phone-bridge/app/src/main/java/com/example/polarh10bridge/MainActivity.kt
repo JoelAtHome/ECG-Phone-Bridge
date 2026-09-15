@@ -3187,6 +3187,7 @@ private fun BridgeMainScreen(
                         qualityFlags = state.lastQualityFlags,
                         sensorContact = state.sensorContact,
                         connectedSensorRssi = state.connectedSensorRssi,
+                        sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
                         onToggleFeatherSim = onToggleFeatherSim,
                         featherBlePhase = state.featherBlePhase,

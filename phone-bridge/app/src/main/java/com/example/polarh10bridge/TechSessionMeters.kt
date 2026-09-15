@@ -98,6 +98,8 @@ fun TechSessionMeters(
     sensorContact: SensorContactState,
     /** BLE link strength only — never treat as skin contact. */
     connectedSensorRssi: Int?,
+    /** Live Polar H10 (blocks Feather sim until disconnected). */
+    sensorConnected: Boolean = false,
     featherSimActive: Boolean = false,
     onToggleFeatherSim: (() -> Unit)? = null,
     featherBlePhase: String = "Idle",
@@ -125,6 +127,7 @@ fun TechSessionMeters(
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     var showFlagHelp by remember { mutableStateOf(false) }
+    var showSimBlocked by remember { mutableStateOf(false) }
     var showProfilePicker by remember { mutableStateOf(false) }
     var showAddPatient by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -564,7 +567,13 @@ fun TechSessionMeters(
 
         if (onToggleFeatherSim != null) {
             TextButton(
-                onClick = onToggleFeatherSim,
+                onClick = {
+                    if (!featherSimActive && (sensorConnected || featherBleConnected)) {
+                        showSimBlocked = true
+                    } else {
+                        onToggleFeatherSim()
+                    }
+                },
                 modifier = Modifier.padding(top = 8.dp),
             ) {
                 Text(
@@ -664,6 +673,40 @@ fun TechSessionMeters(
             fontSize = 11.sp,
             lineHeight = 13.sp,
             modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+
+    if (showSimBlocked) {
+        val liveLabel =
+            when {
+                sensorConnected && featherBleConnected -> "Polar H10 and ECG-Box"
+                sensorConnected -> "Polar H10"
+                else -> "ECG-Box"
+            }
+        AlertDialog(
+            onDismissRequest = { showSimBlocked = false },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Disconnect live sensor first",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Text(
+                    text =
+                        "$liveLabel is connected. Simulate Feather needs a free data path — " +
+                            "use Disconnect / Rescan on the sensor pill, then try again.",
+                    color = TechHelpTextMuted,
+                    fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showSimBlocked = false }) {
+                    Text("OK", color = TechInfoBlue)
+                }
+            },
         )
     }
 

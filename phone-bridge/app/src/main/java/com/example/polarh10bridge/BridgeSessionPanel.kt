@@ -64,7 +64,10 @@ fun BridgeSessionPanel(
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "Stream = live + optional rolling RMSSD. Record = ritual snapshot RMSSD on stop.",
+            text =
+                "Stream — live + rolling RMSSD (VNS-TA). " +
+                    "Record — snapshot RMSSD on stop (FlareTracker). " +
+                    "Hertz & Hearts: either.",
             color = SessionTextDark.copy(alpha = 0.62f),
             fontSize = 11.sp,
             lineHeight = 13.sp,
