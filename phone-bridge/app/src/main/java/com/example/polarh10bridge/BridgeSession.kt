@@ -43,6 +43,13 @@ enum class BridgeSessionKind {
             Ritual -> "ritual"
         }
 
+    /** Patient/caregiver status line — wire still uses [wireValue]. */
+    fun uiLabel(): String =
+        when (this) {
+            Session -> "session"
+            Ritual -> "HRV recording"
+        }
+
     companion object {
         fun fromWire(raw: String?): BridgeSessionKind? =
             when (raw?.trim()?.lowercase(Locale.US)) {

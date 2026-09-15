@@ -71,7 +71,7 @@ fun BridgeSessionPanel(
         Text(
             text =
                 "Stream — live + rolling RMSSD (VNS-TA). " +
-                    "Record — snapshot RMSSD on stop (FlareTracker). " +
+                    "Record HRV — HRV recording on stop (FlareTracker). " +
                     "Hertz & Hearts: either.",
             color = SessionTextDark.copy(alpha = 0.62f),
             fontSize = 11.sp,
@@ -91,7 +91,7 @@ fun BridgeSessionPanel(
                 modifier = Modifier.weight(1f),
             )
             SessionModeChoice(
-                label = "Record",
+                label = "Record HRV",
                 selected = mode == BridgeSessionMode.Record,
                 enabled = !active,
                 onClick = { onModeSelected(BridgeSessionMode.Record) },
@@ -104,7 +104,7 @@ fun BridgeSessionPanel(
                 buildString {
                     append(if (active) "Running" else "Idle")
                     append(" · ")
-                    append(kind.wireValue())
+                    append(kind.uiLabel())
                     if (!sessionId.isNullOrBlank()) {
                         append(" · ")
                         append(sessionId)
@@ -144,7 +144,7 @@ fun BridgeSessionPanel(
                 Text(
                     text =
                         buildString {
-                            append("Last ritual · ")
+                            append("Last HRV · ")
                             append(if (lastRitualAcked) "sent" else "pending")
                             lastRitualRmssdMs?.let {
                                 append(" · ")
@@ -160,8 +160,15 @@ fun BridgeSessionPanel(
                     modifier = Modifier.weight(1f),
                 )
                 if (onSendLastRitual != null) {
-                    TextButton(onClick = onSendLastRitual) {
-                        Text("Send", color = SessionBannerRed, fontSize = 12.sp)
+                    TextButton(
+                        onClick = onSendLastRitual,
+                        enabled = !active,
+                    ) {
+                        Text(
+                            "Send HRV",
+                            color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
+                            fontSize = 12.sp,
+                        )
                     }
                 }
             }

@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.53
+- polish: Patient/caregiver Capture copy — **Record HRV**, status **HRV recording**, **Last HRV** / **Send HRV**, phone-alone toast **HRV saved** (wire `kind: ritual` unchanged).
+- fix: Tech **Last HRV** shows **sent** after TCP push to a connected PC (optimistic ack until hosts send `ritual_ack`).
+- polish: Capture **Send HRV** disabled while Stream/Record session is active.
+
 ## Version 1.0.0-beta.52
 - enhancement: Tech **Change ECG sensor** adds **Simulate** (Patient stays Polar / Feather); Find with Simulate toggles sim; meters Simulate link removed.
 - polish: Connected sensor pill — Polar **teal**, Feather **green**, Simulate **amber** with gentle pulse; soft name-text pulse when live linked.

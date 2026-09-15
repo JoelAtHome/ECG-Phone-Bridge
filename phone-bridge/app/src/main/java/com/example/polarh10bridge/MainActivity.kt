@@ -1174,7 +1174,7 @@ class MainActivity : ComponentActivity() {
                     Toast
                         .makeText(
                             this,
-                            "Ritual saved — connect FT to upload.",
+                            "HRV saved — connect FT to upload.",
                             Toast.LENGTH_LONG,
                         ).show()
                 }
@@ -1217,6 +1217,9 @@ class MainActivity : ComponentActivity() {
         ) {
             ritualAutoPushSentSessionId = pkg.sessionId
         }
+        // Optimistic UI: hosts may not yet send ritual_ack; mark sent after TCP queue.
+        ritualPackageStore?.markAcked(pkg.sessionId)
+        refreshRitualUiFromStore()
     }
 
     private fun maybeAutoPushRitual(
@@ -1240,9 +1243,9 @@ class MainActivity : ComponentActivity() {
                 .makeText(
                     this,
                     if (screenState.value.pcBridgeConnected) {
-                        "Sent ritual ${pkg.sessionId}"
+                        "Sent HRV ${pkg.sessionId}"
                     } else {
-                        "No PC connected — ritual stays on phone"
+                        "No PC connected — HRV stays on phone"
                     },
                     Toast.LENGTH_SHORT,
                 ).show()

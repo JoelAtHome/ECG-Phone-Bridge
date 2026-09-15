@@ -2,7 +2,11 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.52**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone ritual persist + delayed transfer (PROTOCOL §7). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`. **Next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard** (wishlist). Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+**Status:** Shipping phone contract through **v1.0.0-beta.53**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.8** in FlareTracker repo). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.53:** Capture **Record HRV** / **Last HRV** / **Send HRV** caregiver wording (wire `ritual_*` unchanged); Send disabled while capture active; optimistic **sent** after TCP push. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone ritual persist + delayed transfer (PROTOCOL §7). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`; caregiver UI says **HRV recording**. **Next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard** (wishlist). Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+
+### Caregiver wording (phone + FT agents)
+
+Prefer **HRV recording** (and **Send/Request saved HRV**) on patient and caregiver surfaces. Phone Capture UI aligns: **Record HRV**, status **HRV recording**, **Last HRV** / **Send HRV**. Keep PROTOCOL wire names: `kind: "ritual"`, `ritual_ack`, `ritual_request`, `ritual_chunk`, `ritual_persist`. Tech/debug meters and NDJSON still use ritual wire names.
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -41,13 +45,15 @@ Ignore unknown `type` values for forward compatibility.
 
 ## FlareTracker
 
-**Goal:** Store a trustworthy ritual RMSSD (+ metadata) for longitudinal logging.
+**Goal:** Store a trustworthy Record-mode HRV RMSSD (+ metadata) for longitudinal logging.
+
+**Caregiver copy (FlareTracker day log):** prefer **HRV recording** / **Request saved HRV**. Wire protocol keeps `kind: "ritual"` and `ritual_*` message types — do not rename those for compatibility.
 
 **Host status (2026-09-11):** Record path verified on the bench (2026-09-10, phone **v1.0.0-beta.18**) and again with caregiver packaging + **Polar H10** on house Wi‑Fi (Connect → Record → Stop → one HRV row). Stay connected through Stop. Official RMSSD is stored as **whole ms**; FlareTracker **rejects** bridge `rmssd_ms` **above 200** as artifactual (day-log notice; not saved). Low values (e.g. 12–17 ms) remain valid.
 
 The browser cannot do LAN UDP/TCP. **FlareTracker Bridge Companion** (Windows tray) discovers the phone and holds TCP. The day log talks to loopback **`127.0.0.1:45126`** and POSTs the finished HRV event to the FlareTracker API.
 
-**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.6** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge`.
+**Packaging (FlareTracker repo):** Companion source under `tools/phone-bridge-companion`. CI `bridge-companion.yml` attaches **`FlareTracker-BridgeCompanion-Setup.exe`** to `bridge-companion-v*` Releases (current **v1.0.8** / `PHONE_BRIDGE_COMPANION_VERSION`). Day log: **Start** / **Restart** via `flaretracker-bridge://`; **Download** when nothing listens on `45126`; **Update** when `/status.version` is older than the site. Autostart via `HKCU\...\Run` + `start-hidden.vbs`. FlareTracker GitHub is **private** — Download needs repo access. Profile **Phone bridge** toggle still **default off**. Code signing / SmartScreen follow-up. Dev: `npm run phone-bridge` (no tray); tray = installed Companion or `tools/phone-bridge-companion`.
 
 **Coordinator notes (do not regress):**
 
@@ -56,7 +62,7 @@ The browser cannot do LAN UDP/TCP. **FlareTracker Bridge Companion** (Windows tr
 - beta.16+: `emitted_at` on `rmssd` / `session_state`. FlareTracker uses that for the HRV timestamp, not PC receive time. `session_state` heartbeat about every 15s while capture is active (keeps the link warm; not a save).
 - Host must **not** recycle the TCP link because it looks quiet. A refresh loop made the phone flap. Stay connected through Stop.
 - Short Start/Stop sends `session_state` only. `rmssd` is omitted when the phone calculator has no value. That is expected. A timeline row needs a full Record the phone itself can number.
-- Soft preference is Record / ritual. Does **not** send `session_control`. Soft Stream conflict; Keep streaming dismisses only. Stream `rmssd` is QA, not saved. `feather_rmssd_ms` ignored. No PC RMSSD math or patient pacer.
+- Soft preference is Record / HRV recording (`kind: ritual` on the wire). Does **not** send `session_control`. Soft Stream conflict; Keep streaming dismisses only. Stream `rmssd` is QA, not saved. `feather_rmssd_ms` ignored. No PC RMSSD math or patient pacer.
 - Persist official bridge RMSSD as **whole ms**. Reject **> 200 ms** as artifactual (notice; not saved). Low values remain valid.
 - One PC connection at a time (phone accepts one TCP client).
 - Ritual target remains **phone + sensor only**. **Phone-alone Record** persists a durable package (rmssd + IBI + ECG) on Stop. Auto-push to FT/HnH on connect (`delayed_push`) or Tech **Send** / host `ritual_request`. Live Stop with PC still emits the same official `rmssd`. See PROTOCOL §7.
@@ -77,6 +83,7 @@ Later (hosts + phone): HnH optional ritual import; sending `session_control`; ho
 - [x] Low RMSSD (e.g. 12–17 ms) can be valid — do not reject *low* magnitude alone  
 - [x] Reject absurdly high bridge RMSSD (**> 200 ms**) as artifactual (not saved; day-log notice)  
 - [x] Accept delayed `session_summary` + `rmssd` (+ ignore IBI/ECG chunks OK) when idle; reply `ritual_ack`; dedupe `session_id`  
+  - Note: phone may show **sent** after TCP push; hosts should still send `ritual_ack` for durable confirmation / future stricter modes.  
 
 ### Do not expect (V1)
 
@@ -190,6 +197,6 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 ## Suggested integration order / priority (2026-09-15)
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
-2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.6** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. **Delayed ritual transfer:** accepts `session_summary` + `rmssd`, ignores IBI/ECG chunks, `ritual_ack`, dedupe by `session_id`.  
+2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.8** in repo). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. **Delayed transfer:** accepts `session_summary` + `rmssd`, ignores IBI/ECG chunks, `ritual_ack`, dedupe by `session_id`. Caregiver UI says **HRV recording** / **Request saved HRV** (wire still `ritual_*`).  
 3. **VNS-TA** — light pass + **Stream smoke verified** on recent APK. Feather via phone BLE shipping; Tuner Online verified; assisted tune in ECG-Box Tuner. Do **not** send `session_control` yet.  
-4. **Phone next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard**.
+4. **Phone next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard**. Phone UI now uses **Record HRV** / **Last HRV** (wire still `ritual_*`).
