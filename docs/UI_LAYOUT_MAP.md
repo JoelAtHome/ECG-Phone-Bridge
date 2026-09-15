@@ -243,14 +243,16 @@ Known parked / cleanup themes from handoff (not commitments):
 
 | Role | Jobs offered | Side effects on finish |
 |------|----------------|------------------------|
-| Caregiver | Record HRV · Stream · Just breathe | Tech view; mode Record or Stream when applicable |
+| Caregiver | Record HRV · Stream (no Just breathe) | Tech view; mode Record or Stream |
 | Patient | Just breathe (skips sensor / PC / permissions) | Patient view; no capture Start |
 
-**Breathe** (Patient or caregiver “Just breathe”): Role/Job → Ready → finish tip — **no** sensor or PC steps (pacer only; Record does **not** run in the background).
+**Breathe** (Patient only): Role → Ready → finish tip — **no** sensor or PC steps.
+
+**Sensor picker (caregiver capture):** Polar · Feather · **Simulate** (troubleshooting; Find starts synthetic IBI+ECG).
 
 **PC Wait copy (job-specific)**
-- Record HRV → FlareTracker Companion or Hertz & Hearts (not VNS-TA)
-- Stream → VNS-TA or Hertz & Hearts (not FlareTracker)
+- Record HRV → FlareTracker Companion, Hertz & Hearts, or ECG-Box Tuner
+- Stream → VNS-TA, Hertz & Hearts, or ECG-Box Tuner
 
 ### Step wireframes
 
@@ -265,7 +267,6 @@ Known parked / cleanup themes from handoff (not commitments):
 │  What do you want to do?                │
 │  ○ Record HRV (FlareTracker)            │
 │  ○ Stream (VNS-TA / live)               │
-│  ○ Just breathe                         │
 │                    [Back] [Continue]    │
 └─────────────────────────────────────────┘
 
@@ -279,8 +280,8 @@ Known parked / cleanup themes from handoff (not commitments):
 
 ┌─ SENSOR ────────────────────────────────┐
 │  Which ECG sensor?                      │
-│  ○ Polar H10   ○ Feather                │
-│  (no Simulate)                          │
+│  ○ Polar H10   ○ Feather   ○ Simulate   │
+│  [opt already-connected hints]          │
 │                    [Back] [Continue]    │
 └─────────────────────────────────────────┘
 

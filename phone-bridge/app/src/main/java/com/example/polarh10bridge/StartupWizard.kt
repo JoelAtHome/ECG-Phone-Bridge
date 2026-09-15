@@ -242,6 +242,9 @@ internal fun StartupWizardOverlay(
     LaunchedEffect(job, role) {
         if (role == WizardRole.Patient) {
             job = WizardJob.Breathe
+        } else if (job == WizardJob.Breathe) {
+            // Caregiver no longer offers Just breathe — coerce leftover pref.
+            job = WizardJob.RecordHrv
         }
         onJobChosen(job)
     }
@@ -254,7 +257,7 @@ internal fun StartupWizardOverlay(
         when (sensorKind) {
             SourceKind.PolarH10 -> state.sensorConnected
             SourceKind.Feather -> state.featherBleConnected
-            SourceKind.Simulate -> false
+            SourceKind.Simulate -> state.featherSimActive
         }
 
     fun stepAfterJobOrRoleTowardCapture(): WizardStep =
@@ -370,7 +373,7 @@ internal fun StartupWizardOverlay(
                         )
                     }
                     WizardStep.Job -> {
-                        WizardJob.entries.forEach { option ->
+                        listOf(WizardJob.RecordHrv, WizardJob.Stream).forEach { option ->
                             WizardRadio(
                                 selected = job == option,
                                 title = option.title(),
@@ -457,6 +460,17 @@ internal fun StartupWizardOverlay(
                                 },
                             onClick = { sensorKind = SourceKind.Feather },
                         )
+                        WizardRadio(
+                            selected = sensorKind == SourceKind.Simulate,
+                            title = SourceKind.Simulate.displayName(),
+                            subtitle =
+                                if (state.featherSimActive) {
+                                    "Active now · ${SourceKind.Simulate.pickerSubtitle()}"
+                                } else {
+                                    "${SourceKind.Simulate.pickerSubtitle()} — troubleshooting"
+                                },
+                            onClick = { sensorKind = SourceKind.Simulate },
+                        )
                     }
                     WizardStep.Connect -> {
                         if (!sensorLinked) {
@@ -466,9 +480,12 @@ internal fun StartupWizardOverlay(
                                         SourceKind.PolarH10 ->
                                             "Wet the Polar H10 strap, wear it, then tap " +
                                                 "Find sensor button."
-                                        else ->
+                                        SourceKind.Feather ->
                                             "Power the ECG-Box, keep it nearby, then tap " +
                                                 "Find sensor button."
+                                        SourceKind.Simulate ->
+                                            "No hardware needed. Tap Find sensor to start " +
+                                                "synthetic IBI + ECG (troubleshooting)."
                                     },
                                 fontSize = 14.sp,
                                 color = TextDark,
@@ -486,19 +503,40 @@ internal fun StartupWizardOverlay(
                             if (findPressed) {
                                 Spacer(Modifier.height(12.dp))
                                 val waitBase =
-                                    state.featherInProgressLine()
-                                        ?: when {
-                                            state.bleConnecting -> "Connecting"
-                                            state.bleScanning ->
-                                                "Looking for ${sensorKind.displayName()}"
-                                            else -> "Waiting for sensor"
-                                        }
-                                AnimatedEllipsisText(base = waitBase)
+                                    when (sensorKind) {
+                                        SourceKind.Simulate ->
+                                            if (state.featherSimActive) {
+                                                "Simulate active"
+                                            } else {
+                                                "Starting Simulate"
+                                            }
+                                        else ->
+                                            state.featherInProgressLine()
+                                                ?: when {
+                                                    state.bleConnecting -> "Connecting"
+                                                    state.bleScanning ->
+                                                        "Looking for ${sensorKind.displayName()}"
+                                                    else -> "Waiting for sensor"
+                                                }
+                                    }
+                                if (sensorKind == SourceKind.Simulate && state.featherSimActive) {
+                                    Text(
+                                        text = "Simulate active",
+                                        fontSize = 13.sp,
+                                        color = TextDark.copy(alpha = 0.75f),
+                                    )
+                                } else {
+                                    AnimatedEllipsisText(base = waitBase)
+                                }
                             }
                         } else {
                             val name =
-                                state.connectedSensorName.ifBlank {
-                                    sensorKind.displayName()
+                                when {
+                                    sensorKind == SourceKind.Simulate -> "Simulate"
+                                    else ->
+                                        state.connectedSensorName.ifBlank {
+                                            sensorKind.displayName()
+                                        }
                                 }
                             Text(
                                 text = "Connected: $name",
@@ -514,7 +552,16 @@ internal fun StartupWizardOverlay(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
                             ) {
-                                Text("Disconnect sensor", maxLines = 1, softWrap = false)
+                                Text(
+                                    text =
+                                        if (sensorKind == SourceKind.Simulate) {
+                                            "Stop Simulate"
+                                        } else {
+                                            "Disconnect sensor"
+                                        },
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
                             }
                         }
                     }
@@ -558,10 +605,11 @@ internal fun StartupWizardOverlay(
                                 subtitle =
                                     when (job) {
                                         WizardJob.RecordHrv ->
-                                            "Open FlareTracker Companion or Hertz & Hearts " +
-                                                "on this Wi‑Fi."
+                                            "Open FlareTracker Companion, Hertz & Hearts, " +
+                                                "or ECG-Box Tuner on this Wi‑Fi."
                                         WizardJob.Stream ->
-                                            "Open VNS-TA or Hertz & Hearts on this Wi‑Fi."
+                                            "Open VNS-TA, Hertz & Hearts, or ECG-Box Tuner " +
+                                                "on this Wi‑Fi."
                                         WizardJob.Breathe ->
                                             "Open a host app on this Wi‑Fi."
                                     },
