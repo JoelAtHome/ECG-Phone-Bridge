@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.56
+- polish: Startup Wizard — open on every cold start; Patient/Breathe skips sensor+PC; job-specific PC host copy; connected-sensor hints; animated looking/waiting ellipsis.
+
 ## Version 1.0.0-beta.55
 - polish: Auto-hide Android navigation bar (sticky immersive; swipe to peek) so bottom chrome does not steal session UX.
 - polish: Startup Wizard — Continue button width, status-bar inset on title, Find/Disconnect connect states, PC-link copy (not re-ask job), FlareTracker label, finish-tip Stop prompt, exit wording.

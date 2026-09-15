@@ -2794,7 +2794,9 @@ class MainActivity : ComponentActivity() {
                 val state by screenState
                 val ipHintRefreshSession by bridgeIpHintRefreshSession
                 var showStartupWizard by remember {
-                    mutableStateOf(!loadWizardCompletedPref())
+                    // Session coach: every cold start (Activity create). Exit dismisses until
+                    // process death or ☰ Start session. Pref still records last finish for hosts.
+                    mutableStateOf(true)
                 }
                 BridgeMainScreen(
                     state = state,

@@ -236,7 +236,7 @@ Known parked / cleanup themes from handoff (not commitments):
 **Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. No Simulate, coeffs, strip, or port settings in the wizard.
 
 **Entry**
-- Cold start when pref `bridge_wizard_completed` is false
+- **Every cold start** (Activity create) opens the wizard — session coach, not one-shot onboarding. Exit dismisses until process death or ☰ **Start session**.
 - ☰ → **Start session** (always; resets step flow, keeps last role/job prefs)
 
 **Jobs**
@@ -244,7 +244,13 @@ Known parked / cleanup themes from handoff (not commitments):
 | Role | Jobs offered | Side effects on finish |
 |------|----------------|------------------------|
 | Caregiver | Record HRV · Stream · Just breathe | Tech view; mode Record or Stream when applicable |
-| Patient | Just breathe | Patient view; no capture Start |
+| Patient | Just breathe (skips sensor / PC / permissions) | Patient view; no capture Start |
+
+**Breathe** (Patient or caregiver “Just breathe”): Role/Job → Ready → finish tip — **no** sensor or PC steps (pacer only; Record does **not** run in the background).
+
+**PC Wait copy (job-specific)**
+- Record HRV → FlareTracker Companion or Hertz & Hearts (not VNS-TA)
+- Stream → VNS-TA or Hertz & Hearts (not FlareTracker)
 
 ### Step wireframes
 

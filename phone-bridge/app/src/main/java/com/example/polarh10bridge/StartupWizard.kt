@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 
 /** Caregiver vs patient — maps to Tech / Patient view. */
 enum class WizardRole {
@@ -97,6 +99,8 @@ enum class WizardJob {
             Stream -> "VNS-TA or live host stream"
             Breathe -> "Patient breathing pacer only"
         }
+
+    fun needsSensorAndHost(): Boolean = this != Breathe
 
     companion object {
         fun fromPref(raw: String?): WizardJob =
@@ -163,6 +167,31 @@ private fun wizardPcAppLabel(clientApp: String?): String =
         else -> clientApp.trim()
     }
 
+private fun stripTrailingEllipsis(raw: String): String =
+    raw.trimEnd().trimEnd('.', '…', '·', ' ')
+
+@Composable
+private fun AnimatedEllipsisText(
+    base: String,
+    modifier: Modifier = Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit = 13.sp,
+    color: Color = TextDark.copy(alpha = 0.75f),
+) {
+    var dotCount by remember { mutableIntStateOf(1) }
+    LaunchedEffect(base) {
+        while (true) {
+            delay(450)
+            dotCount = if (dotCount >= 3) 1 else dotCount + 1
+        }
+    }
+    Text(
+        text = stripTrailingEllipsis(base) + ".".repeat(dotCount),
+        modifier = modifier,
+        fontSize = fontSize,
+        color = color,
+    )
+}
+
 /**
  * Full-screen session coach. Reuses Find / session Start via callbacks; no Simulate or Tech chrome.
  */
@@ -182,7 +211,11 @@ internal fun StartupWizardOverlay(
 ) {
     val context = LocalContext.current
     var role by remember { mutableStateOf(initialRole) }
-    var job by remember { mutableStateOf(initialJob) }
+    var job by remember {
+        mutableStateOf(
+            if (initialRole == WizardRole.Patient) WizardJob.Breathe else initialJob,
+        )
+    }
     var step by remember { mutableStateOf(WizardStep.Role) }
     var sensorKind by remember {
         mutableStateOf(
@@ -224,21 +257,26 @@ internal fun StartupWizardOverlay(
             SourceKind.Simulate -> false
         }
 
+    fun stepAfterJobOrRoleTowardCapture(): WizardStep =
+        when {
+            !job.needsSensorAndHost() -> WizardStep.Ready
+            !permissionsOk -> WizardStep.Permissions
+            else -> WizardStep.Sensor
+        }
+
     fun goNext() {
         step =
             when (step) {
                 WizardStep.Role ->
                     if (role == WizardRole.Patient) {
-                        if (permissionsOk) WizardStep.Sensor else WizardStep.Permissions
+                        WizardStep.Ready
                     } else {
                         WizardStep.Job
                     }
-                WizardStep.Job ->
-                    if (permissionsOk) WizardStep.Sensor else WizardStep.Permissions
+                WizardStep.Job -> stepAfterJobOrRoleTowardCapture()
                 WizardStep.Permissions -> WizardStep.Sensor
                 WizardStep.Sensor -> WizardStep.Connect
-                WizardStep.Connect ->
-                    if (job == WizardJob.Breathe) WizardStep.Ready else WizardStep.Host
+                WizardStep.Connect -> WizardStep.Host
                 WizardStep.Host -> WizardStep.Ready
                 WizardStep.Ready -> WizardStep.FinishTip
                 WizardStep.FinishTip -> step
@@ -250,19 +288,17 @@ internal fun StartupWizardOverlay(
             when (step) {
                 WizardStep.Role -> WizardStep.Role
                 WizardStep.Job -> WizardStep.Role
-                WizardStep.Permissions ->
-                    if (role == WizardRole.Patient) WizardStep.Role else WizardStep.Job
+                WizardStep.Permissions -> WizardStep.Job
                 WizardStep.Sensor ->
-                    if (permissionsOk) {
-                        if (role == WizardRole.Patient) WizardStep.Role else WizardStep.Job
-                    } else {
-                        WizardStep.Permissions
-                    }
+                    if (permissionsOk) WizardStep.Job else WizardStep.Permissions
                 WizardStep.Connect -> WizardStep.Sensor
                 WizardStep.Host -> WizardStep.Connect
                 WizardStep.Ready ->
-                    if (job == WizardJob.Breathe) WizardStep.Connect else WizardStep.Host
-                // Session may already be running — tip is forward-only.
+                    when {
+                        role == WizardRole.Patient -> WizardStep.Role
+                        !job.needsSensorAndHost() -> WizardStep.Job
+                        else -> WizardStep.Host
+                    }
                 WizardStep.FinishTip -> WizardStep.FinishTip
             }
     }
@@ -326,7 +362,7 @@ internal fun StartupWizardOverlay(
                         WizardRadio(
                             selected = role == WizardRole.Patient,
                             title = "Patient",
-                            subtitle = "Breathing pacer — no capture controls",
+                            subtitle = "Breathing pacer only — skips sensor setup",
                             onClick = {
                                 role = WizardRole.Patient
                                 job = WizardJob.Breathe
@@ -368,16 +404,57 @@ internal fun StartupWizardOverlay(
                         }
                     }
                     WizardStep.Sensor -> {
+                        val polarConnected = state.sensorConnected
+                        val featherConnected = state.featherBleConnected
+                        if (polarConnected || featherConnected) {
+                            val parts = mutableListOf<String>()
+                            if (polarConnected) {
+                                parts +=
+                                    if (!featherConnected &&
+                                        state.connectedSensorName.isNotBlank()
+                                    ) {
+                                        state.connectedSensorName
+                                    } else {
+                                        "Polar H10"
+                                    }
+                            }
+                            if (featherConnected) {
+                                parts +=
+                                    if (!polarConnected &&
+                                        state.connectedSensorName.isNotBlank()
+                                    ) {
+                                        state.connectedSensorName
+                                    } else {
+                                        "ECG-Box-Feather"
+                                    }
+                            }
+                            Text(
+                                text = "Already connected: ${parts.joinToString(" · ")}",
+                                fontSize = 13.sp,
+                                color = TextDark.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
                         WizardRadio(
                             selected = sensorKind == SourceKind.PolarH10,
                             title = SourceKind.PolarH10.displayName(),
-                            subtitle = SourceKind.PolarH10.pickerSubtitle(),
+                            subtitle =
+                                if (polarConnected) {
+                                    "Connected now · ${SourceKind.PolarH10.pickerSubtitle()}"
+                                } else {
+                                    SourceKind.PolarH10.pickerSubtitle()
+                                },
                             onClick = { sensorKind = SourceKind.PolarH10 },
                         )
                         WizardRadio(
                             selected = sensorKind == SourceKind.Feather,
                             title = SourceKind.Feather.displayName(),
-                            subtitle = SourceKind.Feather.pickerSubtitle(),
+                            subtitle =
+                                if (featherConnected) {
+                                    "Connected now · ${SourceKind.Feather.pickerSubtitle()}"
+                                } else {
+                                    SourceKind.Feather.pickerSubtitle()
+                                },
                             onClick = { sensorKind = SourceKind.Feather },
                         )
                     }
@@ -408,13 +485,15 @@ internal fun StartupWizardOverlay(
                             }
                             if (findPressed) {
                                 Spacer(Modifier.height(12.dp))
-                                Text(
-                                    text =
-                                        state.featherInProgressLine()
-                                            ?: "Waiting for sensor…",
-                                    fontSize = 13.sp,
-                                    color = TextDark.copy(alpha = 0.75f),
-                                )
+                                val waitBase =
+                                    state.featherInProgressLine()
+                                        ?: when {
+                                            state.bleConnecting -> "Connecting"
+                                            state.bleScanning ->
+                                                "Looking for ${sensorKind.displayName()}"
+                                            else -> "Waiting for sensor"
+                                        }
+                                AnimatedEllipsisText(base = waitBase)
                             }
                         } else {
                             val name =
@@ -477,50 +556,66 @@ internal fun StartupWizardOverlay(
                                 selected = hostChoice == HostChoice.WaitForPc,
                                 title = "Wait for PC",
                                 subtitle =
-                                    "Open FlareTracker Companion, VNS-TA, or Hertz & Hearts " +
-                                        "on this Wi‑Fi.",
+                                    when (job) {
+                                        WizardJob.RecordHrv ->
+                                            "Open FlareTracker Companion or Hertz & Hearts " +
+                                                "on this Wi‑Fi."
+                                        WizardJob.Stream ->
+                                            "Open VNS-TA or Hertz & Hearts on this Wi‑Fi."
+                                        WizardJob.Breathe ->
+                                            "Open a host app on this Wi‑Fi."
+                                    },
                                 onClick = { hostChoice = HostChoice.WaitForPc },
                             )
                             WizardRadio(
                                 selected = hostChoice == HostChoice.PhoneAlone,
                                 title = "Phone alone for now",
                                 subtitle =
-                                    if (job == WizardJob.RecordHrv) {
-                                        "Send HRV from Tech when a PC connects later."
-                                    } else {
-                                        "A PC can link later; stream needs the host open."
+                                    when (job) {
+                                        WizardJob.RecordHrv ->
+                                            "Send HRV from Tech when a PC connects later."
+                                        WizardJob.Stream ->
+                                            "A PC can link later; stream needs the host open."
+                                        WizardJob.Breathe ->
+                                            "Continue without a PC."
                                     },
                                 onClick = { hostChoice = HostChoice.PhoneAlone },
                             )
                             if (hostChoice == HostChoice.WaitForPc) {
                                 val ip = phoneIpHint ?: state.phoneWifiIpv4
-                                Text(
-                                    text =
-                                        if (ip != null) {
-                                            "On your PC, connect to $ip:${state.bridgePort}"
-                                        } else {
-                                            "Waiting for Wi‑Fi IP…"
-                                        },
-                                    fontSize = 13.sp,
-                                    color = TextDark.copy(alpha = 0.75f),
-                                    modifier = Modifier.padding(top = 8.dp),
-                                )
+                                if (ip != null) {
+                                    Text(
+                                        text = "On your PC, connect to $ip:${state.bridgePort}",
+                                        fontSize = 13.sp,
+                                        color = TextDark.copy(alpha = 0.75f),
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                } else {
+                                    AnimatedEllipsisText(
+                                        base = "Waiting for Wi‑Fi IP",
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                }
                             }
                         }
                     }
                     WizardStep.Ready -> {
-                        val hostLine =
-                            when {
-                                job == WizardJob.Breathe -> "No PC needed"
-                                hostChoice == HostChoice.PhoneAlone -> "Phone alone"
-                                state.pcBridgeConnected ->
-                                    "PC linked (${wizardPcAppLabel(state.pcClientApp)})"
-                                else -> "PC optional"
+                        val summary =
+                            if (!job.needsSensorAndHost()) {
+                                "${role.name} · ${job.title()}"
+                            } else {
+                                val hostLine =
+                                    when {
+                                        hostChoice == HostChoice.PhoneAlone -> "Phone alone"
+                                        state.pcBridgeConnected ->
+                                            "PC linked (${wizardPcAppLabel(state.pcClientApp)})"
+                                        else -> "PC optional"
+                                    }
+                                "${role.name} · ${job.title()}\n" +
+                                    "${sensorKind.displayName()} · $hostLine"
                             }
                         Text(
-                            text =
-                                "${role.name} · ${job.title()}\n" +
-                                    "${sensorKind.displayName()} · $hostLine",
+                            text = summary,
                             fontSize = 15.sp,
                             color = TextDark,
                             lineHeight = 22.sp,
