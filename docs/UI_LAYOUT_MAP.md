@@ -31,7 +31,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  ┌─ DATA PATH (BridgeFlowDiagram) ────┐ │
 │  │         [ heart glyph ]            │ │
 │  │              │                     │ │
-│  │   [ TAP TO FIND / Polar or Feather]│ │  ← remembered kind
+│  │   [ TAP TO FIND / Polar·Feather·Sim]│ │  ← remembered kind (Sim = Tech)
 │  │     "Polar H10: Bluetooth"         │ │
 │  │     [opt in-progress line]         │ │
 │  │     [ Change ECG sensor ]          │ │
@@ -86,8 +86,8 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 └─────────────────────────────────────────┘
 ```
 
-**Patient can:** Change ECG sensor (Polar / Feather), Find / Disconnect, pace breath, open menu (settings / Tech / About).  
-**Patient cannot:** Start/Stop capture, Feather sim, edit coeffs, see Tech meters / ECG strip.
+**Patient can:** Change ECG sensor (Polar / Feather only), Find / Disconnect, pace breath, open menu (settings / Tech / About).  
+**Patient cannot:** Start/Stop capture, Simulate, edit coeffs, see Tech meters / ECG strip.
 
 ---
 
@@ -117,8 +117,6 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  │  ── Offline ECG-box tuning coeffs ─│ │
 │  │  (collapsed by default)            │ │
 │  │                                    │ │
-│  │  [ Simulate Feather IBI + ECG ]    │ │
-│  │                                    │ │
 │  │  ── ECG-Box detector ──            │ │
 │  │  human phase · Last IBI            │ │
 │  │  ECG strip                         │ │
@@ -128,6 +126,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  └────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
   * gray until coeffs dirty
+  * Simulate is Tech-only via Change ECG sensor (not a meters link)
 ```
 
 ---
@@ -148,8 +147,11 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
   └─ About ──► Dialog (date, version, Close)
 
 Change ECG sensor (under Data path node)
-  Polar H10 / Feather radio list
+  Patient: Polar H10 / Feather
+  Tech: Polar H10 / Feather / Simulate
   [Close]
+  Simulate blocked (live Polar / ECG-Box) → disconnect-first dialog
+  Connected pill colors: Polar teal · Feather green · Simulate amber (+pulse)
 
 Connected sensor pill → ECG sensor
   [Disconnect]
@@ -192,16 +194,17 @@ flowchart TB
   Menu --> Toggle[Patient ↔ Tech]
   Menu --> About[About]
 
-  Flow -->|Change ECG sensor| KindDlg[Source picker]
+  Flow -->|Change ECG sensor| KindDlg[Source picker Tech: +Simulate]
   Flow -->|Find Polar| SensorDlg[Sensor list dialog]
   Flow -->|Find Feather| FeatherDlg[Feather connecting dialog]
+  Flow -->|Find Simulate| SimPath[Toggle Feather sim]
 
   Toggle -->|Patient| Pacer[Breathing pacer]
   Toggle -->|Tech| Cap[Capture session]
   Cap --> Tech[Tech meters]
   Tech --> Prof[Offline ECG-box tuning coeffs]
-  Tech --> Sim[Simulate Feather]
   Tech --> Fble[ECG-Box detector + strip]
+  KindDlg -->|Simulate Tech-only| SimPath
 ```
 
 ---
@@ -212,7 +215,7 @@ Known parked / cleanup themes from handoff (not commitments):
 
 | Area | Today | Notes / ideas |
 |------|--------|----------------|
-| Source CTA | Remembered Polar / Feather node + Change | Future kinds = extra picker rows |
+| Source CTA | Polar / Feather / Simulate (Tech) + Change | Connected pill: Polar teal, Feather green, Sim amber+pulse |
 | Capture Start/Stop | Tech only | OK for patient? |
 | Breathing pacer | Patient only | |
 | Profile + coeffs | Collapsed Offline section | |
@@ -222,4 +225,4 @@ Known parked / cleanup themes from handoff (not commitments):
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.47. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.52. Update when chrome changes.*

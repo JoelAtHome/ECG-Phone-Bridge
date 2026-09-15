@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.51**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.51:** Phone ritual persist + delayed transfer (PROTOCOL §7) — hosts should `ritual_ack` and dedupe by `session_id`. **Next:** profile `session_timing` → RMSSD; host ack integration in FT/HnH; **Startup Wizard** (wishlist). Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+**Status:** Shipping phone contract through **v1.0.0-beta.52**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.6**). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone ritual persist + delayed transfer (PROTOCOL §7). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`. **Next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard** (wishlist). Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
 
 Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those repos are implied by this doc alone.
 
@@ -62,7 +62,7 @@ The browser cannot do LAN UDP/TCP. **FlareTracker Bridge Companion** (Windows tr
 - Ritual target remains **phone + sensor only**. **Phone-alone Record** persists a durable package (rmssd + IBI + ECG) on Stop. Auto-push to FT/HnH on connect (`delayed_push`) or Tech **Send** / host `ritual_request`. Live Stop with PC still emits the same official `rmssd`. See PROTOCOL §7.
 - Hosts **must** send `ritual_ack` `{session_id}` after accepting a package (or at least after persisting the official `rmssd`) and **dedupe** by `session_id`.
 
-Later (hosts + phone): FT/HnH Companion/day-log ack wiring polish, sending `session_control`, host–mode conflict UI, **Startup Wizard**.
+Later (hosts + phone): HnH optional ritual import; sending `session_control`; host–mode conflict UI; **Startup Wizard**.
 
 ### Expect from the bridge
 
@@ -76,7 +76,7 @@ Later (hosts + phone): FT/HnH Companion/day-log ack wiring polish, sending `sess
 - [x] Handle quality flags (`insufficient_beats`, `no_stable_window`, `short_session`, …) — store with a warning rather than silently dropping, unless product policy says otherwise  
 - [x] Low RMSSD (e.g. 12–17 ms) can be valid — do not reject *low* magnitude alone  
 - [x] Reject absurdly high bridge RMSSD (**> 200 ms**) as artifactual (not saved; day-log notice)  
-- [ ] Accept delayed `session_summary` + `rmssd` (+ ignore IBI/ECG chunks OK) when idle; reply `ritual_ack`; dedupe `session_id`  
+- [x] Accept delayed `session_summary` + `rmssd` (+ ignore IBI/ECG chunks OK) when idle; reply `ritual_ack`; dedupe `session_id`  
 
 ### Do not expect (V1)
 
@@ -190,6 +190,6 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3. Record buffer
 ## Suggested integration order / priority (2026-09-15)
 
 1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). `session_control` still optional.  
-2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.6** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. Ritual buffer dump / last-session reuse / phone-alone delayed transfer later.  
+2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.6** shipped). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. **Delayed ritual transfer:** accepts `session_summary` + `rmssd`, ignores IBI/ECG chunks, `ritual_ack`, dedupe by `session_id`.  
 3. **VNS-TA** — light pass + **Stream smoke verified** on recent APK. Feather via phone BLE shipping; Tuner Online verified; assisted tune in ECG-Box Tuner. Do **not** send `session_control` yet.  
-4. **Phone next:** profile `session_timing` → RMSSD; FT/HnH `ritual_ack` integration; **Startup Wizard**.
+4. **Phone next:** profile `session_timing` → RMSSD; HnH optional ritual import; **Startup Wizard**.

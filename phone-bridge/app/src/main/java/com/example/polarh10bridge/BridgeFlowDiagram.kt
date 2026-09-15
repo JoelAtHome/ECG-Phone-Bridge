@@ -49,10 +49,15 @@ import androidx.compose.ui.unit.sp
 private val DiagramLineInactive = Color(0xFFBDBDBD)
 private val HeartVibrant = Color(0xFFEF4444)
 private val EcgActive = Color.White
-private val H10GlowBg = Color(0xFFFFE4EC)
-private val H10GlowBorder = Color(0xFFF06292)
+/** Live Polar H10 — soft teal (not banner red; red reads as fault). */
+private val PolarGlowBg = Color(0xFFCCFBF1)
+private val PolarGlowBorder = Color(0xFF0D9488)
+/** Live Feather / ECG-Box — keep the current green. */
 private val FeatherGlowBg = Color(0xFFE0F2F1)
 private val FeatherGlowBorder = Color(0xFF26A69A)
+/** Tech Simulate — amber with a gentle pulse while active. */
+private val SimGlowBg = Color(0xFFFEF3C7)
+private val SimGlowBorder = Color(0xFFD97706)
 private val PhoneActiveBorder = Color(0xFF64B5F6)
 private val PhoneIdleBorder = Color(0xFFE0E0E0)
 private val PcGlowBorder = Color(0xFF42A5F5)
@@ -61,6 +66,20 @@ private val FlowRed = Color(0xFFC1121F)
 private val SmallLabelGray = Color(0xFF616161)
 private val DiagramTextDark = Color(0xFF1A1A1A)
 private val NodeGrayTint = Color(0xFF9E9E9E)
+
+private fun sourceLinkedGlow(kind: SourceKind): Pair<Color, Color> =
+    when (kind) {
+        SourceKind.PolarH10 -> PolarGlowBg to PolarGlowBorder
+        SourceKind.Feather -> FeatherGlowBg to FeatherGlowBorder
+        SourceKind.Simulate -> SimGlowBg to SimGlowBorder
+    }
+
+private fun sourceLinkedLabelColor(kind: SourceKind): Color =
+    when (kind) {
+        SourceKind.PolarH10 -> PolarGlowBorder
+        SourceKind.Feather -> FeatherGlowBorder
+        SourceKind.Simulate -> SimGlowBorder
+    }
 
 @Composable
 internal fun BridgeFlowDiagram(
@@ -172,20 +191,51 @@ internal fun BridgeFlowDiagram(
         Spacer(modifier = Modifier.height(0.5f.dp))
         VerticalFlowArrow(active = sourceLinked)
 
+        val (baseGlowBg, baseGlowBorder) = sourceLinkedGlow(sourceKind)
+        val simPulseAlpha by infinite.animateFloat(
+            initialValue = 0.72f,
+            targetValue = 1f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(900, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "simPillPulse",
+        )
+        val linkedLabelPulse by infinite.animateFloat(
+            initialValue = 0.78f,
+            targetValue = 1f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(1100, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "linkedLabelPulse",
+        )
+        val pulseSim = sourceLinked && sourceKind == SourceKind.Simulate
         val sourceGlowBg =
-            if (sourceKind == SourceKind.Feather) FeatherGlowBg else H10GlowBg
+            if (pulseSim) baseGlowBg.copy(alpha = 0.55f + 0.45f * simPulseAlpha) else baseGlowBg
         val sourceGlowBorder =
-            if (sourceKind == SourceKind.Feather) FeatherGlowBorder else H10GlowBorder
-        val sourceBg by animateColorAsState(
-            targetValue = if (sourceLinked) sourceGlowBg else Color(0xFFFAFAFA),
+            if (pulseSim) {
+                baseGlowBorder.copy(alpha = 0.55f + 0.45f * simPulseAlpha)
+            } else {
+                baseGlowBorder
+            }
+        val idleBg = Color(0xFFFAFAFA)
+        val animatedBg by animateColorAsState(
+            targetValue = if (sourceLinked && !pulseSim) sourceGlowBg else idleBg,
             animationSpec = tween(380),
             label = "sourceBg",
         )
-        val sourceBorder by animateColorAsState(
-            targetValue = if (sourceLinked) sourceGlowBorder else DiagramLineInactive,
+        val animatedBorder by animateColorAsState(
+            targetValue =
+                if (sourceLinked && !pulseSim) sourceGlowBorder else DiagramLineInactive,
             animationSpec = tween(380),
             label = "sourceBd",
         )
+        val sourceBg = if (pulseSim) sourceGlowBg else animatedBg
+        val sourceBorder = if (pulseSim) sourceGlowBorder else animatedBorder
+        val linkedLabelColor = sourceLinkedLabelColor(sourceKind)
 
         Button(
             onClick = onFindSource,
@@ -205,7 +255,7 @@ internal fun BridgeFlowDiagram(
                 Image(
                     painter =
                         painterResource(
-                            if (sourceKind == SourceKind.Feather) {
+                            if (sourceKind.usesFeatherNodeArt()) {
                                 R.drawable.bridge_feather_box
                             } else {
                                 R.drawable.bridge_h10_capsule
@@ -227,7 +277,18 @@ internal fun BridgeFlowDiagram(
                         },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (sourceLinked) FlowRed else DiagramTextDark,
+                    color =
+                        if (sourceLinked) {
+                            // Sim: pill bg/border already pulses — keep label solid.
+                            // Live Polar/Feather: soft label alpha pulse.
+                            if (sourceKind == SourceKind.Simulate) {
+                                linkedLabelColor
+                            } else {
+                                linkedLabelColor.copy(alpha = linkedLabelPulse)
+                            }
+                        } else {
+                            DiagramTextDark
+                        },
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }

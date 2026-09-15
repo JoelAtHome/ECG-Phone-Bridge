@@ -33,9 +33,18 @@ private val UnselectedRadioRing = Color(0xFF757575)
 @Composable
 internal fun SourcePickerDialog(
     selected: SourceKind,
+    /** Patient: Polar + Feather. Tech: includes Simulate. */
+    techView: Boolean,
     onSelect: (SourceKind) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
+    val kinds = SourceKind.pickerEntries(techView)
+    val hint =
+        if (techView) {
+            "Choose Polar, Feather, or Simulate. Find on the data path connects that kind."
+        } else {
+            "Choose Polar or Feather. Find on the data path connects that kind."
+        }
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             shape = RoundedCornerShape(8.dp),
@@ -49,12 +58,12 @@ internal fun SourcePickerDialog(
                     color = TextDark,
                 )
                 Text(
-                    text = "Choose Polar or Feather. Find on the data path connects that kind.",
+                    text = hint,
                     fontSize = 12.sp,
                     color = TextDark.copy(alpha = 0.65f),
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
-                SourceKind.entries.forEach { kind ->
+                kinds.forEach { kind ->
                     val sel = kind == selected
                     Row(
                         modifier =
@@ -98,6 +107,51 @@ internal fun SourcePickerDialog(
                 ) {
                     TextButton(onClick = onDismissRequest) {
                         Text("Close", color = BannerRed)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun FeatherSimBlockedDialog(
+    sensorConnected: Boolean,
+    featherBleConnected: Boolean,
+    onDismissRequest: () -> Unit,
+) {
+    val liveLabel =
+        when {
+            sensorConnected && featherBleConnected -> "Polar H10 and ECG-Box"
+            sensorConnected -> "Polar H10"
+            else -> "ECG-Box"
+        }
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = UiWhite,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Disconnect live sensor first",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = TextDark,
+                )
+                Text(
+                    text =
+                        "$liveLabel is connected. Simulate needs a free data path — " +
+                            "use Disconnect / Rescan on the sensor pill, then try again.",
+                    fontSize = 13.sp,
+                    color = TextDark.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text("OK", color = BannerRed)
                     }
                 }
             }

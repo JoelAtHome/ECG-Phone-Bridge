@@ -25,6 +25,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -479,7 +485,18 @@ class MainActivity : ComponentActivity() {
 
     private fun setTechView(enabled: Boolean) {
         saveTechViewPref(enabled)
-        updateScreen { it.copy(techView = enabled) }
+        if (!enabled && screenState.value.featherSimActive) {
+            setFeatherSimActive(false)
+        }
+        updateScreen {
+            val kind =
+                if (!enabled && it.selectedSourceKind == SourceKind.Simulate) {
+                    SourceKind.Feather
+                } else {
+                    it.selectedSourceKind
+                }
+            it.copy(techView = enabled, selectedSourceKind = kind)
+        }
     }
 
     private fun loadSourceKindPref(): SourceKind =
@@ -489,27 +506,51 @@ class MainActivity : ComponentActivity() {
         )
 
     private fun saveSourceKindPref(kind: SourceKind) {
+        // Simulate is session/Tech-only — persist as Feather so Patient never restores it.
+        val persisted =
+            if (kind == SourceKind.Simulate) SourceKind.Feather else kind
         getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(BRIDGE_SOURCE_KIND_PREF_KEY, kind.wireValue())
+            .putString(BRIDGE_SOURCE_KIND_PREF_KEY, persisted.wireValue())
             .apply()
     }
 
     private fun setSelectedSourceKind(kind: SourceKind) {
         val prev = screenState.value.selectedSourceKind
-        if (kind == prev) return
-        saveSourceKindPref(kind)
         when (kind) {
+            SourceKind.Simulate -> {
+                // Re-tap toggles sim (same as the old Tech link).
+                if (prev == SourceKind.Simulate) {
+                    setFeatherSimActive(!screenState.value.featherSimActive)
+                    return
+                }
+                if (screenState.value.sensorConnected ||
+                    screenState.value.featherBleConnected
+                ) {
+                    // UI shows FeatherSimBlockedDialog; refuse silently here.
+                    Log.w("HnHBridge", "Refuse Simulate while live sensor connected")
+                    return
+                }
+                setFeatherSimActive(true)
+                return
+            }
             SourceKind.PolarH10 -> {
+                if (kind == prev) return
                 disconnectFeatherBle()
                 setFeatherSimActive(false)
             }
             SourceKind.Feather -> {
+                if (kind == prev) {
+                    // Live Feather selected again while sim was on Simulate path already handled.
+                    return
+                }
+                setFeatherSimActive(false)
                 if (screenState.value.sensorConnected) {
                     disconnectConnectedSensor()
                 }
             }
         }
+        saveSourceKindPref(kind)
         updateScreen {
             it.copy(
                 selectedSourceKind = kind,
@@ -535,6 +576,15 @@ class MainActivity : ComponentActivity() {
                 }
                 updateScreen { it.copy(featherConnectOverlayVisible = true) }
                 beginFeatherBleTest()
+            }
+            SourceKind.Simulate -> {
+                if (screenState.value.sensorConnected ||
+                    screenState.value.featherBleConnected
+                ) {
+                    Log.w("HnHBridge", "Refuse Feather sim while live sensor connected")
+                    return
+                }
+                setFeatherSimActive(!screenState.value.featherSimActive)
             }
         }
     }
@@ -960,11 +1010,11 @@ class MainActivity : ComponentActivity() {
         featherSimCurrentIbiMs = 800
         featherSimEcgPhase01 = 0.0
         featherProfileStore?.ensureFactoryProfiles()
-        saveSourceKindPref(SourceKind.Feather)
+        saveSourceKindPref(SourceKind.Simulate)
         updateScreen {
             it.copy(
                 featherSimActive = true,
-                selectedSourceKind = SourceKind.Feather,
+                selectedSourceKind = SourceKind.Simulate,
                 // Sim has no contact sensor — leave Unknown (do not fake "Skin contact OK").
                 featherEcgTraceMv = emptyList(),
                 featherEcgPacketCount = 0,
@@ -1124,7 +1174,7 @@ class MainActivity : ComponentActivity() {
                     Toast
                         .makeText(
                             this,
-                            "Ritual saved on phone — connect FlareTracker to upload.",
+                            "Ritual saved — connect FT to upload.",
                             Toast.LENGTH_LONG,
                         ).show()
                 }
@@ -2727,9 +2777,6 @@ class MainActivity : ComponentActivity() {
                     onSendLastRitual = { sendLastRitualManual() },
                     onToggleTechView = { setTechView(!screenState.value.techView) },
                     onRefreshTechMeters = { refreshTechQualityUi() },
-                    onToggleFeatherSim = {
-                        setFeatherSimActive(!screenState.value.featherSimActive)
-                    },
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
                     onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
@@ -2879,7 +2926,6 @@ private fun BridgeMainScreen(
     onSendLastRitual: () -> Unit,
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
-    onToggleFeatherSim: () -> Unit,
     onSelectFeatherProfile: (String) -> Unit,
     onAddFeatherPatient: (String) -> Unit,
     onDeleteFeatherProfile: (String) -> Unit,
@@ -2896,6 +2942,7 @@ private fun BridgeMainScreen(
     var connectHintIpv4 by remember { mutableStateOf<String?>(null) }
     var showSourcePicker by remember { mutableStateOf(false) }
     var showConnectedSensorActions by remember { mutableStateOf(false) }
+    var showSimBlocked by remember { mutableStateOf(false) }
     LaunchedEffect(state.phoneWifiIpv4, ipHintRefreshSession) {
         connectHintIpv4 = null
         var best: String? = null
@@ -3212,6 +3259,11 @@ private fun BridgeMainScreen(
                     onFindSource = {
                         if (state.diagramSourceActive()) {
                             showConnectedSensorActions = true
+                        } else if (
+                            state.selectedSourceKind == SourceKind.Simulate &&
+                                (state.sensorConnected || state.featherBleConnected)
+                        ) {
+                            showSimBlocked = true
                         } else {
                             onFindSource()
                         }
@@ -3221,6 +3273,18 @@ private fun BridgeMainScreen(
                 )
 
                 if (state.anySourceLinked()) {
+                    val linkedNameTransition =
+                        rememberInfiniteTransition(label = "linkedNamePulse")
+                    val namePulse by linkedNameTransition.animateFloat(
+                        initialValue = 0.72f,
+                        targetValue = 1f,
+                        animationSpec =
+                            infiniteRepeatable(
+                                animation = tween(1200, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse,
+                            ),
+                        label = "linkedNameAlpha",
+                    )
                     Text(
                         text = "Connected to:",
                         color = TextDark,
@@ -3278,7 +3342,7 @@ private fun BridgeMainScreen(
                             if (state.sensorContact == SensorContactState.NoContact) {
                                 Color(0xFFB3261E)
                             } else {
-                                TextDark
+                                TextDark.copy(alpha = namePulse)
                             },
                         fontSize = 12.sp,
                         lineHeight = 12.sp,
@@ -3340,9 +3404,7 @@ private fun BridgeMainScreen(
                         qualityFlags = state.lastQualityFlags,
                         sensorContact = state.sensorContact,
                         connectedSensorRssi = state.connectedSensorRssi,
-                        sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
-                        onToggleFeatherSim = onToggleFeatherSim,
                         featherBlePhase = state.featherBlePhase,
                         featherBleDetail = state.featherBleDetail,
                         featherBleLastIbiMs = state.featherBleLastIbiMs,
@@ -3440,11 +3502,27 @@ private fun BridgeMainScreen(
     if (showSourcePicker) {
         SourcePickerDialog(
             selected = state.selectedSourceKind,
+            techView = state.techView,
             onSelect = { kind ->
-                onChangeSourceKind(kind)
-                showSourcePicker = false
+                if (kind == SourceKind.Simulate &&
+                    !state.featherSimActive &&
+                    (state.sensorConnected || state.featherBleConnected)
+                ) {
+                    showSourcePicker = false
+                    showSimBlocked = true
+                } else {
+                    onChangeSourceKind(kind)
+                    showSourcePicker = false
+                }
             },
             onDismissRequest = { showSourcePicker = false },
+        )
+    }
+    if (showSimBlocked) {
+        FeatherSimBlockedDialog(
+            sensorConnected = state.sensorConnected,
+            featherBleConnected = state.featherBleConnected,
+            onDismissRequest = { showSimBlocked = false },
         )
     }
     if (showConnectedSensorActions) {

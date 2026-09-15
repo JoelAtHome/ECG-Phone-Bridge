@@ -170,7 +170,7 @@ fun BridgeSessionPanel(
         if (!sensorConnected && !featherSimActive && !featherBleConnected) {
             Text(
                 text =
-                    "Find a source on the data path (Polar or Feather), or Simulate Feather IBI + ECG, before starting.",
+                    "Find a source on the data path (Polar or Feather), or Change ECG sensor → Simulate, before starting.",
                 color = SessionTextDark.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(bottom = 6.dp),
