@@ -1,7 +1,12 @@
 package com.example.polarh10bridge
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,11 +38,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -199,6 +206,8 @@ private fun AnimatedEllipsisText(
 internal fun StartupWizardOverlay(
     state: BridgeScreenState,
     phoneIpHint: String?,
+    readPhoneWifiIpv4: () -> String?,
+    onRequestWifiIpRefresh: () -> Unit,
     initialRole: WizardRole,
     initialJob: WizardJob,
     onRoleChosen: (WizardRole) -> Unit,
@@ -228,6 +237,12 @@ internal fun StartupWizardOverlay(
     var hostChoice by remember { mutableStateOf(HostChoice.WaitForPc) }
     var permissionsOk by remember { mutableStateOf(bridgeBlePermissionsGranted(context)) }
     var findPressed by remember { mutableStateOf(false) }
+    var resolvedWifiIp by remember {
+        mutableStateOf(phoneIpHint ?: state.phoneWifiIpv4)
+    }
+    var wifiRefreshEpoch by remember { mutableIntStateOf(0) }
+    val peekPhoneWifiIpv4 by rememberUpdatedState(readPhoneWifiIpv4)
+    val requestWifiIpRefresh by rememberUpdatedState(onRequestWifiIpRefresh)
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
@@ -251,6 +266,59 @@ internal fun StartupWizardOverlay(
     LaunchedEffect(sensorKind) {
         onSourceKindChosen(sensorKind)
         findPressed = false
+    }
+
+    // Keep probing after Wi‑Fi is turned on mid-wizard (DHCP often lags the radio-on event).
+    LaunchedEffect(step, hostChoice, phoneIpHint, state.phoneWifiIpv4, wifiRefreshEpoch) {
+        resolvedWifiIp =
+            preferMoreLikelyLanDisplayIp(
+                phoneIpHint ?: state.phoneWifiIpv4,
+                peekPhoneWifiIpv4(),
+            )
+        if (step != WizardStep.Host || hostChoice != HostChoice.WaitForPc) {
+            return@LaunchedEffect
+        }
+        requestWifiIpRefresh()
+        var best = resolvedWifiIp
+        repeat(80) { attempt ->
+            val cur = peekPhoneWifiIpv4() ?: wifiIpv4String(context)
+            if (cur != null) {
+                best = preferMoreLikelyLanDisplayIp(best, cur)
+                resolvedWifiIp = best
+            }
+            if (best != null && !isLikelyTenSlashEightLanIpv4String(best)) {
+                return@LaunchedEffect
+            }
+            if (best != null && isLikelyTenSlashEightLanIpv4String(best) && attempt >= 8) {
+                return@LaunchedEffect
+            }
+            delay(250)
+        }
+    }
+
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    c: Context?,
+                    intent: Intent?,
+                ) {
+                    requestWifiIpRefresh()
+                    wifiRefreshEpoch++
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     val sensorLinked =
@@ -479,13 +547,16 @@ internal fun StartupWizardOverlay(
                                     when (sensorKind) {
                                         SourceKind.PolarH10 ->
                                             "Wet the Polar H10 strap, wear it, then tap " +
-                                                "Find sensor button."
+                                                "Find sensor button, or go back to choose a " +
+                                                "different sensor type."
                                         SourceKind.Feather ->
                                             "Power the ECG-Box, keep it nearby, then tap " +
-                                                "Find sensor button."
+                                                "Find sensor button, or go back to choose a " +
+                                                "different sensor type."
                                         SourceKind.Simulate ->
                                             "No hardware needed. Tap Find sensor to start " +
-                                                "synthetic IBI + ECG (troubleshooting)."
+                                                "synthetic IBI + ECG (troubleshooting), or go " +
+                                                "back to choose a different sensor type."
                                     },
                                 fontSize = 14.sp,
                                 color = TextDark,
@@ -630,7 +701,7 @@ internal fun StartupWizardOverlay(
                                 onClick = { hostChoice = HostChoice.PhoneAlone },
                             )
                             if (hostChoice == HostChoice.WaitForPc) {
-                                val ip = phoneIpHint ?: state.phoneWifiIpv4
+                                val ip = resolvedWifiIp
                                 if (ip != null) {
                                     Text(
                                         text = "On your PC, connect to $ip:${state.bridgePort}",

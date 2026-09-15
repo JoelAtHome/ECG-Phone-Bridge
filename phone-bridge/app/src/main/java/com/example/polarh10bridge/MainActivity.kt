@@ -1406,6 +1406,8 @@ class MainActivity : ComponentActivity() {
 
     private val wifiIpLinkRetry500Ms = Runnable { applyPhoneWifiLinkFromNetworkToScreenState() }
     private val wifiIpLinkRetry1500Ms = Runnable { applyPhoneWifiLinkFromNetworkToScreenState() }
+    private val wifiIpLinkRetry3500Ms = Runnable { applyPhoneWifiLinkFromNetworkToScreenState() }
+    private val wifiIpLinkRetry8000Ms = Runnable { applyPhoneWifiLinkFromNetworkToScreenState() }
 
     private fun applyPhoneWifiLinkFromNetworkToScreenState() {
         val beforeIp = screenState.value.phoneWifiIpv4
@@ -1425,14 +1427,21 @@ class MainActivity : ComponentActivity() {
     private fun schedulePhoneWifiLinkRefreshWithRetries() {
         mainHandler.removeCallbacks(wifiIpLinkRetry500Ms)
         mainHandler.removeCallbacks(wifiIpLinkRetry1500Ms)
+        mainHandler.removeCallbacks(wifiIpLinkRetry3500Ms)
+        mainHandler.removeCallbacks(wifiIpLinkRetry8000Ms)
         applyPhoneWifiLinkFromNetworkToScreenState()
         mainHandler.postDelayed(wifiIpLinkRetry500Ms, 500L)
         mainHandler.postDelayed(wifiIpLinkRetry1500Ms, 1500L)
+        // DHCP often lands after the radio-on broadcast; keep probing a bit longer.
+        mainHandler.postDelayed(wifiIpLinkRetry3500Ms, 3500L)
+        mainHandler.postDelayed(wifiIpLinkRetry8000Ms, 8000L)
     }
 
     private fun cancelScheduledPhoneWifiLinkRefresh() {
         mainHandler.removeCallbacks(wifiIpLinkRetry500Ms)
         mainHandler.removeCallbacks(wifiIpLinkRetry1500Ms)
+        mainHandler.removeCallbacks(wifiIpLinkRetry3500Ms)
+        mainHandler.removeCallbacks(wifiIpLinkRetry8000Ms)
     }
 
     private fun pruneStaleBleRows() {
@@ -2841,6 +2850,11 @@ class MainActivity : ComponentActivity() {
                     StartupWizardOverlay(
                         state = state,
                         phoneIpHint = state.phoneWifiIpv4,
+                        readPhoneWifiIpv4 = { screenState.value.phoneWifiIpv4 },
+                        onRequestWifiIpRefresh = {
+                            schedulePhoneWifiLinkRefreshWithRetries()
+                            bridgeIpHintRefreshSession.value = bridgeIpHintRefreshSession.value + 1
+                        },
                         initialRole = loadWizardLastRolePref(),
                         initialJob = loadWizardLastJobPref(),
                         onRoleChosen = { role ->
@@ -4084,13 +4098,13 @@ private fun isWifiRadioOn(context: Context): Boolean {
     return wm.isWifiEnabled
 }
 
-private fun isLikelyTenSlashEightLanIpv4String(host: String): Boolean {
+internal fun isLikelyTenSlashEightLanIpv4String(host: String): Boolean {
     val parts = host.split('.').mapNotNull { it.toIntOrNull() }
     return parts.size == 4 && parts[0] == 10
 }
 
 /** When two readings disagree, prefer the address that is not in 10.0.0.0/8 if the other is. */
-private fun preferMoreLikelyLanDisplayIp(current: String?, newer: String?): String? {
+internal fun preferMoreLikelyLanDisplayIp(current: String?, newer: String?): String? {
     when {
         newer.isNullOrBlank() -> return current
         current.isNullOrBlank() -> return newer
@@ -4163,7 +4177,7 @@ private fun pickBestWifiLanIpv4(cm: ConnectivityManager): WifiIpv4Pick? {
 }
 
 @SuppressLint("MissingPermission")
-private fun wifiIpv4String(context: Context): String? {
+internal fun wifiIpv4String(context: Context): String? {
     val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         ?: return null
     // Only Wi-Fi transports; never fall back to cellular/VPN/other (misleading for LAN instructions).

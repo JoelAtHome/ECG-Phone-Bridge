@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.58
+- polish: Startup Wizard Connect copy — “…or go back to choose a different sensor type.”
+- fix: Startup Wizard Wait for PC — keep polling Wi‑Fi IP after radio turns on mid-wizard (DHCP lag); longer Activity IP retries.
+
 ## Version 1.0.0-beta.57
 - polish: Startup Wizard — Caregiver job is Record/Stream only; Wait for PC lists ECG-Box Tuner; sensor picker includes Simulate.
 
