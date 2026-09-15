@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.49
+- fix: ECG sensor modal action labels no longer wrap vertically (Cancel was stacking letter-by-letter).
+
 ## Version 1.0.0-beta.48
 - polish: Capture session blurb — Stream for VNS-TA, Record for FlareTracker, Hertz & Hearts either.
 - polish: ECG sensor modal — Disconnect / Rescan / Cancel in one horizontal row.
