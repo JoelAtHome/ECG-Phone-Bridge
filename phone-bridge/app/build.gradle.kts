@@ -19,8 +19,8 @@ android {
         applicationId = "com.joelathome.ecgphonebridge"
         minSdk = 26
         targetSdk = 36
-        versionCode = 50
-        versionName = "1.0.0-beta.50"
+        versionCode = 51
+        versionName = "1.0.0-beta.51"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,9 +1,9 @@
 # Phone Bridge System Architecture & Telemetry Specification
 
-**Date:** 2026-09-11  
+**Date:** 2026-09-15  
 **Status:** Target architecture (intent) with explicit **now / next / later** vs shipping code  
 **Scope:** BLE ingestion → Phone Bridge (edge) → Wi‑Fi session transport → laptop consumers  
-**Priority (2026-09-11):** VNS-TA Stream field path, then Feather-on-phone (BLE) + profiles/calibrate; contact gates shipped β.21; park `session_control` / ritual buffer dump until after.
+**Priority (2026-09-15):** Apply profile `session_timing` to RMSSD; FT/HnH `ritual_ack` for delayed packages; Startup Wizard. Tuner Online / VNS-TA Stream / assisted tune verified. Phone ritual persist shipping (PROTOCOL §7). Park `session_control` until after.
 
 ---
 
@@ -94,27 +94,29 @@ flowchart TD
 - Ops UI: scan/connect, Wi‑Fi/port, flow diagram, foreground keepalive
 - HnH-oriented discovery branding (multi-app contract still evolving)
 
-### Next (shared session bridge — VNS-TA priority)
+### Next (shared session bridge)
 
 - ~~Phone **patient breathing pacer**~~ (shipping)
 - ~~Phone UI mode select: **Record session** vs **Stream**~~ (shipping)
 - ~~Bridge official RMSSD from IBI on the wire~~ (shipping; rolling in stream, final on stop)
-- ~~FlareTracker / VNS-TA / HnH light host passes~~ (shipping; FT Companion **v1.0.3** + caregiver H10 path verified)
-- **VNS-TA:** field-verify Stream on phone **≥ v1.0.0-beta.18** (prefer **β.21**); keep Polar Stream usable in parallel with Feather work
+- ~~FlareTracker / VNS-TA / HnH light host passes~~ (shipping; FT Companion **v1.0.6** + caregiver H10 path verified)
+- ~~VNS-TA Stream field-verify~~ (done on recent APK; keep Polar Stream usable)
 - ~~Phone **contact / quality gates** (RSSI alone is not on-chest / contact)~~ — shipped **β.21**
-- **Feather BLE path** on the phone + **per-patient calibration profiles** (phone-local; see §7) — hard gate before Tuner polish
-- Calibrate MVP (thin phone Tech inspect/tweak/Save **or** thin Tuner writing the same profile JSON), then build out **Tuner** as the durable coeff editor (Polar referee, guided Accept)
+- ~~Feather BLE path** on the phone + **per-patient calibration profiles**~~ (shipping; unified Polar/Feather source picker β.45+)
+- ~~Calibrate MVP + Tuner as durable coeff editor~~ (Tuner Online GET / Send / Store field-verified; assisted / semi-auto tune with human Accept in ECG-Box Tuner)
+- Apply profile **`session_timing`** to `RmssdCalculator` (stored on profile JSON; calculator still uses hardcoded defaults)
+- ~~**Phone-persisted ritual** + delayed transfer to FT / HnH~~ (shipping — PROTOCOL §7; host `ritual_ack` still to wire in FT/HnH)
+- **Startup Wizard** for first-run phone bridge setup (wishlist)
 
 ### Later
 
 - `session_control` / full host–mode conflict UX (all hosts together; do not add for VNS alone)
-- Record-mode buffer dump / last-session reuse / session package (FT-oriented; format TBD)
-- Assisted / semi-auto Feather tune with human Accept; optional continuous auto-tune (never silent-overwrite last-known-good)
+- Optional continuous auto-tune (never silent-overwrite last-known-good)
 - Share / sync patient calibration profiles across phones (export/import or host-backed)
 - Feather MCU Wi‑Fi as optional escape hatch (not a second host contract)
 - Additional ECG peripherals
 - Optional HTTP/WebSocket transport if TCP NDJSON proves insufficient
-- **Phone UI chrome polish** (defer until Feather profiles/calibrate feature additions settle): unify Polar H10 vs Feather connect CTAs (today separate scan/list vs Tech Connect Feather), plus other Tech/Session layout/copy polish from field use — function first, chrome second
+- Residual **Tech/Session chrome** from field use (source-picker unify shipped β.45+)
 
 ---
 
@@ -278,12 +280,13 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 
 **V1.5**
 
-- Guided / assisted tune (short still capture → suggested coeffs → human Accept).
+- ~~Guided / assisted tune (short still capture → suggested coeffs → human Accept)~~ — shipping in ECG-Box Tuner.
 
 **Later**
 
 - Optional continuous auto-tune with last-known-good rollback — never silent sole authority.  
-- **Share profiles across phones** (export/import file, or sync via a host app) so a second phone can reuse the same patient’s tune (and timing defaults) without redoing calibration from scratch.
+- **Share profiles across phones** (export/import file, or sync via a host app) so a second phone can reuse the same patient’s tune (and timing defaults) without redoing calibration from scratch.  
+- **Startup Wizard** on the phone bridge (first-run Wi‑Fi / sensor / host orientation).
 
 ---
 
@@ -310,22 +313,28 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 
 ## 10. Open items (small)
 
-**Near-term (VNS-TA priority)**
+**Near-term**
 
-1. Field-verify VNS-TA Stream against phone **≥ v1.0.0-beta.18** (prefer **β.21** for contact gates).  
-2. ~~Phone contact / quality gates (do not treat RSSI as contact).~~ — shipped **β.21**.  
-3. Exact Feather GATT layout ([`FEATHER_BLE_GATT.md`](./FEATHER_BLE_GATT.md)) + phone BLE client (codecs/profile store/sim path landed; live GATT connect next).  
-4. Phone-local profiles + calibrate MVP → then Tuner build-out (§7). See [`FEATHER_REPO_HANDOFF.md`](./FEATHER_REPO_HANDOFF.md).
+1. ~~Field-verify VNS-TA Stream~~ — done on recent APK.  
+2. ~~Phone contact / quality gates~~ — shipped **β.21**.  
+3. ~~Feather GATT + phone BLE client + profiles / calibrate / Tuner Online~~ — shipping (picker β.45+; Online GET/Send/Store field-verified).  
+4. Apply patient-profile **`session_timing`** to `RmssdCalculator` (still hardcoded defaults).  
+5. ~~**Phone-persisted ritual** + delayed FT/HnH transfer~~ — shipping on phone; FT/HnH should `ritual_ack` + dedupe.  
+6. **Startup Wizard** (wishlist).
+
+**Phone-alone ritual (status)**
+
+- **Shipping:** Record with **no PC** persists a package (official `rmssd` + IBI + compact ECG). Auto-push on FT/HnH connect; Tech **Send**; host `ritual_request`.  
+- **Host follow-up:** Companion/day-log accept delayed packages, `ritual_ack`, dedupe `session_id`.
 
 **Later / parked (safe to defer)**
 
-5. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
-6. **Implement** patient-profile session timing UI; Tuner as optional co-editor (§6.2 / §7).  
-7. **Implement** host–mode negotiation / `session_control` conflict UX (`PROTOCOL.md` §5.3) and record buffer dump / last-session reuse — all hosts together.  
-8. Formal protocol version string and discovery rename timeline.  
-9. Record-mode artifact format (CSV / EDF / JSON package) for host import.  
+7. Final numeric defaults for settle / analysis / final-trim after more kid rituals.  
+8. Host–mode negotiation / `session_control` conflict UX (`PROTOCOL.md` §5.3).  
+9. Formal protocol version string and discovery rename timeline.  
 10. Cross-phone profile export/import UX (schema drafted; share flow later).  
-11. Feather MCU Wi‑Fi session path (escape hatch only).
+11. Feather MCU Wi‑Fi session path (escape hatch only).  
+12. Optional continuous auto-tune.
 
 ---
 
@@ -335,7 +344,7 @@ Also: profiles stay on the **phone that ran calibration**; never silently overwr
 - `docs/PROTOCOL.md` — NDJSON / discovery / RMSSD / session-control sketch  
 - `docs/FEATHER_PROFILE_SCHEMA.md` — per-patient Feather calibration JSON  
 - `docs/HOST_HANDOFF.md` — consumer checklists for FT / VNS-TA / HnH  
-- `phone-bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; not yet wired to TCP)  
+- `phone-bridge/.../rmssd/RmssdCalculator.kt` — official RMSSD window logic (unit-tested; on the TCP wire as `type: rmssd`)  
 - `PASSDOWN.md` — Android Studio / network tooling passdown  
 - `CHANGELOG.md` — bridge release notes  
 - [ECG-Box](https://github.com/JoelAtHome/ecg-box) — analog ECG firmware, plans, `protocol.md`; tuning notes under `firmware/Tuning Data/`  

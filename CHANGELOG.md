@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.51
+- enhancement: **Phone-persisted ritual packages** — Record Stop saves rmssd + IBI + compact ECG on disk; auto-push to FT/HnH on connect; Tech **Send**; host `ritual_ack` / `ritual_request` (PROTOCOL §7).
+- docs: Mark Tuner Online / VNS-TA Stream / assisted tune done; fix architecture drift; add Startup Wizard wishlist.
+
 ## Version 1.0.0-beta.50
 - polish: ECG sensor modal — Disconnect / Rescan / Cancel stacked and center-aligned (full labels).
 

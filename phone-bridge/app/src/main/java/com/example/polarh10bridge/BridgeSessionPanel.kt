@@ -42,9 +42,14 @@ fun BridgeSessionPanel(
     featherSimActive: Boolean = false,
     /** Live Feather GATT client connected/streaming. */
     featherBleConnected: Boolean = false,
+    lastRitualSessionId: String? = null,
+    lastRitualAcked: Boolean = false,
+    lastRitualRmssdMs: Double? = null,
+    lastRitualEmittedAt: String? = null,
     onModeSelected: (BridgeSessionMode) -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onSendLastRitual: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val canStart = !active && (sensorConnected || featherSimActive || featherBleConnected)
@@ -125,8 +130,42 @@ fun BridgeSessionPanel(
                 },
             color = SessionTextDark.copy(alpha = 0.7f),
             fontSize = 11.sp,
-            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
         )
+
+        if (!lastRitualSessionId.isNullOrBlank()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text =
+                        buildString {
+                            append("Last ritual · ")
+                            append(if (lastRitualAcked) "sent" else "pending")
+                            lastRitualRmssdMs?.let {
+                                append(" · ")
+                                append(String.format(Locale.US, "%.0f ms", it))
+                            }
+                            lastRitualEmittedAt?.takeIf { it.isNotBlank() }?.let { at ->
+                                append(" · ")
+                                append(at.take(19).replace('T', ' '))
+                            }
+                        },
+                    color = SessionTextDark.copy(alpha = 0.62f),
+                    fontSize = 11.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onSendLastRitual != null) {
+                    TextButton(onClick = onSendLastRitual) {
+                        Text("Send", color = SessionBannerRed, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
 
         if (!sensorConnected && !featherSimActive && !featherBleConnected) {
             Text(

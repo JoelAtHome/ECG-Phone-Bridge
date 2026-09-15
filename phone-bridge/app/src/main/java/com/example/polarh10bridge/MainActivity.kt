@@ -284,6 +284,11 @@ internal data class BridgeScreenState(
     val selectedSourceKind: SourceKind = SourceKind.PolarH10,
     /** Feather Find overlay; hide without cancel keeps BLE work going. */
     val featherConnectOverlayVisible: Boolean = false,
+    /** Last Record ritual on disk (Tech line + Send). */
+    val lastRitualSessionId: String? = null,
+    val lastRitualAcked: Boolean = false,
+    val lastRitualRmssdMs: Double? = null,
+    val lastRitualEmittedAt: String? = null,
 )
 
 class MainActivity : ComponentActivity() {
@@ -311,6 +316,13 @@ class MainActivity : ComponentActivity() {
     private var lastPublishedContactState: SensorContactState? = null
     private var bleSearchDisposable: Disposable? = null
     private var featherProfileStore: com.example.polarh10bridge.feather.FeatherProfileStore? = null
+    private var ritualPackageStore: com.example.polarh10bridge.ritual.RitualPackageStore? = null
+    /** Avoid double auto-push of the same package on one TCP session. */
+    private var ritualAutoPushSentSessionId: String? = null
+    private val ritualClientInfoFallbackRunnable =
+        Runnable {
+            maybeAutoPushRitual(screenState.value.pcClientApp, forceHnHCompatible = true)
+        }
     private var featherBleClient: com.example.polarh10bridge.feather.FeatherBleClient? = null
     private var featherSimIbiIndex = 0
     private var featherSimElapsedMs = 0L
@@ -918,6 +930,7 @@ class MainActivity : ComponentActivity() {
         sendBridgeJsonLine(
             """{"type":"ecg","sample_rate_hz":$hz,"samples_mv":$samplesJson,"peak_flags":$peaksJson}""",
         )
+        sessionController.onEcgMv(hz, samplesMv)
     }
 
     private fun setFeatherSimActive(enabled: Boolean) {
@@ -1092,16 +1105,121 @@ class MainActivity : ComponentActivity() {
     private fun stopBridgeSession() {
         if (!sessionController.isActive()) return
         mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
-        val result = sessionController.stop(sourceDeviceWire())
+        val wasRecord = sessionController.activeMode == BridgeSessionMode.Record
+        val result =
+            sessionController.stop(
+                sourceDevice = sourceDeviceWire(),
+                nowElapsedMs = SystemClock.elapsedRealtime(),
+            )
         val rmssdValue =
             result.rmssd?.optDouble("rmssd_ms", Double.NaN)?.takeIf { !it.isNaN() }
-        result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
-        result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+        result.ritualPackage?.let { pkg ->
+            ritualPackageStore?.save(pkg)
+            refreshRitualUiFromStore()
+        }
+        if (wasRecord && result.ritualPackage != null) {
+            sendRitualPackage(result.ritualPackage, com.example.polarh10bridge.ritual.RitualTransferReason.LiveStop)
+            if (!screenState.value.pcBridgeConnected) {
+                mainHandler.post {
+                    Toast
+                        .makeText(
+                            this,
+                            "Ritual saved on phone — connect FlareTracker to upload.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                }
+            }
+        } else {
+            result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+            result.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+        }
         if (rmssdValue != null) {
             syncSessionUiFromController(lastRmssdMs = rmssdValue)
         } else {
             syncSessionUiFromController(clearRmssd = true)
         }
+    }
+
+    private fun refreshRitualUiFromStore() {
+        val summary = ritualPackageStore?.summaryUi()
+        updateScreen {
+            it.copy(
+                lastRitualSessionId = summary?.sessionId,
+                lastRitualAcked = summary?.acked ?: false,
+                lastRitualRmssdMs = summary?.rmssdMs,
+                lastRitualEmittedAt = summary?.emittedAt,
+            )
+        }
+    }
+
+    private fun sendRitualPackage(
+        pkg: com.example.polarh10bridge.ritual.RitualPackage,
+        reason: com.example.polarh10bridge.ritual.RitualTransferReason,
+    ) {
+        if (bridgeClient == null) return
+        val lines =
+            com.example.polarh10bridge.ritual.RitualWireCodec.buildTransferLines(pkg, reason)
+        for (line in lines) {
+            sendBridgeJsonLine(line)
+        }
+        if (reason == com.example.polarh10bridge.ritual.RitualTransferReason.DelayedPush ||
+            reason == com.example.polarh10bridge.ritual.RitualTransferReason.ReconnectReplay
+        ) {
+            ritualAutoPushSentSessionId = pkg.sessionId
+        }
+    }
+
+    private fun maybeAutoPushRitual(
+        clientApp: String?,
+        forceHnHCompatible: Boolean = false,
+    ) {
+        if (sessionController.isActive()) return
+        val app = if (forceHnHCompatible && clientApp.isNullOrBlank()) null else clientApp
+        if (!com.example.polarh10bridge.ritual.RitualWireCodec.shouldAutoPush(app)) return
+        val pkg = ritualPackageStore?.latestUnacked() ?: return
+        if (pkg.sessionId == ritualAutoPushSentSessionId) return
+        sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.DelayedPush)
+    }
+
+    private fun sendLastRitualManual() {
+        val store = ritualPackageStore ?: return
+        val pkg = store.latest() ?: return
+        sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.ManualSend)
+        mainHandler.post {
+            Toast
+                .makeText(
+                    this,
+                    if (screenState.value.pcBridgeConnected) {
+                        "Sent ritual ${pkg.sessionId}"
+                    } else {
+                        "No PC connected — ritual stays on phone"
+                    },
+                    Toast.LENGTH_SHORT,
+                ).show()
+        }
+    }
+
+    private fun handleRitualAck(sessionId: String) {
+        val id = sessionId.trim()
+        if (id.isEmpty()) return
+        ritualPackageStore?.markAcked(id)
+        refreshRitualUiFromStore()
+    }
+
+    private fun handleRitualRequest(payload: JSONObject) {
+        val store = ritualPackageStore ?: return
+        val rawId = if (payload.has("session_id") && !payload.isNull("session_id")) {
+            payload.optString("session_id", "").trim().ifEmpty { null }
+        } else {
+            null
+        }
+        val pkg =
+            if (rawId != null) {
+                store.get(rawId)
+            } else {
+                store.latestUnacked() ?: store.latest()
+            } ?: return
+        sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.ManualSend)
     }
 
     private fun restartBridgeServerIfNeeded() {
@@ -1276,6 +1394,8 @@ class MainActivity : ComponentActivity() {
                     val user = payload.optString("pc_user", "").trim().ifEmpty { null }
                     val app = payload.optString("client_app", "").trim().ifEmpty { null }
                     updateScreen { it.copy(pcBridgeUserName = user, pcClientApp = app) }
+                    mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+                    mainHandler.post { maybeAutoPushRitual(app) }
                     if (app.equals("ecg_box_tuner", ignoreCase = true)) {
                         sendActiveFeatherProfileToPc()
                         // Light tech stream: ensure Feather notifies if already connected.
@@ -1298,6 +1418,13 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
+                "ritual_ack" -> {
+                    val sid = payload.optString("session_id", "")
+                    mainHandler.post { handleRitualAck(sid) }
+                }
+                "ritual_request" -> {
+                    mainHandler.post { handleRitualRequest(payload) }
                 }
                 "session_control" -> {
                     when (payload.optString("action").lowercase(Locale.US)) {
@@ -2112,6 +2239,10 @@ class MainActivity : ComponentActivity() {
                 File(filesDir, "feather_profiles"),
             )
         featherProfileStore?.ensureFactoryProfiles()
+        ritualPackageStore =
+            com.example.polarh10bridge.ritual.RitualPackageStore(
+                File(filesDir, "ritual_packages"),
+            )
         sessionController.preferredMode = sessionModePref
         sessionController.preferredKind =
             when (sessionModePref) {
@@ -2125,6 +2256,7 @@ class MainActivity : ComponentActivity() {
             activeProfile?.let {
                 com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
             }.orEmpty()
+        val ritualSummary = ritualPackageStore?.summaryUi()
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -2141,6 +2273,10 @@ class MainActivity : ComponentActivity() {
                 featherActiveDisplayName = activeProfile?.displayName ?: "Demo",
                 featherActiveCoeffs = activeCoeffs,
                 featherCoeffsEpoch = 1,
+                lastRitualSessionId = ritualSummary?.sessionId,
+                lastRitualAcked = ritualSummary?.acked ?: false,
+                lastRitualRmssdMs = ritualSummary?.rmssdMs,
+                lastRitualEmittedAt = ritualSummary?.emittedAt,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -2351,6 +2487,7 @@ class MainActivity : ComponentActivity() {
                                 val batch = if (samplesMv.size > 130) samplesMv.takeLast(130) else samplesMv
                                 val json = """{"type":"ecg","sample_rate_hz":130,"samples_mv":$batch}"""
                                 sendBridgeJsonLine(json)
+                                sessionController.onEcgMv(130, batch)
                                 Log.d("HnHBridge", "ECG batch sent size=${batch.size}")
                             },
                             { err ->
@@ -2399,6 +2536,7 @@ class MainActivity : ComponentActivity() {
                                             "record",
                                             "rmssd_snapshot",
                                             "feather_profiles",
+                                            "ritual_persist",
                                         ),
                                     ),
                                 )
@@ -2488,9 +2626,15 @@ class MainActivity : ComponentActivity() {
                                     mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
                                     mainHandler.postDelayed(bridgeWireKeepAliveRunnable, 1_000L)
                                 } else {
-                                    sessionController.lastWireStopForReplay()?.let { replay ->
-                                        replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
-                                        replay.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+                                    ritualAutoPushSentSessionId = null
+                                    mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+                                    mainHandler.postDelayed(ritualClientInfoFallbackRunnable, 2_500L)
+                                    // If nothing persisted yet, keep legacy RAM stop replay.
+                                    if (ritualPackageStore?.latestUnacked() == null) {
+                                        sessionController.lastWireStopForReplay()?.let { replay ->
+                                            replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+                                            replay.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+                                        }
                                     }
                                 }
 
@@ -2511,6 +2655,8 @@ class MainActivity : ComponentActivity() {
                                 } finally {
                                     bridgeWriter = null
                                     bridgeClient = null
+                                    mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+                                    ritualAutoPushSentSessionId = null
                                     mainHandler.post {
                                         updateScreen {
                                             it.copy(
@@ -2578,6 +2724,7 @@ class MainActivity : ComponentActivity() {
                     onSessionModeSelected = { mode -> setPreferredSessionMode(mode) },
                     onStartSession = { startBridgeSession() },
                     onStopSession = { stopBridgeSession() },
+                    onSendLastRitual = { sendLastRitualManual() },
                     onToggleTechView = { setTechView(!screenState.value.techView) },
                     onRefreshTechMeters = { refreshTechQualityUi() },
                     onToggleFeatherSim = {
@@ -2729,6 +2876,7 @@ private fun BridgeMainScreen(
     onSessionModeSelected: (BridgeSessionMode) -> Unit,
     onStartSession: () -> Unit,
     onStopSession: () -> Unit,
+    onSendLastRitual: () -> Unit,
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
     onToggleFeatherSim: () -> Unit,
@@ -3164,9 +3312,14 @@ private fun BridgeMainScreen(
                         sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
                         featherBleConnected = state.featherBleConnected,
+                        lastRitualSessionId = state.lastRitualSessionId,
+                        lastRitualAcked = state.lastRitualAcked,
+                        lastRitualRmssdMs = state.lastRitualRmssdMs,
+                        lastRitualEmittedAt = state.lastRitualEmittedAt,
                         onModeSelected = onSessionModeSelected,
                         onStart = onStartSession,
                         onStop = onStopSession,
+                        onSendLastRitual = onSendLastRitual,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     TechSessionMeters(

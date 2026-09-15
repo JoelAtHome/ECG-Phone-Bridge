@@ -1,5 +1,6 @@
 package com.example.polarh10bridge
 
+import com.example.polarh10bridge.ritual.RitualPackage
 import com.example.polarh10bridge.rmssd.RmssdCalculator
 import org.json.JSONArray
 import org.json.JSONObject
@@ -105,6 +106,11 @@ class BridgeSessionController(
     private val ibis = ArrayList<RmssdCalculator.IbiSample>(512)
     private val lastRollingEmitElapsedMs = AtomicLong(0L)
 
+    private val ecgLock = Any()
+    private val ecgMv = ArrayList<Float>(4096)
+    private var ecgSampleHz: Int = 0
+    private var ecgTruncated: Boolean = false
+
     @Volatile
     var sessionStartedElapsedMs: Long = 0L
         private set
@@ -149,6 +155,11 @@ class BridgeSessionController(
         synchronized(ibiLock) {
             ibis.clear()
         }
+        synchronized(ecgLock) {
+            ecgMv.clear()
+            ecgSampleHz = 0
+            ecgTruncated = false
+        }
         activeMode = mode
         activeKind = kind
         preferredMode = mode
@@ -171,6 +182,26 @@ class BridgeSessionController(
         if (!isActive() || rrMs <= 0) return
         synchronized(ibiLock) {
             ibis.add(RmssdCalculator.IbiSample(ibiMs = rrMs.toDouble(), tMs = tElapsedMs.toDouble()))
+        }
+    }
+
+    /**
+     * Buffer ECG only during Record (for ritual persist). Stream still forwards live on the wire
+     * from MainActivity without storing a package.
+     */
+    fun onEcgMv(sampleHz: Int, samplesMv: List<Float>) {
+        if (!isActive() || activeMode != BridgeSessionMode.Record || samplesMv.isEmpty()) return
+        val hz = sampleHz.coerceAtLeast(1)
+        synchronized(ecgLock) {
+            if (ecgSampleHz == 0) ecgSampleHz = hz
+            val maxSamples = (MAX_ECG_BUFFER_SEC * ecgSampleHz).coerceAtLeast(hz)
+            for (s in samplesMv) {
+                if (ecgMv.size >= maxSamples) {
+                    ecgTruncated = true
+                    break
+                }
+                ecgMv.add(s)
+            }
         }
     }
 
@@ -208,17 +239,46 @@ class BridgeSessionController(
         return buildRmssdJson(sourceDevice)
     }
 
-    fun stop(sourceDevice: String): StopResult {
+    fun stop(sourceDevice: String, nowElapsedMs: Long = sessionStartedElapsedMs): StopResult {
         if (!isActive()) {
-            return StopResult(sessionState = null, rmssd = null)
+            return StopResult(sessionState = null, rmssd = null, ritualPackage = null)
         }
+        val modeAtStop = activeMode
+        val kindAtStop = activeKind
+        val sid = sessionId
+        val started = sessionStartedElapsedMs
         runState = BridgeSessionRunState.Finalizing
         val rmssd = buildRmssdJson(sourceDevice)
         runState = BridgeSessionRunState.Completed
         val state = sessionStateJson()
         // Return to idle for the next start; keep last sessionId on the completed message.
         runState = BridgeSessionRunState.Idle
-        val result = StopResult(sessionState = state, rmssd = rmssd)
+        val durationS =
+            if (started > 0L && nowElapsedMs >= started) {
+                (nowElapsedMs - started) / 1000.0
+            } else {
+                0.0
+            }
+        val ritual =
+            if (modeAtStop == BridgeSessionMode.Record && !sid.isNullOrBlank()) {
+                buildRitualPackage(
+                    sessionId = sid,
+                    mode = modeAtStop,
+                    kind = kindAtStop,
+                    sourceDevice = sourceDevice,
+                    durationS = durationS,
+                    rmssd = rmssd,
+                    sessionState = state,
+                )
+            } else {
+                null
+            }
+        val result =
+            StopResult(
+                sessionState = state,
+                rmssd = rmssd,
+                ritualPackage = ritual,
+            )
         if (result.rmssd != null || result.sessionState != null) {
             lastWireStopResult = result
         }
@@ -234,6 +294,11 @@ class BridgeSessionController(
     fun resetOnDisconnect() {
         synchronized(ibiLock) {
             ibis.clear()
+        }
+        synchronized(ecgLock) {
+            ecgMv.clear()
+            ecgSampleHz = 0
+            ecgTruncated = false
         }
         runState = BridgeSessionRunState.Idle
         sessionId = null
@@ -252,6 +317,45 @@ class BridgeSessionController(
             .put("state", runState.wireValue())
             .put("source_device", activeSourceDevice)
             .put("emitted_at", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
+    }
+
+    private fun buildRitualPackage(
+        sessionId: String,
+        mode: BridgeSessionMode,
+        kind: BridgeSessionKind,
+        sourceDevice: String,
+        durationS: Double,
+        rmssd: JSONObject?,
+        sessionState: JSONObject?,
+    ): RitualPackage {
+        val ibiMs =
+            synchronized(ibiLock) {
+                ibis.map { it.ibiMs.toInt().coerceAtLeast(0) }
+            }
+        val (hz, truncated, mvCopy) =
+            synchronized(ecgLock) {
+                Triple(ecgSampleHz, ecgTruncated, ecgMv.toList())
+            }
+        val emittedAt =
+            rmssd?.optString("emitted_at")?.takeIf { it.isNotBlank() }
+                ?: sessionState?.optString("emitted_at")?.takeIf { it.isNotBlank() }
+                ?: DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+        return RitualPackage(
+            sessionId = sessionId,
+            mode = mode.wireValue(),
+            kind = kind.wireValue(),
+            sourceDevice = sourceDevice,
+            emittedAt = emittedAt,
+            durationS = durationS,
+            ibiMs = ibiMs,
+            ecgSampleHz = hz,
+            ecgUv = RitualPackage.mvToUvShorts(mvCopy),
+            ecgScaleUvPerLsb = 1.0,
+            ecgTruncated = truncated,
+            rmssdJson = rmssd?.toString(),
+            sessionStateJson = sessionState?.toString(),
+            acked = false,
+        )
     }
 
     private fun buildRmssdJson(sourceDevice: String): JSONObject? {
@@ -296,9 +400,13 @@ class BridgeSessionController(
     data class StopResult(
         val sessionState: JSONObject?,
         val rmssd: JSONObject?,
+        val ritualPackage: RitualPackage? = null,
     )
 
     companion object {
+        /** Cap ECG buffer (~15 min at Feather 250 Hz). */
+        const val MAX_ECG_BUFFER_SEC = 15 * 60
+
         private val idFormatter =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
 

@@ -251,5 +251,5 @@ Open item: exact share UX (share sheet vs Files app).
 2. Never silently overwrite a profile; “Save” / “Recheck” is explicit.  
 3. Official session RMSSD stays on the phone from IBI (`RmssdCalculator`); do not treat `feather_rmssd` or Polar agreement fields as the FlareTracker value of record.  
 4. Sequence: BLE connect/stream + profile push first; calibrate MVP next; Tuner build-out after that contract works.  
-5. **Shipping (β.35+):** Tech picker + Add patient + thin coeff editor + Save + **Delete** (β.37; confirm; keep ≥1); factory seeds **Typical patch torso**, **Patient 1**, **Patient 2** (once; deleted stay deleted); active id in `feather_profiles/_active_profile_id`; Connect/Save push active coeffs. `session_timing` stored but not yet applied to `RmssdCalculator`.  
-6. **Tuner Phase 3 (code):** PROTOCOL §13 `profile_*` over the existing Wi‑Fi NDJSON session; discover `features` may include `feather_profiles`. Rebuild APK before field-verify with ECG-Box Tuner Find/Sync/Accept.
+5. **Shipping (β.35+):** Tech picker + Add patient + thin coeff editor + Save + **Delete** (β.37; confirm; keep ≥1); factory seeds **Typical patch torso**, **Patient 1**, **Patient 2** (once; deleted stay deleted); active id in `feather_profiles/_active_profile_id`; Connect/Save push active coeffs. `session_timing` stored but **not yet applied** to `RmssdCalculator` (still open).  
+6. **Tuner:** PROTOCOL §13 `profile_*` + Online GET/Send/Store field-verified; assisted / semi-auto tune with human Accept shipping in ECG-Box Tuner.

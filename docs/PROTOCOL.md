@@ -104,7 +104,7 @@ Same object; new fields optional so old HnH still works:
 
   "bridge_version": "1.0.0-beta.2",
 
-  "features": ["stream", "record", "rmssd_snapshot"]
+  "features": ["stream", "record", "rmssd_snapshot", "feather_profiles", "ritual_persist"]
 
 }
 
@@ -366,7 +366,7 @@ Actions (phone Tech; PC mirrors status):
 
 2. **Keep streaming** — FT may wait or use live data for QA only; no ritual snapshot until Record completes.  
 
-3. **Use last recorded session** — only once the phone retains a last ritual package / last official `rmssd` + metadata (not shipping yet).
+3. **Use last recorded session** — phone retains ritual packages (PROTOCOL §7); conflict UI can call Tech Send / `ritual_request` (host–mode conflict chrome still later).
 
 
 
@@ -404,7 +404,7 @@ Actions:
 
 - **Idle (no capture):** on connect, optionally apply host default mode as a *suggestion* in Tech UI (FT→Record, VNS-TA→Stream); do not auto-start capture without operator/start intent unless product later says so.  
 
-- **Record transfer to FT/HnH:** after Stop, shipping path today is live TCP + final `rmssd`. Full ritual buffer dump / “send last session” is **later** (`session_summary` + package — see §7).
+- **Record transfer to FT/HnH:** after Stop, live TCP + final `rmssd` when PC is connected; otherwise the phone **persists** the ritual package and auto-pushes on FT/HnH connect (or Tech **Send** / `ritual_request`). Hosts should `ritual_ack` and dedupe by `session_id` (PROTOCOL §7).
 
 
 
@@ -544,23 +544,221 @@ Settle / analysis lengths are phone defaults today; later they come from the **p
 
 
 
-## 7. Record-mode buffer dump (sketch)
+## 7. Record-mode ritual persist + delayed transfer
 
 
 
-After `state: finalizing` → `completed`, phone may send a summary then bulk data (exact packaging TBD):
+**Status:** Shipping on the phone (persist + auto/manual push). Hosts should `ritual_ack` and dedupe by `session_id`.
+
+
+
+After Record Stop (`finalizing` → `completed`), the phone **always** persists a ritual package (even with no PC). Stream Stop does **not** create a package.
+
+
+
+### 7.1 Package contents (semantic)
+
+
+
+| Field | Required | Notes |
+
+|-------|----------|-------|
+
+| Official `rmssd` snapshot | yes (when calculator has a value) | Same wire object as live Stop — FT value of record |
+
+| `session_state` completed | yes | Includes `session_id`, mode/kind, `emitted_at` |
+
+| IBI series | yes | All accepted IBIs for the capture (ms) |
+
+| ECG samples | preferred | Compact int16 µV; may be empty / truncated |
+
+| `session_summary` | yes (on transfer) | Envelope before payload |
+
+
+
+On-disk ECG encoding: **int16 microvolts** + `sample_rate_hz` + `scale_uv_per_lsb` (usually `1.0`). Do **not** store live NDJSON `ecg` batches.
+
+
+
+Retention: last **5** Record packages (ring). Ack state is per `session_id`.
+
+
+
+### 7.2 Transfer reasons
+
+
+
+`transfer_reason` on `session_summary`:
+
+
+
+| Value | When |
+
+|-------|------|
+
+| `live_stop` | PC connected at Record Stop |
+
+| `reconnect_replay` | Short-lived RAM/package replay after TCP drop mid-stop (compat) |
+
+| `delayed_push` | Auto after FT/HnH `client_info` (or omitted app → HnH-compatible) when unacked |
+
+| `manual_send` | Tech **Send last ritual** or host `ritual_request` |
+
+
+
+VNS-TA / ECG-Box Tuner: **no** auto-push. Manual send still allowed.
+
+
+
+### 7.3 Wire messages
+
+
+
+**Phone → host — summary**
 
 
 
 ```json
 
-{"type":"session_summary","session_id":"…","duration_s":180.5,"ibi_count":220,"has_ecg":true}
+{
+
+  "type": "session_summary",
+
+  "session_id": "20260915T120000Z-a1b2",
+
+  "mode": "record",
+
+  "kind": "ritual",
+
+  "duration_s": 180.5,
+
+  "ibi_count": 220,
+
+  "has_ecg": true,
+
+  "ecg_sample_hz": 250,
+
+  "ecg_truncated": false,
+
+  "source_device": "FEATHER",
+
+  "emitted_at": "2026-09-15T12:03:00Z",
+
+  "transfer_reason": "delayed_push",
+
+  "rmssd_ms": 52.0
+
+}
 
 ```
 
 
 
-Options under discussion (open item in architecture): NDJSON replay of buffered `rr`/`ecg`, or a single file artifact (CSV/JSON) transferred out-of-band. Prefer defining **semantic content** first (IBI series + optional ECG + one `rmssd` snapshot).
+Then the existing official snapshot (unchanged semantics):
+
+
+
+```json
+
+{"type":"rmssd","session_id":"…","rmssd_ms":52.0,"rmssd_source":"bridge","window":{…},"quality":{…},"emitted_at":"…"}
+
+```
+
+
+
+```json
+
+{"type":"session_state","session_id":"…","mode":"record","kind":"ritual","state":"completed","source_device":"FEATHER","emitted_at":"…"}
+
+```
+
+
+
+Then zero or more chunks (IBI first, then ECG), ~64–128 KiB of payload per line:
+
+
+
+```json
+
+{
+
+  "type": "ritual_chunk",
+
+  "session_id": "…",
+
+  "seq": 1,
+
+  "of": 1,
+
+  "content": "ibi",
+
+  "encoding": "int_ms_json",
+
+  "samples": [800, 812, 790]
+
+}
+
+```
+
+
+
+```json
+
+{
+
+  "type": "ritual_chunk",
+
+  "session_id": "…",
+
+  "seq": 1,
+
+  "of": 3,
+
+  "content": "ecg",
+
+  "encoding": "int16_uv_b64",
+
+  "sample_rate_hz": 250,
+
+  "scale_uv_per_lsb": 1.0,
+
+  "data": "<base64 little-endian int16>"
+
+}
+
+```
+
+
+
+**Host → phone — ack / request**
+
+
+
+```json
+
+{"type":"ritual_ack","session_id":"20260915T120000Z-a1b2"}
+
+```
+
+
+
+```json
+
+{"type":"ritual_request","session_id":null}
+
+```
+
+
+
+`session_id: null` (or omit) = latest unacked, else latest package. Specific id requests that package even if already acked (re-send).
+
+
+
+Discover `features` includes `"ritual_persist"`.
+
+
+
+Hosts **must** dedupe saves by `session_id` (and may use `emitted_at`). FlareTracker may ignore IBI/ECG and still `ritual_ack` after persisting the official `rmssd`.
 
 
 
@@ -742,11 +940,13 @@ Phone:   {"type":"session_state","state":"completed",…}
 
 | Host–mode negotiation / conflict UI | Later (intent in §5.3) |
 
-| Record buffer dump / last-session reuse | Later |
+| Record buffer dump / last-session reuse | **Shipping** (ritual persist + delayed transfer §7) |
 
 | New discover prefix | Later |
 
 | Feather **profile sync** for ECG-Box Tuner (`profile_*`) | **Shipping** β.38 (§13) |
+
+| Phone **Startup Wizard** | Wishlist |
 
 
 

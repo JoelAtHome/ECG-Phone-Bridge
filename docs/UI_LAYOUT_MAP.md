@@ -217,6 +217,8 @@ Known parked / cleanup themes from handoff (not commitments):
 | Breathing pacer | Patient only | |
 | Profile + coeffs | Collapsed Offline section | |
 | ECG strip | Under ECG-Box detector | |
+| First-run | None | **Startup Wizard** wishlist |
+| Phone-alone ritual | Persist + delayed push (PROTOCOL §7) | Hosts: `ritual_ack` + dedupe |
 
 ---
 
