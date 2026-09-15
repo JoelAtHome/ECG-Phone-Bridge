@@ -946,7 +946,7 @@ Phone:   {"type":"session_state","state":"completed",…}
 
 | Feather **profile sync** for ECG-Box Tuner (`profile_*`) | **Shipping** β.38 (§13) |
 
-| Phone **Startup Wizard** | Wishlist |
+| Phone **Startup Wizard** | MVP (first-run + Start session; UI_LAYOUT_MAP §7) |
 
 
 

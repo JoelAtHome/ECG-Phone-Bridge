@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.54
+- enhancement: **Startup Wizard** (session coach) — first-run + menu **Start session**; role → job → permissions → sensor → Find → optional PC → Start (see `docs/UI_LAYOUT_MAP.md` §7).
+- docs: HOST_HANDOFF — wizard is phone-only (no host wire/code); optional FT/VNS-TA/HnH/Companion help strings for ☰ **Start session**.
+- polish: Phone-alone Record Stop toast — **HRV saved — upload in FT or HnH**
+
 ## Version 1.0.0-beta.53
 - polish: Patient/caregiver Capture copy — **Record HRV**, status **HRV recording**, **Last HRV** / **Send HRV**, phone-alone toast **HRV saved** (wire `kind: ritual` unchanged).
 - fix: Tech **Last HRV** shows **sent** after TCP push to a connected PC (optimistic ack until hosts send `ritual_ack`).

@@ -142,6 +142,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
   │     [Cancel]  [Save]*
   │       └─ confirm: Change port? / Disconnect PC?
   │
+  ├─ Start session ──► Startup Wizard overlay (session coach)
   ├─ Switch Patient ↔ Tech
   ├─ Check for updates ──► force GitHub check (banner + toast)
   └─ About ──► Dialog (date, version, Close)
@@ -191,8 +192,11 @@ flowchart TB
   Menu{☰ menu}
   Banner --> Menu
   Menu --> Conn[Connection settings]
+  Menu --> Wizard[Start session wizard]
   Menu --> Toggle[Patient ↔ Tech]
   Menu --> About[About]
+
+  Wizard --> RoleStep[Role / Job / Sensor / Find / Host / Ready]
 
   Flow -->|Change ECG sensor| KindDlg[Source picker Tech: +Simulate]
   Flow -->|Find Polar| SensorDlg[Sensor list dialog]
@@ -220,9 +224,121 @@ Known parked / cleanup themes from handoff (not commitments):
 | Breathing pacer | Patient only | |
 | Profile + coeffs | Collapsed Offline section | |
 | ECG strip | Under ECG-Box detector | |
-| First-run | None | **Startup Wizard** wishlist |
+| First-run | **Startup Wizard** MVP | Full-screen session coach; menu **Start session** |
 | Phone-alone ritual | Persist + delayed push (PROTOCOL §7) | Hosts: `ritual_ack` + dedupe |
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.52. Update when chrome changes.*
+## 7. Startup Wizard (session coach) — design + ship sketch
+
+**Goal:** Occasional users reach a ready state without hunting Tech/Patient, Stream/Record, or the data-path Find control. Power users skip via **Exit to main screen**.
+
+**Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. No Simulate, coeffs, strip, or port settings in the wizard.
+
+**Entry**
+- Cold start when pref `bridge_wizard_completed` is false
+- ☰ → **Start session** (always; resets step flow, keeps last role/job prefs)
+
+**Jobs**
+
+| Role | Jobs offered | Side effects on finish |
+|------|----------------|------------------------|
+| Caregiver | Record HRV · Stream · Just breathe | Tech view; mode Record or Stream when applicable |
+| Patient | Just breathe | Patient view; no capture Start |
+
+### Step wireframes
+
+```
+┌─ ROLE ──────────────────────────────────┐
+│  Who is using this phone?               │
+│  ○ Caregiver   ○ Patient                │
+│                    [Continue]  [Exit]   │
+└─────────────────────────────────────────┘
+
+┌─ JOB (caregiver) ───────────────────────┐
+│  What do you want to do?                │
+│  ○ Record HRV (FlareTracker)            │
+│  ○ Stream (VNS-TA / live)               │
+│  ○ Just breathe                         │
+│                    [Back] [Continue]    │
+└─────────────────────────────────────────┘
+
+┌─ PERMISSIONS (only if missing) ─────────┐
+│  Bluetooth / nearby devices needed      │
+│  to find your ECG sensor.               │
+│              [Allow] → system prompt    │
+│                    [Back] [Continue]*   │
+└─────────────────────────────────────────┘
+  * Continue enabled when grants OK
+
+┌─ SENSOR ────────────────────────────────┐
+│  Which ECG sensor?                      │
+│  ○ Polar H10   ○ Feather                │
+│  (no Simulate)                          │
+│                    [Back] [Continue]    │
+└─────────────────────────────────────────┘
+
+┌─ CONNECT ───────────────────────────────┐
+│  Put the strap/box on. Tap Find.        │
+│           [ Find sensor ]               │
+│  status: Waiting… / Connected: name     │
+│                    [Back] [Continue]*   │
+└─────────────────────────────────────────┘
+  * Continue when Polar/Feather linked (reuse Find dialogs)
+
+┌─ HOST (Record / Stream; skip breathe) ──┐
+│  Connect a PC app on this Wi‑Fi?        │
+│  ○ Wait for PC   ○ Phone alone for now  │
+│  (shows IP:port hint when waiting)      │
+│                    [Back] [Continue]*   │
+└─────────────────────────────────────────┘
+  * Wait path: Continue when pcBridgeConnected
+    Phone-alone: Continue immediately (Record can Send HRV later)
+
+┌─ READY ─────────────────────────────────┐
+│  Summary: Caregiver · Record HRV ·      │
+│           Polar · PC linked | alone     │
+│     [ Start recording ]  or             │
+│     [ Start stream ]     or             │
+│     [ Go to breathing pacer ]           │
+│                    [Back] [Exit]        │
+└─────────────────────────────────────────┘
+```
+
+### Flow (Mermaid)
+
+```mermaid
+flowchart TD
+  Entry[First run / Start session] --> Role
+  Role -->|Patient| Perms
+  Role -->|Caregiver| Job
+  Job --> Perms
+  Perms -->|grants OK or already| Sensor
+  Sensor --> Connect
+  Connect -->|linked| HostOrReady
+  HostOrReady{Record or Stream?}
+  HostOrReady -->|yes| Host
+  HostOrReady -->|breathe| Ready
+  Host --> Ready
+  Ready -->|Start| Main[Main screen + session/pacer]
+  Ready -->|Exit| MainIdle[Main screen idle]
+```
+
+### Prefs / state (Compose sketch)
+
+| Pref / field | Purpose |
+|--------------|---------|
+| `bridge_wizard_completed` | Suppress auto-open after first successful finish or Exit |
+| `bridge_wizard_last_role` | `caregiver` / `patient` |
+| `bridge_wizard_last_job` | `record` / `stream` / `breathe` |
+| Local step enum | `Role → Job → Permissions → Sensor → Connect → Host → Ready` |
+
+Wizard reads live `BridgeScreenState` for sensor link, PC link, and Wi‑Fi IP hint. Writes via existing Activity hooks: `setTechView`, `setSelectedSourceKind`, `setPreferredSessionMode`, `beginFindSource`, `startBridgeSession`.
+
+**Out of v1:** Simulate, profile/coeffs, quality chips, stuck-checker deep links, post-Stop Send HRV nudge (later).
+
+**Code:** `StartupWizard.kt` + menu / first-run wiring in `MainActivity`.
+
+---
+
+*Generated from Compose layout as of v1.0.0-beta.52; §7 wizard sketch added for β.54 work. Update when chrome changes.*

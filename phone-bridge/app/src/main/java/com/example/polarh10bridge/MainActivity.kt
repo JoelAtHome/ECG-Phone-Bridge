@@ -141,6 +141,9 @@ private const val BRIDGE_PACER_PRESET_PREF_KEY = "bridge_pacer_preset"
 private const val BRIDGE_SESSION_MODE_PREF_KEY = "bridge_session_mode"
 private const val BRIDGE_TECH_VIEW_PREF_KEY = "bridge_tech_view"
 private const val BRIDGE_SOURCE_KIND_PREF_KEY = "bridge_source_kind"
+private const val BRIDGE_WIZARD_COMPLETED_PREF_KEY = "bridge_wizard_completed"
+private const val BRIDGE_WIZARD_LAST_ROLE_PREF_KEY = "bridge_wizard_last_role"
+private const val BRIDGE_WIZARD_LAST_JOB_PREF_KEY = "bridge_wizard_last_job"
 private const val BRIDGE_PROTOCOL_ID = "phone_bridge_ndjson_v1"
 private const val BRIDGE_PORT_DEFAULT = 8765
 private const val BRIDGE_PORT_MIN = 1024
@@ -504,6 +507,43 @@ class MainActivity : ComponentActivity() {
             getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
                 .getString(BRIDGE_SOURCE_KIND_PREF_KEY, null),
         )
+
+    private fun loadWizardCompletedPref(): Boolean =
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(BRIDGE_WIZARD_COMPLETED_PREF_KEY, false)
+
+    private fun saveWizardCompletedPref(completed: Boolean) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(BRIDGE_WIZARD_COMPLETED_PREF_KEY, completed)
+            .apply()
+    }
+
+    private fun loadWizardLastRolePref(): WizardRole =
+        WizardRole.fromPref(
+            getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(BRIDGE_WIZARD_LAST_ROLE_PREF_KEY, null),
+        )
+
+    private fun saveWizardLastRolePref(role: WizardRole) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(BRIDGE_WIZARD_LAST_ROLE_PREF_KEY, role.prefValue())
+            .apply()
+    }
+
+    private fun loadWizardLastJobPref(): WizardJob =
+        WizardJob.fromPref(
+            getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(BRIDGE_WIZARD_LAST_JOB_PREF_KEY, null),
+        )
+
+    private fun saveWizardLastJobPref(job: WizardJob) {
+        getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(BRIDGE_WIZARD_LAST_JOB_PREF_KEY, job.prefValue())
+            .apply()
+    }
 
     private fun saveSourceKindPref(kind: SourceKind) {
         // Simulate is session/Tech-only — persist as Feather so Patient never restores it.
@@ -1174,7 +1214,7 @@ class MainActivity : ComponentActivity() {
                     Toast
                         .makeText(
                             this,
-                            "HRV saved — connect FT to upload.",
+                            "HRV saved — upload in FT or HnH",
                             Toast.LENGTH_LONG,
                         ).show()
                 }
@@ -2749,6 +2789,9 @@ class MainActivity : ComponentActivity() {
             ECGPhoneBridgeTheme {
                 val state by screenState
                 val ipHintRefreshSession by bridgeIpHintRefreshSession
+                var showStartupWizard by remember {
+                    mutableStateOf(!loadWizardCompletedPref())
+                }
                 BridgeMainScreen(
                     state = state,
                     ipHintRefreshSession = ipHintRefreshSession,
@@ -2779,6 +2822,7 @@ class MainActivity : ComponentActivity() {
                     onStopSession = { stopBridgeSession() },
                     onSendLastRitual = { sendLastRitualManual() },
                     onToggleTechView = { setTechView(!screenState.value.techView) },
+                    onOpenStartupWizard = { showStartupWizard = true },
                     onRefreshTechMeters = { refreshTechQualityUi() },
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
@@ -2787,6 +2831,37 @@ class MainActivity : ComponentActivity() {
                     onGetFeatherOffline = { getFeatherOfflineFromLibrary() },
                     onSendFeatherOffline = { draft -> sendFeatherOfflineToMcu(draft) },
                 )
+                if (showStartupWizard) {
+                    StartupWizardOverlay(
+                        state = state,
+                        phoneIpHint = state.phoneWifiIpv4,
+                        initialRole = loadWizardLastRolePref(),
+                        initialJob = loadWizardLastJobPref(),
+                        onRoleChosen = { role ->
+                            saveWizardLastRolePref(role)
+                            setTechView(role == WizardRole.Caregiver)
+                        },
+                        onJobChosen = { job ->
+                            saveWizardLastJobPref(job)
+                            when (job) {
+                                WizardJob.RecordHrv ->
+                                    setPreferredSessionMode(BridgeSessionMode.Record)
+                                WizardJob.Stream ->
+                                    setPreferredSessionMode(BridgeSessionMode.Stream)
+                                WizardJob.Breathe -> Unit
+                            }
+                        },
+                        onSourceKindChosen = { kind -> setSelectedSourceKind(kind) },
+                        onFindSource = { beginFindSource() },
+                        onStartSession = { startBridgeSession() },
+                        onFinished = { markCompleted ->
+                            if (markCompleted) {
+                                saveWizardCompletedPref(true)
+                            }
+                            showStartupWizard = false
+                        },
+                    )
+                }
                 if (state.bleDialogVisible) {
                     SensorListDialog(
                         scanning = state.bleScanning,
@@ -2928,6 +3003,7 @@ private fun BridgeMainScreen(
     onStopSession: () -> Unit,
     onSendLastRitual: () -> Unit,
     onToggleTechView: () -> Unit,
+    onOpenStartupWizard: () -> Unit,
     onRefreshTechMeters: () -> Unit,
     onSelectFeatherProfile: (String) -> Unit,
     onAddFeatherPatient: (String) -> Unit,
@@ -3072,6 +3148,13 @@ private fun BridgeMainScreen(
                                 onClick = {
                                     menuExpanded = false
                                     showConnectionSettings = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Start session") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenStartupWizard()
                                 },
                             )
                             DropdownMenuItem(
