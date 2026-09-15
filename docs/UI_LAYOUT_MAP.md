@@ -43,15 +43,13 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │                                         │
 │  [if Polar or Feather BLE linked]       │
 │    Connected to: name · contact · …     │
-│    [ Disconnect sensor ]                │
-│    Phone IP / hotspot line              │
+│    (Disconnect via sensor pill modal)   │
 │                                         │
 │  ╔═══════════════════════════════════╗  │
 │  ║  TECH VIEW ONLY                   ║  │
 │  ║  · Capture session panel          ║  │
 │  ║  · Tech meters (+ profile/BLE)    ║  │
-│  ║  · (no breathing pacer in docs;   ║  │
-│  ║     pacer also composes in Tech)  ║  │
+│  ║  · (no breathing pacer)           ║  │
 │  ╚═══════════════════════════════════╝  │
 │                                         │
 │  ╔═══════════════════════════════════╗  │
@@ -114,19 +112,14 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  │  Bridge RMSSD · Accepted beats     │ │
 │  │  Quality flags  [i]  + chips       │ │
 │  │                                    │ │
+│  │  ── Offline ECG-box tuning coeffs ─│ │
+│  │  (collapsed by default)            │ │
+│  │                                    │ │
 │  │  [ Simulate Feather IBI + ECG ]    │ │
 │  │                                    │ │
-│  │  ── Offline coeffs ──              │ │
-│  │  Active: name (id)                 │ │
-│  │  [Change] [Add patient] [Delete]   │ │
-│  │  coeff fields (editable keys)      │ │
-│  │  [ Save profile / Save+push ] *    │ │
-│  │                                    │ │
-│  │  ── Feather BLE ──                 │ │
-│  │  phase — detail · Last IBI         │ │
-│  │  "Find Feather on the data path."  │ │
-│  │    or [Start][Stop][Disconnect]    │ │
-│  │  ECG strip label                   │ │
+│  │  ── ECG-Box detector ──            │ │
+│  │  human phase · Last IBI            │ │
+│  │  ECG strip                         │ │
 │  │  ┌─────────────────────────────┐   │ │
 │  │  │     live / sim ECG strip    │   │ │
 │  │  └─────────────────────────────┘   │ │
@@ -149,6 +142,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
   │       └─ confirm: Change port? / Disconnect PC?
   │
   ├─ Switch Patient ↔ Tech
+  ├─ Check for updates ──► force GitHub check (banner + toast)
   └─ About ──► Dialog (date, version, Close)
 
 Change ECG sensor (under Data path node)
@@ -197,8 +191,9 @@ flowchart TB
   Toggle -->|Patient| Pacer[Breathing pacer]
   Toggle -->|Tech| Cap[Capture session]
   Cap --> Tech[Tech meters]
-  Tech --> Prof[Offline coeffs]
-  Tech --> Fble[Feather BLE + ECG strip]
+  Tech --> Prof[Offline ECG-box tuning coeffs]
+  Tech --> Sim[Simulate Feather]
+  Tech --> Fble[ECG-Box detector + strip]
 ```
 
 ---
@@ -211,10 +206,10 @@ Known parked / cleanup themes from handoff (not commitments):
 |------|--------|----------------|
 | Source CTA | Remembered Polar / Feather node + Change | Future kinds = extra picker rows |
 | Capture Start/Stop | Tech only | OK for patient? |
-| Breathing pacer | Intended Patient-only; also composes in Tech | |
-| Profile + coeffs | Long Tech scroll | Collapse / Tuner-only? |
-| ECG strip | Always under Feather BLE | |
+| Breathing pacer | Patient only | |
+| Profile + coeffs | Collapsed Offline section | |
+| ECG strip | Under ECG-Box detector | |
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.46. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.47. Update when chrome changes.*

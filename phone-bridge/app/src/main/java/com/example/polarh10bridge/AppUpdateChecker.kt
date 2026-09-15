@@ -13,6 +13,14 @@ internal data class AvailableAppUpdate(
     val releaseUrl: String,
 )
 
+internal sealed class AppUpdateCheckResult {
+    data class Available(val update: AvailableAppUpdate) : AppUpdateCheckResult()
+
+    object UpToDate : AppUpdateCheckResult()
+
+    object Failed : AppUpdateCheckResult()
+}
+
 private const val UPDATE_PREFS_NAME = "bridge_update_prefs"
 private const val UPDATE_DISMISSED_TAG_KEY = "dismissed_release_tag"
 private const val UPDATE_LAST_CHECK_MS_KEY = "last_check_elapsed_wall_ms"
@@ -33,10 +41,34 @@ internal suspend fun checkForAvailableAppUpdate(
     context: Context,
     currentVersionName: String,
     forceNetwork: Boolean = false,
+    /** When true (manual menu check), show a dismissed tag again. */
+    ignoreDismissed: Boolean = false,
 ): AvailableAppUpdate? =
+    when (
+        val result =
+            checkForAppUpdateDetailed(
+                context,
+                currentVersionName,
+                forceNetwork = forceNetwork,
+                ignoreDismissed = ignoreDismissed,
+            )
+    ) {
+        is AppUpdateCheckResult.Available -> result.update
+        else -> null
+    }
+
+/**
+ * Manual / diagnostic check: distinguishes update available, up to date, and network/parse failure.
+ */
+internal suspend fun checkForAppUpdateDetailed(
+    context: Context,
+    currentVersionName: String,
+    forceNetwork: Boolean = false,
+    ignoreDismissed: Boolean = false,
+): AppUpdateCheckResult =
     withContext(Dispatchers.IO) {
         val current = normalizeVersionLabel(currentVersionName)
-        if (current.isEmpty()) return@withContext null
+        if (current.isEmpty()) return@withContext AppUpdateCheckResult.Failed
 
         val prefs = context.applicationContext.getSharedPreferences(UPDATE_PREFS_NAME, Context.MODE_PRIVATE)
         val dismissed = prefs.getString(UPDATE_DISMISSED_TAG_KEY, null)
@@ -46,7 +78,8 @@ internal suspend fun checkForAvailableAppUpdate(
 
         val latest =
             if (useCache) {
-                val tag = prefs.getString(UPDATE_CACHED_TAG_KEY, null) ?: return@withContext null
+                val tag = prefs.getString(UPDATE_CACHED_TAG_KEY, null)
+                    ?: return@withContext AppUpdateCheckResult.Failed
                 val url = prefs.getString(UPDATE_CACHED_URL_KEY, null) ?: GITHUB_RELEASES_PAGE_URL
                 AvailableAppUpdate(
                     tagName = tag,
@@ -61,12 +94,16 @@ internal suspend fun checkForAvailableAppUpdate(
                         .putString(UPDATE_CACHED_TAG_KEY, fetched.tagName)
                         .putString(UPDATE_CACHED_URL_KEY, fetched.releaseUrl)
                         .apply()
-                } ?: return@withContext null
+                } ?: return@withContext AppUpdateCheckResult.Failed
             }
 
-        if (dismissed != null && dismissed == latest.tagName) return@withContext null
-        if (compareAppVersions(latest.versionLabel, current) <= 0) return@withContext null
-        latest
+        if (!ignoreDismissed && dismissed != null && dismissed == latest.tagName) {
+            return@withContext AppUpdateCheckResult.UpToDate
+        }
+        if (compareAppVersions(latest.versionLabel, current) <= 0) {
+            return@withContext AppUpdateCheckResult.UpToDate
+        }
+        AppUpdateCheckResult.Available(latest)
     }
 
 internal fun dismissAvailableAppUpdate(context: Context, tagName: String) {

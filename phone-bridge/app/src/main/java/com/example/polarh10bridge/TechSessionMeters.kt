@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -43,8 +44,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,10 +104,6 @@ fun TechSessionMeters(
     featherBleDetail: String = "",
     featherBleLastIbiMs: Int? = null,
     featherBleConnected: Boolean = false,
-    onConnectFeatherBle: (() -> Unit)? = null,
-    onDisconnectFeatherBle: (() -> Unit)? = null,
-    onFeatherStartStream: (() -> Unit)? = null,
-    onFeatherStopStream: (() -> Unit)? = null,
     featherEcgTraceMv: List<Float> = emptyList(),
     featherEcgSampleHz: Int = 250,
     featherEcgPacketCount: Int = 0,
@@ -308,9 +308,20 @@ fun TechSessionMeters(
                 Text(
                     text = "i",
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
+                    lineHeight = 12.sp,
+                    style =
+                        TextStyle(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false),
+                            lineHeightStyle =
+                                LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Center,
+                                    trim = LineHeightStyle.Trim.Both,
+                                ),
+                        ),
+                    modifier = Modifier.offset(y = (-0.5).dp),
                 )
             }
         }
@@ -338,35 +349,6 @@ fun TechSessionMeters(
             }
         }
 
-        if (onToggleFeatherSim != null) {
-            TextButton(
-                onClick = onToggleFeatherSim,
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                Text(
-                    text =
-                        if (featherSimActive) {
-                            "Stop Feather sim"
-                        } else {
-                            "Simulate Feather IBI + ECG"
-                        },
-                    color = TechInfoBlue,
-                    fontSize = 13.sp,
-                )
-            }
-            Text(
-                text =
-                    if (featherSimActive) {
-                        "RSA IBIs + textbook PQRST ECG → bridge as FEATHER (strip + host)."
-                    } else {
-                        "No ECG-Box needed — synthetic IBI and ECG for Tech strip / VNS bring-up."
-                    },
-                color = TechTextDark.copy(alpha = 0.62f),
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
-            )
-        }
-
         if (onSelectFeatherProfile != null && onSaveFeatherProfileCoeffs != null) {
             Row(
                 modifier =
@@ -383,7 +365,7 @@ fun TechSessionMeters(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Offline coeffs",
+                        text = "Offline ECG-box tuning coefficients",
                         color = TechTextDark,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp,
@@ -477,6 +459,12 @@ fun TechSessionMeters(
                         readOnly = tunerLinked,
                         label = { Text(key, fontSize = 11.sp) },
                         singleLine = true,
+                        textStyle =
+                            TextStyle(
+                                color = TechTextDark,
+                                fontSize = 13.sp,
+                                lineHeight = 16.sp,
+                            ),
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType =
@@ -502,7 +490,8 @@ fun TechSessionMeters(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp),
+                                .padding(top = 4.dp)
+                                .height(52.dp),
                     )
                 }
                 val coeffsDirty =
@@ -573,110 +562,109 @@ fun TechSessionMeters(
             }
         }
 
-        if (onDisconnectFeatherBle != null ||
-            onFeatherStartStream != null ||
-            onFeatherStopStream != null ||
-            onConnectFeatherBle != null
-        ) {
-            Text(
-                text = "Feather BLE",
-                color = TechTextDark,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Text(
-                text = "$featherBlePhase — $featherBleDetail",
-                color = TechTextDark.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                lineHeight = 14.sp,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            if (featherBleLastIbiMs != null) {
+        if (onToggleFeatherSim != null) {
+            TextButton(
+                onClick = onToggleFeatherSim,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
                 Text(
-                    text = "Last IBI: ${featherBleLastIbiMs} ms",
-                    color = TechTextDark,
+                    text =
+                        if (featherSimActive) {
+                            "Stop Feather sim"
+                        } else {
+                            "Simulate Feather IBI + ECG"
+                        },
+                    color = TechInfoBlue,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                if (!featherBleConnected) {
-                    if (onConnectFeatherBle != null) {
-                        TextButton(onClick = onConnectFeatherBle) {
-                            Text("Connect Feather", color = TechInfoBlue, fontSize = 13.sp)
-                        }
+            Text(
+                text =
+                    if (featherSimActive) {
+                        "RSA IBIs + textbook PQRST ECG → bridge as FEATHER (strip + host)."
                     } else {
-                        Text(
-                            text = "Find Feather on the data path.",
-                            color = TechTextDark.copy(alpha = 0.62f),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(vertical = 6.dp),
-                        )
-                    }
-                } else {
-                    if (onFeatherStartStream != null) {
-                        TextButton(onClick = onFeatherStartStream) {
-                            Text("Start stream", color = TechInfoBlue, fontSize = 13.sp)
-                        }
-                    }
-                    if (onFeatherStopStream != null) {
-                        TextButton(onClick = onFeatherStopStream) {
-                            Text("Stop stream", color = TechInfoBlue, fontSize = 13.sp)
-                        }
-                    }
-                    if (onDisconnectFeatherBle != null) {
-                        TextButton(onClick = onDisconnectFeatherBle) {
-                            Text("Disconnect", color = TechInfoBlue, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
-            // Always show under Feather BLE so it is hard to miss (even before samples).
-            Text(
-                text =
-                    when {
-                        featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
-                            "ECG strip — ${featherEcgPacketCount} pkts, " +
-                                "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz"
-                        featherBleConnected ->
-                            "ECG strip — waiting for live Feather samples…"
-                        featherSimActive ->
-                            "ECG strip — waiting for sim samples…"
-                        else ->
-                            "ECG strip — Find Feather on the data path, or Simulate Feather IBI + ECG"
+                        "No ECG-Box needed — synthetic IBI and ECG for Tech strip / VNS bring-up."
                     },
-                color = TechTextDark,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            FeatherEcgStrip(
-                samplesMv = featherEcgTraceMv,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(112.dp)
-                        .padding(top = 4.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFE3F2FD))
-                        .border(2.dp, TechInfoBlue.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-            )
-            Text(
-                text =
-                    "Find Feather on the data path (scan ECG-Box, notify, active coeffs, start_stream). " +
-                        "Start/Stop stream here is Tech-only.",
                 color = TechTextDark.copy(alpha = 0.62f),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
-                modifier = Modifier.padding(top = 6.dp),
             )
         }
+
+        Text(
+            text = "ECG-Box detector",
+            color = TechTextDark,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+        Text(
+            text =
+                buildString {
+                    val human = featherHumanPhase(featherBlePhase, featherBleDetail)
+                    if (human.isNotBlank()) {
+                        append(human)
+                    } else {
+                        append(featherBlePhase)
+                    }
+                    if (featherBleConnected && featherBleLastIbiMs != null) {
+                        append(" · Last IBI: ")
+                        append(featherBleLastIbiMs)
+                        append(" ms")
+                    }
+                },
+            color = TechTextDark.copy(alpha = 0.75f),
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        if (!featherBleConnected && !featherSimActive) {
+            Text(
+                text = "Find Feather on the data path (auto-starts the detector).",
+                color = TechTextDark.copy(alpha = 0.62f),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        Text(
+            text =
+                when {
+                    featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
+                        "ECG strip — ${featherEcgPacketCount} pkts, " +
+                            "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz"
+                    featherBleConnected ->
+                        "ECG strip — waiting for live Feather samples…"
+                    featherSimActive ->
+                        "ECG strip — waiting for sim samples…"
+                    else ->
+                        "ECG strip — Find Feather on the data path, or Simulate Feather IBI + ECG"
+                },
+            color = TechTextDark,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+        FeatherEcgStrip(
+            samplesMv = featherEcgTraceMv,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(112.dp)
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFE3F2FD))
+                    .border(2.dp, TechInfoBlue.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+        )
+        Text(
+            text =
+                "Find on the data path connects ECG-Box, pushes active coeffs, and starts the detector. " +
+                    "Disconnect from the sensor pill.",
+            color = TechTextDark.copy(alpha = 0.62f),
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 
     if (showProfilePicker && onSelectFeatherProfile != null) {

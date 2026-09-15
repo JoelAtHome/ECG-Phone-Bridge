@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -73,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -101,6 +103,7 @@ import com.polar.sdk.api.model.PolarEcgData
 import com.polar.sdk.api.model.PolarHealthThermometerData
 import com.polar.sdk.api.model.PolarSensorSetting
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.disposables.Disposable
@@ -658,9 +661,7 @@ class MainActivity : ComponentActivity() {
 
                         override fun onStatusJson(json: String) {
                             Log.d("HnHBridge", "Feather status: $json")
-                            updateScreen {
-                                it.copy(featherBleDetail = json.take(120))
-                            }
+                            // Keep UI detail human (phase strings). Raw status JSON is for Tuner/logs.
                             forwardMcuCoeffsStatusToTunerIfNeeded(json)
                         }
 
@@ -2582,9 +2583,6 @@ class MainActivity : ComponentActivity() {
                     onToggleFeatherSim = {
                         setFeatherSimActive(!screenState.value.featherSimActive)
                     },
-                    onDisconnectFeatherBle = { disconnectFeatherBle() },
-                    onFeatherStartStream = { featherBleClient?.startStream() },
-                    onFeatherStopStream = { featherBleClient?.stopStream() },
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
                     onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
@@ -2734,9 +2732,6 @@ private fun BridgeMainScreen(
     onToggleTechView: () -> Unit,
     onRefreshTechMeters: () -> Unit,
     onToggleFeatherSim: () -> Unit,
-    onDisconnectFeatherBle: () -> Unit,
-    onFeatherStartStream: () -> Unit,
-    onFeatherStopStream: () -> Unit,
     onSelectFeatherProfile: (String) -> Unit,
     onAddFeatherPatient: (String) -> Unit,
     onDeleteFeatherProfile: (String) -> Unit,
@@ -2818,7 +2813,9 @@ private fun BridgeMainScreen(
     var showConnectionSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var availableUpdate by remember { mutableStateOf<AvailableAppUpdate?>(null) }
+    var updateCheckInProgress by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val menuScope = rememberCoroutineScope()
 
     LaunchedEffect(versionName) {
         if (versionName.isBlank()) return@LaunchedEffect
@@ -2892,6 +2889,49 @@ private fun BridgeMainScreen(
                                 onClick = {
                                     menuExpanded = false
                                     onToggleTechView()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Check for updates") },
+                                onClick = {
+                                    menuExpanded = false
+                                    if (versionName.isBlank() || updateCheckInProgress) return@DropdownMenuItem
+                                    updateCheckInProgress = true
+                                    menuScope.launch {
+                                        try {
+                                            val result =
+                                                checkForAppUpdateDetailed(
+                                                    context,
+                                                    versionName,
+                                                    forceNetwork = true,
+                                                    ignoreDismissed = true,
+                                                )
+                                            val msg =
+                                                when (result) {
+                                                    is AppUpdateCheckResult.Available -> {
+                                                        availableUpdate = result.update
+                                                        "Update available: ${result.update.versionLabel}"
+                                                    }
+                                                    AppUpdateCheckResult.UpToDate -> {
+                                                        availableUpdate = null
+                                                        "You're up to date ($versionName)"
+                                                    }
+                                                    AppUpdateCheckResult.Failed ->
+                                                        "Could not check for updates"
+                                                }
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        } catch (_: Exception) {
+                                            Toast
+                                                .makeText(
+                                                    context,
+                                                    "Could not check for updates",
+                                                    Toast.LENGTH_SHORT,
+                                                )
+                                                .show()
+                                        } finally {
+                                            updateCheckInProgress = false
+                                        }
+                                    }
                                 },
                             )
                             DropdownMenuItem(
@@ -3104,17 +3144,6 @@ private fun BridgeMainScreen(
                             ),
                         modifier = Modifier.align(Alignment.Start),
                     )
-                    TextButton(
-                        onClick = onDisconnectSensor,
-                        modifier = Modifier.align(Alignment.Start),
-                    ) {
-                        Text(
-                            text = "Disconnect sensor",
-                            color = BannerRed,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -3164,9 +3193,6 @@ private fun BridgeMainScreen(
                         featherBleDetail = state.featherBleDetail,
                         featherBleLastIbiMs = state.featherBleLastIbiMs,
                         featherBleConnected = state.featherBleConnected,
-                        onDisconnectFeatherBle = onDisconnectFeatherBle,
-                        onFeatherStartStream = onFeatherStartStream,
-                        onFeatherStopStream = onFeatherStopStream,
                         featherEcgTraceMv = state.featherEcgTraceMv,
                         featherEcgSampleHz = state.featherEcgSampleHz,
                         featherEcgPacketCount = state.featherEcgPacketCount,
@@ -3198,23 +3224,25 @@ private fun BridgeMainScreen(
                         textAlign = TextAlign.Center,
                     )
                 }
-                val pacerPrefs =
-                    remember(context) {
-                        context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
-                    }
-                val initialPacerPreset =
-                    remember(pacerPrefs) {
-                        val saved = pacerPrefs.getString(BRIDGE_PACER_PRESET_PREF_KEY, null)
-                        BreathPacePreset.entries.firstOrNull { it.name == saved }
-                            ?: BreathPacePreset.COHERENCE
-                    }
-                PatientBreathingPacer(
-                    initialPreset = initialPacerPreset,
-                    onPresetChanged = { chosen ->
-                        pacerPrefs.edit().putString(BRIDGE_PACER_PRESET_PREF_KEY, chosen.name).apply()
-                    },
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
+                if (!state.techView) {
+                    val pacerPrefs =
+                        remember(context) {
+                            context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                        }
+                    val initialPacerPreset =
+                        remember(pacerPrefs) {
+                            val saved = pacerPrefs.getString(BRIDGE_PACER_PRESET_PREF_KEY, null)
+                            BreathPacePreset.entries.firstOrNull { it.name == saved }
+                                ?: BreathPacePreset.COHERENCE
+                        }
+                    PatientBreathingPacer(
+                        initialPreset = initialPacerPreset,
+                        onPresetChanged = { chosen ->
+                            pacerPrefs.edit().putString(BRIDGE_PACER_PRESET_PREF_KEY, chosen.name).apply()
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
             }
         }
 

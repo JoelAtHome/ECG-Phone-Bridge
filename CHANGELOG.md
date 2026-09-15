@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.47
+- polish: Menu **Check for updates** (force GitHub check + toast); remove redundant **Disconnect sensor** / Feather **Disconnect** / **Start|Stop stream** (Find auto-starts detector; pill Disconnect/Rescan).
+- polish: Tech **ECG-Box detector** (was Feather BLE); Simulate moved below Offline coeffs; shorter coeff fields; breathing pacer Patient-only; Quality flags ⓘ centering; Offline section title **Offline ECG-box tuning coefficients**.
+- fix: Stop dumping raw Feather status JSON into Tech detail line.
+
 ## Version 1.0.0-beta.46
 - polish: Data path shows phone/PC IPs on node captions; connected sensor pill opens **Disconnect / Rescan** dialog; **Change ECG sensor** label; gray unselected radios; tighter Change link spacing.
 - polish: Tech **Offline coeffs** collapsed by default (chevron expand).
