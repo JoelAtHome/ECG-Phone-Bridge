@@ -4,7 +4,9 @@ package com.example.polarh10bridge
  * Skin/electrode contact from the sensor — not BLE RSSI.
  *
  * Polar H10 reports contact via HR samples (`contactStatus` /
- * `contactStatusSupported`). RSSI only describes radio link quality.
+ * `contactStatusSupported`). Feather GATT has no contact characteristic today,
+ * so Feather sessions stay [SensorContactState.Unknown] (do not fake OK).
+ * RSSI only describes radio link quality.
  */
 enum class SensorContactState {
     /** No HR sample yet, or sensor does not report contact. */

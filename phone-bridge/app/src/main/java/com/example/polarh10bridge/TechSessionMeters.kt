@@ -130,6 +130,7 @@ fun TechSessionMeters(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var addPatientName by remember { mutableStateOf("") }
     var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
+    var offlineCoeffsExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(featherActiveProfileId, featherCoeffsEpoch) {
         coeffDraft = featherActiveCoeffs
     }
@@ -220,7 +221,12 @@ fun TechSessionMeters(
                         when (sensorContact) {
                             SensorContactState.InContact -> "skin OK"
                             SensorContactState.NoContact -> "no skin contact (RR/ECG gated)"
-                            SensorContactState.Unknown -> "unknown (sensor may not report)"
+                            SensorContactState.Unknown ->
+                                if (featherBleConnected || featherSimActive) {
+                                    "not reported (Feather)"
+                                } else {
+                                    "unknown (sensor may not report)"
+                                }
                         },
                     )
                 },
@@ -362,128 +368,181 @@ fun TechSessionMeters(
         }
 
         if (onSelectFeatherProfile != null && onSaveFeatherProfileCoeffs != null) {
-            Text(
-                text = "Offline coeffs",
-                color = TechTextDark,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Text(
-                text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
-                color = TechTextDark,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            if (featherProfileStatus.isNotBlank()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = { offlineCoeffsExpanded = !offlineCoeffsExpanded },
+                        )
+                        .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Offline coeffs",
+                        color = TechTextDark,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                    )
+                    if (!offlineCoeffsExpanded) {
+                        Text(
+                            text =
+                                buildString {
+                                    append(featherActiveDisplayName)
+                                    append(" (")
+                                    append(featherActiveProfileId)
+                                    append(")")
+                                    if (tunerLinked) append(" · Tuner linked")
+                                },
+                            color = TechTextDark.copy(alpha = 0.62f),
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 1.dp),
+                        )
+                    }
+                }
                 Text(
-                    text = featherProfileStatus,
+                    text = if (offlineCoeffsExpanded) "▾" else "▸",
                     color = TechTextDark.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    lineHeight = 13.sp,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            if (offlineCoeffsExpanded) {
+                Text(
+                    text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
+                    color = TechTextDark,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 2.dp),
                 )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 2.dp),
-            ) {
-                TextButton(onClick = { showProfilePicker = true }) {
-                    Text("Change", color = TechInfoBlue, fontSize = 13.sp)
+                if (featherProfileStatus.isNotBlank()) {
+                    Text(
+                        text = featherProfileStatus,
+                        color = TechTextDark.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
                 }
-                if (onAddFeatherPatient != null) {
-                    TextButton(
-                        onClick = {
-                            addPatientName = ""
-                            showAddPatient = true
-                        },
-                    ) {
-                        Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    TextButton(onClick = { showProfilePicker = true }) {
+                        Text("Change", color = TechInfoBlue, fontSize = 13.sp)
                     }
-                }
-                if (onDeleteFeatherProfile != null) {
-                    TextButton(onClick = { showDeleteConfirm = true }) {
-                        Text("Delete", color = TechInfoBlue, fontSize = 13.sp)
-                    }
-                }
-            }
-            Text(
-                text =
-                    if (tunerLinked) {
-                        "Tuner linked — Offline is a read-only mirror of Tuner. " +
-                            "Edit on PC; Store/Get/Send on phone are locked."
-                    } else {
-                        "Offline working set. Get ← library · Store → library · " +
-                            "Send → Feather (MCU). Connect Feather pushes active profile once."
-                    },
-                color = TechTextDark.copy(alpha = 0.62f),
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
-                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
-            )
-            FeatherPatientProfile.EDITABLE_COEFF_KEYS.forEach { key ->
-                OutlinedTextField(
-                    value = coeffDraft[key].orEmpty(),
-                    onValueChange = { v ->
-                        if (!tunerLinked) {
-                            coeffDraft = coeffDraft + (key to v)
+                    if (onAddFeatherPatient != null) {
+                        TextButton(
+                            onClick = {
+                                addPatientName = ""
+                                showAddPatient = true
+                            },
+                        ) {
+                            Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
                         }
-                    },
-                    enabled = !tunerLinked,
-                    readOnly = tunerLinked,
-                    label = { Text(key, fontSize = 11.sp) },
-                    singleLine = true,
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType =
-                                if (key.contains("frac") || key.contains("outlier")) {
-                                    KeyboardType.Decimal
-                                } else {
-                                    KeyboardType.Number
-                                },
-                        ),
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = TechTextDark,
-                            unfocusedTextColor = TechTextDark,
-                            disabledTextColor = TechTextDark.copy(alpha = 0.72f),
-                            focusedBorderColor = TechInfoBlue,
-                            unfocusedBorderColor = TechPanelBorder,
-                            disabledBorderColor = TechPanelBorder.copy(alpha = 0.55f),
-                            focusedLabelColor = TechInfoBlue,
-                            unfocusedLabelColor = TechTextDark.copy(alpha = 0.55f),
-                            disabledLabelColor = TechTextDark.copy(alpha = 0.45f),
-                            cursorColor = TechInfoBlue,
-                        ),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
+                    }
+                    if (onDeleteFeatherProfile != null) {
+                        TextButton(onClick = { showDeleteConfirm = true }) {
+                            Text("Delete", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    }
+                }
+                Text(
+                    text =
+                        if (tunerLinked) {
+                            "Tuner linked — Offline is a read-only mirror of Tuner. " +
+                                "Edit on PC; Store/Get/Send on phone are locked."
+                        } else {
+                            "Offline working set. Get ← library · Store → library · " +
+                                "Send → Feather (MCU). Connect Feather pushes active profile once."
+                        },
+                    color = TechTextDark.copy(alpha = 0.62f),
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
                 )
-            }
-            val coeffsDirty =
-                FeatherPatientProfile.EDITABLE_COEFF_KEYS.any { key ->
-                    coeffDraft[key].orEmpty() != featherActiveCoeffs[key].orEmpty()
+                FeatherPatientProfile.EDITABLE_COEFF_KEYS.forEach { key ->
+                    OutlinedTextField(
+                        value = coeffDraft[key].orEmpty(),
+                        onValueChange = { v ->
+                            if (!tunerLinked) {
+                                coeffDraft = coeffDraft + (key to v)
+                            }
+                        },
+                        enabled = !tunerLinked,
+                        readOnly = tunerLinked,
+                        label = { Text(key, fontSize = 11.sp) },
+                        singleLine = true,
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType =
+                                    if (key.contains("frac") || key.contains("outlier")) {
+                                        KeyboardType.Decimal
+                                    } else {
+                                        KeyboardType.Number
+                                    },
+                            ),
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TechTextDark,
+                                unfocusedTextColor = TechTextDark,
+                                disabledTextColor = TechTextDark.copy(alpha = 0.72f),
+                                focusedBorderColor = TechInfoBlue,
+                                unfocusedBorderColor = TechPanelBorder,
+                                disabledBorderColor = TechPanelBorder.copy(alpha = 0.55f),
+                                focusedLabelColor = TechInfoBlue,
+                                unfocusedLabelColor = TechTextDark.copy(alpha = 0.55f),
+                                disabledLabelColor = TechTextDark.copy(alpha = 0.45f),
+                                cursorColor = TechInfoBlue,
+                            ),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                    )
                 }
-            // When Tuner-linked, epoch updates from echo replace the draft — dirty vs echo is N/A.
-            val libraryDirty =
-                if (tunerLinked) {
-                    false
-                } else {
-                    coeffsDirty
-                }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                if (onGetFeatherOffline != null) {
+                val coeffsDirty =
+                    FeatherPatientProfile.EDITABLE_COEFF_KEYS.any { key ->
+                        coeffDraft[key].orEmpty() != featherActiveCoeffs[key].orEmpty()
+                    }
+                // When Tuner-linked, epoch updates from echo replace the draft — dirty vs echo is N/A.
+                val libraryDirty =
+                    if (tunerLinked) {
+                        false
+                    } else {
+                        coeffsDirty
+                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    if (onGetFeatherOffline != null) {
+                        TextButton(
+                            onClick = onGetFeatherOffline,
+                            enabled = !tunerLinked && libraryDirty,
+                        ) {
+                            Text(
+                                text = "Get",
+                                color =
+                                    if (!tunerLinked && libraryDirty) {
+                                        TechInfoBlue
+                                    } else {
+                                        TechTextDark.copy(alpha = 0.35f)
+                                    },
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
                     TextButton(
-                        onClick = onGetFeatherOffline,
+                        onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
                         enabled = !tunerLinked && libraryDirty,
                     ) {
                         Text(
-                            text = "Get",
+                            text = "Store",
                             color =
                                 if (!tunerLinked && libraryDirty) {
                                     TechInfoBlue
@@ -493,37 +552,22 @@ fun TechSessionMeters(
                             fontSize = 13.sp,
                         )
                     }
-                }
-                TextButton(
-                    onClick = { onSaveFeatherProfileCoeffs(coeffDraft) },
-                    enabled = !tunerLinked && libraryDirty,
-                ) {
-                    Text(
-                        text = "Store",
-                        color =
-                            if (!tunerLinked && libraryDirty) {
-                                TechInfoBlue
-                            } else {
-                                TechTextDark.copy(alpha = 0.35f)
-                            },
-                        fontSize = 13.sp,
-                    )
-                }
-                if (onSendFeatherOffline != null && featherBleConnected) {
-                    TextButton(
-                        onClick = { onSendFeatherOffline(coeffDraft) },
-                        enabled = !tunerLinked,
-                    ) {
-                        Text(
-                            text = "Send to Feather",
-                            color =
-                                if (!tunerLinked) {
-                                    TechInfoBlue
-                                } else {
-                                    TechTextDark.copy(alpha = 0.35f)
-                                },
-                            fontSize = 13.sp,
-                        )
+                    if (onSendFeatherOffline != null && featherBleConnected) {
+                        TextButton(
+                            onClick = { onSendFeatherOffline(coeffDraft) },
+                            enabled = !tunerLinked,
+                        ) {
+                            Text(
+                                text = "Send to Feather",
+                                color =
+                                    if (!tunerLinked) {
+                                        TechInfoBlue
+                                    } else {
+                                        TechTextDark.copy(alpha = 0.35f)
+                                    },
+                                fontSize = 13.sp,
+                            )
+                        }
                     }
                 }
             }

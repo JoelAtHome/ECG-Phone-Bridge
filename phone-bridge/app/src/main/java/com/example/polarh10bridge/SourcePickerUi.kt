@@ -19,11 +19,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+
+/** Empty gray ring for unselected radios (matches Stream/Record chrome). */
+private val UnselectedRadioRing = Color(0xFF757575)
 
 @Composable
 internal fun SourcePickerDialog(
@@ -69,6 +73,7 @@ internal fun SourcePickerDialog(
                             colors =
                                 RadioButtonDefaults.colors(
                                     selectedColor = BannerRed,
+                                    unselectedColor = UnselectedRadioRing,
                                 ),
                         )
                         Column(modifier = Modifier.padding(start = 4.dp)) {
@@ -92,6 +97,66 @@ internal fun SourcePickerDialog(
                 ) {
                     TextButton(onClick = onDismissRequest) {
                         Text("Close", color = BannerRed)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ConnectedSensorActionsDialog(
+    sourceLabel: String,
+    onDisconnect: () -> Unit,
+    onRescan: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = UiWhite,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "ECG sensor",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = TextDark,
+                )
+                Text(
+                    text = sourceLabel,
+                    fontSize = 13.sp,
+                    color = TextDark.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                )
+                TextButton(
+                    onClick = onDisconnect,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Disconnect",
+                        color = BannerRed,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 15.sp,
+                    )
+                }
+                TextButton(
+                    onClick = onRescan,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Rescan",
+                        color = BannerRed,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 15.sp,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text("Cancel", color = BannerRed)
                     }
                 }
             }

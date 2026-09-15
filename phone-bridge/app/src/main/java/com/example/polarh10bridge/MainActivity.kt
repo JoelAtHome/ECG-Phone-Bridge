@@ -568,24 +568,12 @@ class MainActivity : ComponentActivity() {
                                             phase !=
                                             com.example.polarh10bridge.feather.FeatherBleClient
                                                 .Phase.Scanning),
+                                    // Feather GATT has no contact bit — never fake InContact.
                                     sensorContact =
-                                        if (connected) {
-                                            SensorContactState.InContact
-                                        } else if (
-                                            phase ==
-                                                com.example.polarh10bridge.feather.FeatherBleClient
-                                                    .Phase.Idle ||
-                                                phase ==
-                                                com.example.polarh10bridge.feather.FeatherBleClient
-                                                    .Phase.Error
-                                        ) {
-                                            if (it.featherSimActive) {
-                                                SensorContactState.InContact
-                                            } else {
-                                                SensorContactState.Unknown
-                                            }
-                                        } else {
+                                        if (it.sensorConnected) {
                                             it.sensorContact
+                                        } else {
+                                            SensorContactState.Unknown
                                         },
                                     connectedSensorName =
                                         if (connected) {
@@ -840,9 +828,7 @@ class MainActivity : ComponentActivity() {
                 connectedSensorName =
                     if (it.sensorConnected) it.connectedSensorName else "",
                 sensorContact =
-                    if (it.featherSimActive) {
-                        SensorContactState.InContact
-                    } else if (it.sensorConnected) {
+                    if (it.sensorConnected) {
                         it.sensorContact
                     } else {
                         SensorContactState.Unknown
@@ -965,7 +951,7 @@ class MainActivity : ComponentActivity() {
             it.copy(
                 featherSimActive = true,
                 selectedSourceKind = SourceKind.Feather,
-                sensorContact = SensorContactState.InContact,
+                // Sim has no contact sensor — leave Unknown (do not fake "Skin contact OK").
                 featherEcgTraceMv = emptyList(),
                 featherEcgPacketCount = 0,
             )
@@ -2016,7 +2002,14 @@ class MainActivity : ComponentActivity() {
     private fun disconnectConnectedSensor() {
         val id = screenState.value.connectedSensorId
         val featherUp = screenState.value.featherBleConnected
-        if (!screenState.value.sensorConnected && id.isEmpty() && !featherUp) return
+        if (!screenState.value.sensorConnected &&
+            id.isEmpty() &&
+            !featherUp &&
+            !screenState.value.featherSimActive
+        ) {
+            return
+        }
+        setFeatherSimActive(false)
         if (featherUp || screenState.value.featherBlePhase != "Idle") {
             disconnectFeatherBle()
         }
@@ -2759,6 +2752,7 @@ private fun BridgeMainScreen(
     val peekPhoneWifiIpv4 by rememberUpdatedState(readPhoneWifiIpv4)
     var connectHintIpv4 by remember { mutableStateOf<String?>(null) }
     var showSourcePicker by remember { mutableStateOf(false) }
+    var showConnectedSensorActions by remember { mutableStateOf(false) }
     LaunchedEffect(state.phoneWifiIpv4, ipHintRefreshSession) {
         connectHintIpv4 = null
         var best: String? = null
@@ -3019,10 +3013,21 @@ private fun BridgeMainScreen(
                     sourceKind = state.selectedSourceKind,
                     sourceLinked = state.diagramSourceActive(),
                     inProgressLine = state.featherInProgressLine(),
+                    phoneIpv4 =
+                        connectHintIpv4
+                            ?: state.phoneWifiIpv4
+                            ?: wifiIpv4String(LocalContext.current),
                     pcBridgeConnected = state.pcBridgeConnected,
+                    pcBridgeIp = state.pcBridgeIp,
                     pcBridgeUserName = state.pcBridgeUserName,
                     pcClientApp = state.pcClientApp,
-                    onFindSource = onFindSource,
+                    onFindSource = {
+                        if (state.diagramSourceActive()) {
+                            showConnectedSensorActions = true
+                        } else {
+                            onFindSource()
+                        }
+                    },
                     onChangeSource = { showSourcePicker = true },
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
@@ -3110,48 +3115,6 @@ private fun BridgeMainScreen(
                             fontWeight = FontWeight.Medium,
                         )
                     }
-                    val phoneIp =
-                        if (!wifiRadioEnabled) {
-                            "Wi-Fi client off (hotspot may still work)"
-                        } else {
-                            connectHintIpv4
-                                ?: state.phoneWifiIpv4
-                                ?: wifiIpv4String(LocalContext.current)
-                                ?: "unknown"
-                        }
-                    val pcIp = state.pcBridgeIp ?: "not connected"
-                    Spacer(modifier = Modifier.height(1.dp))
-                    Text(
-                        text = "Phone: $phoneIp",
-                        color = TextDark,
-                        fontSize = 11.sp,
-                        lineHeight = 11.sp,
-                        style =
-                            TextStyle(
-                                lineHeightStyle =
-                                    LineHeightStyle(
-                                        alignment = LineHeightStyle.Alignment.Center,
-                                        trim = LineHeightStyle.Trim.Both,
-                                    ),
-                            ),
-                        modifier = Modifier.align(Alignment.Start),
-                    )
-                    Text(
-                        text = "PC: $pcIp",
-                        color = TextDark,
-                        fontSize = 11.sp,
-                        lineHeight = 11.sp,
-                        style =
-                            TextStyle(
-                                lineHeightStyle =
-                                    LineHeightStyle(
-                                        alignment = LineHeightStyle.Alignment.Center,
-                                        trim = LineHeightStyle.Trim.Both,
-                                    ),
-                            ),
-                        modifier = Modifier.align(Alignment.Start),
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -3300,6 +3263,35 @@ private fun BridgeMainScreen(
                 showSourcePicker = false
             },
             onDismissRequest = { showSourcePicker = false },
+        )
+    }
+    if (showConnectedSensorActions) {
+        val linkedLabel =
+            when {
+                state.sensorConnected ->
+                    connectedSensorSingleLine(
+                        state.connectedSensorName,
+                        state.connectedSensorId,
+                    )
+                state.featherBleConnected ->
+                    state.connectedSensorName.ifBlank {
+                        com.example.polarh10bridge.feather.FeatherBleContract.ADVERTISED_NAME_PRIMARY
+                    }
+                state.featherSimActive -> "Feather sim"
+                else -> state.selectedSourceKind.displayName()
+            }
+        ConnectedSensorActionsDialog(
+            sourceLabel = linkedLabel,
+            onDisconnect = {
+                showConnectedSensorActions = false
+                onDisconnectSensor()
+            },
+            onRescan = {
+                showConnectedSensorActions = false
+                onDisconnectSensor()
+                onFindSource()
+            },
+            onDismissRequest = { showConnectedSensorActions = false },
         )
     }
 }

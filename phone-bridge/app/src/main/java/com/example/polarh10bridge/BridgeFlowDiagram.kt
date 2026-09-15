@@ -13,8 +13,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -65,7 +67,9 @@ internal fun BridgeFlowDiagram(
     sourceKind: SourceKind,
     sourceLinked: Boolean,
     inProgressLine: String? = null,
+    phoneIpv4: String? = null,
     pcBridgeConnected: Boolean,
+    pcBridgeIp: String? = null,
     pcBridgeUserName: String?,
     pcClientApp: String? = null,
     onFindSource: () -> Unit,
@@ -217,7 +221,7 @@ internal fun BridgeFlowDiagram(
                 Text(
                     text =
                         if (sourceLinked) {
-                            "CONNECTED (tap to rescan)"
+                            "CONNECTED (tap to disconnect/rescan)"
                         } else {
                             "TAP TO FIND SENSORS"
                         },
@@ -249,15 +253,26 @@ internal fun BridgeFlowDiagram(
                         .padding(top = 2.dp),
             )
         }
-        TextButton(onClick = onChangeSource) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Change source",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = FlowRed,
-                )
-            }
+        TextButton(
+            onClick = onChangeSource,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier.defaultMinSize(minHeight = 28.dp),
+        ) {
+            Text(
+                text = "Change ECG sensor",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = FlowRed,
+                lineHeight = 12.sp,
+                style =
+                    TextStyle(
+                        lineHeightStyle =
+                            LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Center,
+                                trim = LineHeightStyle.Trim.Both,
+                            ),
+                    ),
+            )
         }
 
         Spacer(modifier = Modifier.height(0.5f.dp))
@@ -298,12 +313,22 @@ internal fun BridgeFlowDiagram(
             )
         }
         Text(
-            text = "This phone: WiFi",
+            text =
+                buildString {
+                    append("This phone: WiFi")
+                    val ip = phoneIpv4?.trim().orEmpty()
+                    if (ip.isNotEmpty()) {
+                        append(" · ")
+                        append(ip)
+                    }
+                },
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             color = DiagramTextDark,
             lineHeight = 11.sp,
+            textAlign = TextAlign.Center,
             style = TextStyle(lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both)),
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.height(0.5f.dp))
@@ -365,7 +390,15 @@ internal fun BridgeFlowDiagram(
             }
         }
         Text(
-            text = pcHostDiagramLabel(pcBridgeConnected, pcClientApp),
+            text =
+                buildString {
+                    append(pcHostDiagramLabel(pcBridgeConnected, pcClientApp))
+                    val ip = pcBridgeIp?.trim().orEmpty()
+                    if (ip.isNotEmpty()) {
+                        append(" · ")
+                        append(ip)
+                    }
+                },
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             color = DiagramTextDark,

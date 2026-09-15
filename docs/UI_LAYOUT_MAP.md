@@ -34,7 +34,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  │   [ TAP TO FIND / Polar or Feather]│ │  ← remembered kind
 │  │     "Polar H10: Bluetooth"         │ │
 │  │     [opt in-progress line]         │ │
-│  │     [ Change source ]              │ │
+│  │     [ Change ECG sensor ]          │ │
 │  │              │                     │ │
 │  │         [ this phone ]             │ │
 │  │              │                     │ │
@@ -72,7 +72,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 ```
 ┌─────────────────────────────────────────┐
 │  [hints + Data path diagram]            │
-│  [Change source] [Find Polar or Feather]│
+│  [Change ECG sensor] [Find…]            │
 │  [optional connected block]             │
 │                                         │
 │  ┌─ BREATHING PACER ──────────────────┐ │
@@ -88,7 +88,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 └─────────────────────────────────────────┘
 ```
 
-**Patient can:** Change source (Polar / Feather), Find / Disconnect, pace breath, open menu (settings / Tech / About).  
+**Patient can:** Change ECG sensor (Polar / Feather), Find / Disconnect, pace breath, open menu (settings / Tech / About).  
 **Patient cannot:** Start/Stop capture, Feather sim, edit coeffs, see Tech meters / ECG strip.
 
 ---
@@ -151,7 +151,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
   ├─ Switch Patient ↔ Tech
   └─ About ──► Dialog (date, version, Close)
 
-Change source (under Data path node)
+Change ECG sensor (under Data path node)
   Polar H10 / Feather radio list
   [Close]
 
@@ -190,7 +190,7 @@ flowchart TB
   Menu --> Toggle[Patient ↔ Tech]
   Menu --> About[About]
 
-  Flow -->|Change source| KindDlg[Source picker]
+  Flow -->|Change ECG sensor| KindDlg[Source picker]
   Flow -->|Find Polar| SensorDlg[Sensor list dialog]
   Flow -->|Find Feather| FeatherDlg[Feather connecting dialog]
 
@@ -217,4 +217,4 @@ Known parked / cleanup themes from handoff (not commitments):
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.45. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.46. Update when chrome changes.*

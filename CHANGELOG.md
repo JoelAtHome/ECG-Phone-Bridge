@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.46
+- polish: Data path shows phone/PC IPs on node captions; connected sensor pill opens **Disconnect / Rescan** dialog; **Change ECG sensor** label; gray unselected radios; tighter Change link spacing.
+- polish: Tech **Offline coeffs** collapsed by default (chevron expand).
+- fix: Feather/sim no longer fakes **Skin contact OK** (GATT has no contact bit — stays Unknown / “not reported”).
+
 ## Version 1.0.0-beta.45
 - enhancement: Unified **source picker** on the Data path — Polar H10 or Feather (remembered), Patient and Tech. **Change source** opens the chooser; Find connects that kind. Feather Find shows a connecting overlay (scan can take ~12s) plus an in-progress line so the bridge does not look stuck. Tech **Connect Feather** link removed; sim / coeffs / ECG strip stay Tech-only.
 
