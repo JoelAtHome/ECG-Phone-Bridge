@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.59
+- enhancement: PC `client_info.pc_user` soft-matches local Feather profiles; Tech **Keep / Switch** confirm when Feather/Simulate would override the active patient; status lines for hosts; 30s Keep debounce.
+- docs: PROTOCOL §8.2 / HOST_HANDOFF + **HOST_FEATHER_PROFILE_HINT** — re-send `client_info` on PC patient change.
+- polish: Last HRV time on Capture panel shows device-local wall clock (wire `emitted_at` stays UTC ISO).
+
 ## Version 1.0.0-beta.58
 - polish: Startup Wizard Connect copy — “…or go back to choose a different sensor type.”
 - fix: Startup Wizard Wait for PC — keep polling Wi‑Fi IP after radio turns on mid-wizard (DHCP lag); longer Activity IP retries.

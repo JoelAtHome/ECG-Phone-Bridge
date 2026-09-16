@@ -22,12 +22,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val SessionBannerRed = Color(0xFFC1121F)
 private val SessionTextDark = Color(0xFF1A1A1A)
 private val SessionPanelBg = Color(0xFFF7F7F8)
 private val SessionPanelBorder = Color(0xFFE0E0E0)
+
+/** Wire `emitted_at` is UTC ISO; show device-local wall time for caregivers. */
+internal fun formatEmittedAtForUi(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return trimmed
+    return try {
+        val instant = Instant.parse(trimmed)
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            .withZone(ZoneId.systemDefault())
+            .format(instant)
+    } catch (_: Exception) {
+        trimmed.take(19).replace('T', ' ')
+    }
+}
 
 @Composable
 fun BridgeSessionPanel(
@@ -152,7 +169,7 @@ fun BridgeSessionPanel(
                             }
                             lastRitualEmittedAt?.takeIf { it.isNotBlank() }?.let { at ->
                                 append(" · ")
-                                append(at.take(19).replace('T', ' '))
+                                append(formatEmittedAtForUi(at))
                             }
                         },
                     color = SessionTextDark.copy(alpha = 0.62f),

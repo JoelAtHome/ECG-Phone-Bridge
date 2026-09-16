@@ -808,7 +808,28 @@ Hosts **must** dedupe saves by `session_id` (and may use `emitted_at`). FlareTra
 
 Phone may show user + app on the connection UI.
 
+### 8.2 Patient hint → Feather profile (phone)
 
+Hosts **should re-send** `client_info` whenever the active PC patient/profile changes (not only on TCP connect). Each `client_info` is a patient hint:
+
+| Phone behavior | When |
+|----------------|------|
+| Soft-match `pc_user` | Exact `profile_id` → exact `display_name` → sanitized slug vs `profile_id` |
+| Tech **Keep / Switch** confirm | Unique match ≠ active profile **and** source is Feather or Simulate |
+| No dialog | Already active; Polar source; no/ambiguous match; `client_app: ecg_box_tuner` |
+| Keep debounce | Same `pc_user` suppressed ~30s after Keep (reconnect nags) |
+| BLE coeffs | Unchanged — Connect / Save-while-connected still push; Switch only changes active profile |
+
+Phone may emit `status` messages hosts can show as a non-blocking banner (no second confirm on PC):
+
+```json
+{"type":"status","message":"Feather profile confirm: Payton?","connected":true}
+{"type":"status","message":"Feather profile switched: Payton","connected":true}
+{"type":"status","message":"Feather profile kept: Patient 2","connected":true}
+{"type":"status","message":"No Feather profile for Sandy","connected":true}
+```
+
+Later (not this slice): optional `patient_id` on `client_info` + phone `host_aliases`.
 
 ---
 

@@ -290,6 +290,9 @@ internal data class BridgeScreenState(
     val featherActiveProfileId: String = "demo",
     val featherActiveDisplayName: String = "Demo",
     val featherProfileStatus: String = "",
+    /** PC patient hint would override active Feather profile — Tech confirm. */
+    val featherProfileHintPending:
+        com.example.polarh10bridge.feather.FeatherProfileHintMatcher.PendingConfirm? = null,
     /** Editable coeff draft source; bump [featherCoeffsEpoch] whenever disk SoR changes. */
     val featherActiveCoeffs: Map<String, String> = emptyMap(),
     val featherCoeffsEpoch: Int = 0,
@@ -336,6 +339,9 @@ class MainActivity : ComponentActivity() {
             maybeAutoPushRitual(screenState.value.pcClientApp, forceHnHCompatible = true)
         }
     private var featherBleClient: com.example.polarh10bridge.feather.FeatherBleClient? = null
+    /** After Tech Keep on a PC patient hint, suppress re-prompt for the same pc_user. */
+    private var featherHintKeepDebounceKey: String? = null
+    private var featherHintKeepDebounceUntilElapsedMs: Long = 0L
     private var featherSimIbiIndex = 0
     private var featherSimElapsedMs = 0L
     private var featherSimCurrentIbiMs = 800
@@ -843,6 +849,127 @@ class MainActivity : ComponentActivity() {
         pushActiveProfileToTunerIfLinked()
     }
 
+    private fun clearFeatherProfileHintPending() {
+        updateScreen { it.copy(featherProfileHintPending = null) }
+    }
+
+    private fun sendFeatherProfileHintStatus(message: String) {
+        if (!screenState.value.pcBridgeConnected) return
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "status")
+                .put("message", message)
+                .put("connected", true)
+                .toString(),
+        )
+    }
+
+    /**
+     * PC `client_info.pc_user` → local Feather profile. Confirm on Tech when Feather/Simulate
+     * would override the active patient. Tuner is excluded (owns profile_* sync).
+     */
+    private fun handleFeatherProfileHintFromClientInfo(
+        pcUser: String?,
+        clientApp: String?,
+    ) {
+        val matcher = com.example.polarh10bridge.feather.FeatherProfileHintMatcher
+        if (clientApp.equals("ecg_box_tuner", ignoreCase = true)) {
+            clearFeatherProfileHintPending()
+            return
+        }
+        val hint = pcUser?.trim().orEmpty()
+        if (hint.isEmpty()) {
+            clearFeatherProfileHintPending()
+            return
+        }
+        val store = featherProfileStore ?: return
+        val summaries = store.listSummaries()
+        val active = store.loadActive()
+        when (val resolved = matcher.resolve(hint, summaries)) {
+            is com.example.polarh10bridge.feather.FeatherProfileHintMatcher.Result.None -> {
+                clearFeatherProfileHintPending()
+                val msg = "No Feather profile for $hint"
+                refreshFeatherProfileUi(status = msg)
+                sendFeatherProfileHintStatus(msg)
+            }
+            is com.example.polarh10bridge.feather.FeatherProfileHintMatcher.Result.Ambiguous -> {
+                clearFeatherProfileHintPending()
+                val msg = "Ambiguous Feather profile for $hint"
+                refreshFeatherProfileUi(status = msg)
+                sendFeatherProfileHintStatus(msg)
+            }
+            is com.example.polarh10bridge.feather.FeatherProfileHintMatcher.Result.Match -> {
+                if (resolved.profileId == active.profileId) {
+                    clearFeatherProfileHintPending()
+                    val msg = "Feather profile already: ${resolved.displayName}"
+                    refreshFeatherProfileUi(status = msg)
+                    sendFeatherProfileHintStatus(msg)
+                    return
+                }
+                val source = screenState.value.selectedSourceKind
+                if (source != SourceKind.Feather && source != SourceKind.Simulate) {
+                    clearFeatherProfileHintPending()
+                    return
+                }
+                val debounceKey = matcher.debounceKey(hint)
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (debounceKey == featherHintKeepDebounceKey &&
+                    now < featherHintKeepDebounceUntilElapsedMs
+                ) {
+                    return
+                }
+                if (debounceKey != featherHintKeepDebounceKey) {
+                    featherHintKeepDebounceKey = null
+                    featherHintKeepDebounceUntilElapsedMs = 0L
+                }
+                val appLabel = matcher.clientAppLabel(clientApp)
+                val pending =
+                    com.example.polarh10bridge.feather.FeatherProfileHintMatcher.PendingConfirm(
+                        pcUser = hint,
+                        clientApp = clientApp,
+                        matchedProfileId = resolved.profileId,
+                        matchedDisplayName = resolved.displayName,
+                        currentProfileId = active.profileId,
+                        currentDisplayName = active.displayName,
+                    )
+                updateScreen {
+                    it.copy(
+                        featherProfileHintPending = pending,
+                        featherProfileStatus =
+                            "$appLabel selected ${resolved.displayName} — confirm Switch?",
+                    )
+                }
+                sendFeatherProfileHintStatus(
+                    "Feather profile confirm: ${resolved.displayName}?",
+                )
+            }
+        }
+    }
+
+    private fun acceptFeatherProfileHint() {
+        val pending = screenState.value.featherProfileHintPending ?: return
+        featherHintKeepDebounceKey = null
+        featherHintKeepDebounceUntilElapsedMs = 0L
+        clearFeatherProfileHintPending()
+        selectFeatherProfile(pending.matchedProfileId)
+        sendFeatherProfileHintStatus(
+            "Feather profile switched: ${pending.matchedDisplayName}",
+        )
+    }
+
+    private fun dismissFeatherProfileHint() {
+        val pending = screenState.value.featherProfileHintPending ?: return
+        val matcher = com.example.polarh10bridge.feather.FeatherProfileHintMatcher
+        featherHintKeepDebounceKey = matcher.debounceKey(pending.pcUser)
+        featherHintKeepDebounceUntilElapsedMs =
+            android.os.SystemClock.elapsedRealtime() + matcher.keepDebounceMs()
+        clearFeatherProfileHintPending()
+        refreshFeatherProfileUi(status = "Kept Feather profile: ${pending.currentDisplayName}")
+        sendFeatherProfileHintStatus(
+            "Feather profile kept: ${pending.currentDisplayName}",
+        )
+    }
+
     private fun addFeatherPatient(displayName: String) {
         val store = featherProfileStore ?: return
         val created =
@@ -1337,6 +1464,7 @@ class MainActivity : ComponentActivity() {
                 pcBridgeConnected = false,
                 pcBridgeIp = null,
                 pcBridgeUserName = null,
+                featherProfileHintPending = null,
             )
         }
     }
@@ -1501,6 +1629,7 @@ class MainActivity : ComponentActivity() {
                     updateScreen { it.copy(pcBridgeUserName = user, pcClientApp = app) }
                     mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
                     mainHandler.post { maybeAutoPushRitual(app) }
+                    mainHandler.post { handleFeatherProfileHintFromClientInfo(user, app) }
                     if (app.equals("ecg_box_tuner", ignoreCase = true)) {
                         sendActiveFeatherProfileToPc()
                         // Light tech stream: ensure Feather notifies if already connected.
@@ -2707,6 +2836,7 @@ class MainActivity : ComponentActivity() {
                                             pcBridgeIp = client.inetAddress?.hostAddress,
                                             pcBridgeUserName = null,
                                             pcClientApp = null,
+                                            featherProfileHintPending = null,
                                         )
                                 }
 
@@ -2770,6 +2900,7 @@ class MainActivity : ComponentActivity() {
                                                 pcBridgeIp = null,
                                                 pcBridgeUserName = null,
                                                 pcClientApp = null,
+                                                featherProfileHintPending = null,
                                             )
                                         }
                                         // Restore Offline from SoR after Tuner echo mirror ends.
@@ -2845,6 +2976,8 @@ class MainActivity : ComponentActivity() {
                     onSaveFeatherProfileCoeffs = { draft -> storeFeatherOfflineCoeffs(draft) },
                     onGetFeatherOffline = { getFeatherOfflineFromLibrary() },
                     onSendFeatherOffline = { draft -> sendFeatherOfflineToMcu(draft) },
+                    onAcceptFeatherProfileHint = { acceptFeatherProfileHint() },
+                    onDismissFeatherProfileHint = { dismissFeatherProfileHint() },
                 )
                 if (showStartupWizard) {
                     StartupWizardOverlay(
@@ -3048,6 +3181,8 @@ private fun BridgeMainScreen(
     onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
     onGetFeatherOffline: () -> Unit,
     onSendFeatherOffline: (Map<String, String>) -> Unit,
+    onAcceptFeatherProfileHint: () -> Unit,
+    onDismissFeatherProfileHint: () -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -3646,6 +3781,41 @@ private fun BridgeMainScreen(
             sensorConnected = state.sensorConnected,
             featherBleConnected = state.featherBleConnected,
             onDismissRequest = { showSimBlocked = false },
+        )
+    }
+    val hintPending = state.featherProfileHintPending
+    val featherishSource =
+        state.selectedSourceKind == SourceKind.Feather ||
+            state.selectedSourceKind == SourceKind.Simulate
+    if (state.techView && featherishSource && hintPending != null) {
+        val appLabel =
+            com.example.polarh10bridge.feather.FeatherProfileHintMatcher.clientAppLabel(
+                hintPending.clientApp,
+            )
+        AlertDialog(
+            onDismissRequest = onDismissFeatherProfileHint,
+            containerColor = UiWhite,
+            titleContentColor = TextDark,
+            textContentColor = TextDark,
+            title = { Text("Switch Feather profile?", color = TextDark) },
+            text = {
+                Text(
+                    "$appLabel selected ${hintPending.matchedDisplayName}. " +
+                        "Switch Feather profile from ${hintPending.currentDisplayName} → " +
+                        "${hintPending.matchedDisplayName}?",
+                    color = TextDark,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onAcceptFeatherProfileHint) {
+                    Text("Switch", color = BannerRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissFeatherProfileHint) {
+                    Text("Keep", color = BannerRed)
+                }
+            },
         )
     }
     if (showConnectedSensorActions) {

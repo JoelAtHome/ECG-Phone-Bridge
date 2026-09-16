@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.58**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.8** in FlareTracker repo). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.58:** Wizard Connect back-hint; Wait for PC Wi‑Fi IP poll after mid-wizard radio on. **β.57:** Wizard Caregiver Record/Stream only; Wait for PC + ECG-Box Tuner; Simulate in sensor picker. **β.56:** Wizard every cold start; Breathe skips sensor/PC; job-specific PC copy; connected hints; animated ellipsis. **β.55:** Wizard UX polish + sticky immersive nav hide. **β.54:** **Startup Wizard** (hosts no wire work — optional help strings; UI_LAYOUT_MAP §7). **β.53:** Capture **Record HRV** / **Last HRV** / **Send HRV** on user-facing screens including Tech (wire `ritual_*` unchanged); Send disabled while capture active; optimistic **sent** after TCP push. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone-persisted HRV packages + delayed transfer (PROTOCOL §7; wire still `ritual_*`). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`; UI says **HRV recording**. **HnH:** recorded-HRV ingest shipping (live stream **or** saved HRV → Session History + ECG/EDF; quiet save mid-stream; connect `ritual_request` + **Request saved HRV**). **Next:** profile `session_timing` → RMSSD. Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+**Status:** Shipping phone contract through **v1.0.0-beta.59**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.8** in FlareTracker repo). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.59:** PC `client_info.pc_user` → Feather profile soft-match + Tech Keep/Switch confirm (Feather/Simulate); hosts should **re-send `client_info` on patient change** (PROTOCOL §8.2). **β.58:** Wizard Connect back-hint; Wait for PC Wi‑Fi IP poll after mid-wizard radio on. **β.57:** Wizard Caregiver Record/Stream only; Wait for PC + ECG-Box Tuner; Simulate in sensor picker. **β.56:** Wizard every cold start; Breathe skips sensor/PC; job-specific PC copy; connected hints; animated ellipsis. **β.55:** Wizard UX polish + sticky immersive nav hide. **β.54:** **Startup Wizard** (hosts no wire work — optional help strings; UI_LAYOUT_MAP §7). **β.53:** Capture **Record HRV** / **Last HRV** / **Send HRV** on user-facing screens including Tech (wire `ritual_*` unchanged); Send disabled while capture active; optimistic **sent** after TCP push. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone-persisted HRV packages + delayed transfer (PROTOCOL §7; wire still `ritual_*`). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`; UI says **HRV recording**. **HnH:** recorded-HRV ingest shipping (live stream **or** saved HRV → Session History + ECG/EDF; quiet save mid-stream; connect `ritual_request` + **Request saved HRV**). **Next:** HnH/VNS-TA re-send `client_info` on patient switch; optional pending banner from phone `status`; profile `session_timing` → RMSSD. Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
 
 ### Caregiver wording (phone + FT agents)
 
@@ -25,6 +25,7 @@ Use this when wiring a laptop app to ECG-Phone-Bridge. No code changes in those 
 | System architecture | [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) | [SYSTEM_ARCHITECTURE.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/SYSTEM_ARCHITECTURE.md) |
 | Wire protocol (NDJSON) | [PROTOCOL.md](./PROTOCOL.md) | [PROTOCOL.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/PROTOCOL.md) |
 | Feather patient profiles | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | [FEATHER_PROFILE_SCHEMA.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/FEATHER_PROFILE_SCHEMA.md) |
+| **HnH / VNS-TA: PC patient → Feather profile hint** | [HOST_FEATHER_PROFILE_HINT.md](./HOST_FEATHER_PROFILE_HINT.md) | [HOST_FEATHER_PROFILE_HINT.md](https://github.com/JoelAtHome/ECG-Phone-Bridge/blob/main/docs/HOST_FEATHER_PROFILE_HINT.md) |
 | Feather BLE GATT + ECG-Box handoff | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) · [FEATHER_REPO_HANDOFF.md](./FEATHER_REPO_HANDOFF.md) | same paths on GitHub |
 | Phone-first Feather test | [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) | same on GitHub |
 | Repo README | [README.md](../README.md) | [ECG-Phone-Bridge](https://github.com/JoelAtHome/ECG-Phone-Bridge) |
@@ -136,12 +137,15 @@ Later (hosts + phone): HnH recorded-HRV ingest (alongside live stream); sending 
 2. ~~Phone **contact / quality gates** (RSSI ≠ on-chest)~~ — shipped **β.21** (`sensor_quality`; RR/ECG gated on Polar `contactStatus`).  
 3. ~~Phone **Feather BLE** + per-patient profiles + calibrate MVP~~ (Tech picker/editor **β.35+**; unified source picker **β.45+**); ~~Tuner Online GET / Send / Store~~ field-verified; ~~assisted tune~~ in ECG-Box Tuner.  
 4. Park: `session_control`, ritual buffer dump / last-session reuse, Feather MCU Wi‑Fi as a session path.  
-5. Wishlist / next phone: apply profile `session_timing` to RMSSD; **Startup Wizard** (MVP shipping on phone; hosts optional help strings only — Shared facts); residual Tech chrome from field use (Polar/Feather CTA unify already shipped).
+5. Wishlist / next phone: apply profile `session_timing` to RMSSD; **Startup Wizard** (MVP shipping on phone; hosts optional help strings only — Shared facts); residual Tech chrome from field use (Polar/Feather CTA unify already shipped).  
+6. Host: re-send `client_info` on patient change for Feather profile soft-match (phone **β.59+**; PROTOCOL §8.2).
 
 ### Expect from the bridge
 
 - [ ] Prefer **`mode: stream`** + **`kind: session`** when `session_control` exists (not sent; phone remains mode authority)  
 - [x] Identify as `client_info.client_app = "vns_ta"`  
+- [ ] **Re-send `client_info` whenever the active patient/subject changes** (not only on TCP connect) so the phone can confirm Feather profile Switch (PROTOCOL §8.2). Use the **subject** name in `pc_user`, not the clinician.  
+- [ ] Optional: show non-blocking banner from phone `status` (`Feather profile confirm/switched/kept…`) — no second OK/Cancel on PC  
 - [x] Consume live **`rr`** and **`ecg`** continuously  
 - [x] Optional: rolling or end-of-run **`rmssd`** from the bridge for display / logs  
 - [x] Optional PC-side RMSSD from IBI for research — **not** a substitute if FT-style canonical value is needed later  
@@ -168,6 +172,8 @@ Later (hosts + phone): HnH recorded-HRV ingest (alongside live stream); sending 
 - [x] Keep using **`HnH_PHONE_BRIDGE_DISCOVER_V1`** + TCP NDJSON  
 - [x] Parse `status`, `rr`, `ecg` as today (live stream path)  
 - [x] Send `client_info` with `pc_user` (active profile) — already supported  
+- [ ] **Re-send `client_info` whenever the active patient/profile changes** (not only on TCP connect) — PROTOCOL §8.2 Feather profile hint  
+- [ ] Optional: non-blocking status banner for phone `Feather profile confirm/switched/kept…` messages  
 
 ### Expect when adopting “next” protocol (optional, non-breaking)
 
