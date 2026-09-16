@@ -129,6 +129,7 @@ fun TechSessionMeters(
     featherBleLastIbiMs: Int? = null,
     featherBleConnected: Boolean = false,
     featherEcgTraceMv: List<Float> = emptyList(),
+    featherEcgTracePeaks: List<Boolean> = emptyList(),
     featherEcgSampleHz: Int = 250,
     featherEcgPacketCount: Int = 0,
     featherProfiles: List<FeatherProfileSummary> = emptyList(),
@@ -763,7 +764,8 @@ fun TechSessionMeters(
                 when {
                     featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
                         "ECG strip — ${featherEcgPacketCount} pkts, " +
-                            "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz"
+                            "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz" +
+                            if (featherEcgTracePeaks.any { it }) " · R markers" else ""
                     featherBleConnected ->
                         "ECG strip — waiting for live Feather samples…"
                     featherSimActive ->
@@ -778,6 +780,7 @@ fun TechSessionMeters(
         )
         FeatherEcgStrip(
             samplesMv = featherEcgTraceMv,
+            peakFlags = featherEcgTracePeaks,
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -1084,10 +1087,12 @@ private fun FeatherProfileMatchAttentionBanner(
 @Composable
 private fun FeatherEcgStrip(
     samplesMv: List<Float>,
+    peakFlags: List<Boolean> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val stroke = TechInfoBlue
     val mid = Color(0xFF90A4AE)
+    val peakMark = Color(0xFFC62828)
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -1135,6 +1140,27 @@ private fun FeatherEcgStrip(
                     join = StrokeJoin.Round,
                 ),
         )
+        // MCU lookback R markers — sparse; same scale as the wave (no extra jitter).
+        if (peakFlags.size == samplesMv.size) {
+            val tick = (h * 0.12f).coerceIn(6f, 14f)
+            for (i in peakFlags.indices) {
+                if (!peakFlags[i]) continue
+                val x = if (last == 0) 0f else w * (i.toFloat() / last.toFloat())
+                val y = h * (1f - ((samplesMv[i] - minV) / span))
+                drawLine(
+                    color = peakMark,
+                    start = Offset(x, (y - tick).coerceAtLeast(0f)),
+                    end = Offset(x, (y + tick).coerceAtMost(h)),
+                    strokeWidth = 2.5f,
+                    cap = StrokeCap.Round,
+                )
+                drawCircle(
+                    color = peakMark,
+                    radius = 3.5f,
+                    center = Offset(x, y),
+                )
+            }
+        }
     }
 }
 

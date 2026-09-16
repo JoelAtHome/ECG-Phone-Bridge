@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.63
+- enhancement: Tech ECG strip draws MCU lookback **R markers** from Feather `peak_flags` (same rolling window as the wave).
+
 ## Version 1.0.0-beta.62
 - polish: Active patient dropdown — white menu + dark/blue text (was charcoal on dark theme surface).
 
