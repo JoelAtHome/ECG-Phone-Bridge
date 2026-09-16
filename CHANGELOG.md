@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.62
+- polish: Active patient dropdown — white menu + dark/blue text (was charcoal on dark theme surface).
+
 ## Version 1.0.0-beta.61
 - polish: Tech Offline — **Active patient** dropdown (pick + Add new…); removed Change / Add patient links; **Edit name**; tighter spacing above “Offline working set…”.
 - polish: **Delete name** requires typing `DELETE` to confirm (removes whole patient profile).

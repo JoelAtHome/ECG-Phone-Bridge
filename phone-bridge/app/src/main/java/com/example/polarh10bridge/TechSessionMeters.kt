@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -81,6 +82,9 @@ private val TechHelpTextMuted = Color(0xFFC8C8C8)
 private val ProfileMatchAlertBg = Color(0xFFFEF3C7)
 private val ProfileMatchAlertBorder = Color(0xFFD97706)
 private val ProfileMatchAlertText = Color(0xFF92400E)
+/** Patient picker popup — force light surface (theme may be dark). */
+private val PatientMenuBg = Color(0xFFFFFFFF)
+private val PatientMenuText = Color(0xFF1A1A1A)
 
 /** PC patient hint failed to resolve — needs Tech attention. */
 private fun isFeatherProfileMatchAttention(status: String): Boolean {
@@ -478,6 +482,7 @@ fun TechSessionMeters(
                         DropdownMenu(
                             expanded = patientMenuExpanded,
                             onDismissRequest = { patientMenuExpanded = false },
+                            containerColor = PatientMenuBg,
                         ) {
                             featherProfiles.forEach { summary ->
                                 val selected = summary.profileId == featherActiveProfileId
@@ -492,7 +497,7 @@ fun TechSessionMeters(
                                                     append(")")
                                                     if (selected) append(" ✓")
                                                 },
-                                            color = if (selected) TechInfoBlue else TechTextDark,
+                                            color = if (selected) TechInfoBlue else PatientMenuText,
                                             fontWeight =
                                                 if (selected) {
                                                     FontWeight.SemiBold
@@ -506,6 +511,10 @@ fun TechSessionMeters(
                                         onSelectFeatherProfile(summary.profileId)
                                         patientMenuExpanded = false
                                     },
+                                    colors =
+                                        MenuDefaults.itemColors(
+                                            textColor = PatientMenuText,
+                                        ),
                                 )
                             }
                             if (onAddFeatherPatient != null) {
@@ -523,6 +532,10 @@ fun TechSessionMeters(
                                         addPatientName = ""
                                         showAddPatient = true
                                     },
+                                    colors =
+                                        MenuDefaults.itemColors(
+                                            textColor = TechInfoBlue,
+                                        ),
                                 )
                             }
                         }
