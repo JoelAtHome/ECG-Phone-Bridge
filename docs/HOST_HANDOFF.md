@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-11  
 **Audience:** Maintainers of FlareTracker, VNS-TA, and Hertz & Hearts  
-**Status:** Shipping phone contract through **v1.0.0-beta.58**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.8** in FlareTracker repo). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.58:** Wizard Connect back-hint; Wait for PC Wi‑Fi IP poll after mid-wizard radio on. **β.57:** Wizard Caregiver Record/Stream only; Wait for PC + ECG-Box Tuner; Simulate in sensor picker. **β.56:** Wizard every cold start; Breathe skips sensor/PC; job-specific PC copy; connected hints; animated ellipsis. **β.55:** Wizard UX polish + sticky immersive nav hide. **β.54:** **Startup Wizard** (hosts no wire work — optional help strings; UI_LAYOUT_MAP §7). **β.53:** Capture **Record HRV** / **Last HRV** / **Send HRV** on user-facing screens including Tech (wire `ritual_*` unchanged); Send disabled while capture active; optimistic **sent** after TCP push. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone-persisted HRV packages + delayed transfer (PROTOCOL §7; wire still `ritual_*`). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`; UI says **HRV recording**. **Next:** profile `session_timing` → RMSSD; HnH recorded-HRV ingest (alongside live stream; quiet save mid-stream). Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
+**Status:** Shipping phone contract through **v1.0.0-beta.58**; host light passes + FT bench/caregiver path recorded. **FlareTracker Bridge Companion** is live (**v1.0.8** in FlareTracker repo). **Verified:** Tuner Online GET / Send / Store; VNS-TA Stream smoke; assisted Feather tune. **β.58:** Wizard Connect back-hint; Wait for PC Wi‑Fi IP poll after mid-wizard radio on. **β.57:** Wizard Caregiver Record/Stream only; Wait for PC + ECG-Box Tuner; Simulate in sensor picker. **β.56:** Wizard every cold start; Breathe skips sensor/PC; job-specific PC copy; connected hints; animated ellipsis. **β.55:** Wizard UX polish + sticky immersive nav hide. **β.54:** **Startup Wizard** (hosts no wire work — optional help strings; UI_LAYOUT_MAP §7). **β.53:** Capture **Record HRV** / **Last HRV** / **Send HRV** on user-facing screens including Tech (wire `ritual_*` unchanged); Send disabled while capture active; optimistic **sent** after TCP push. **β.52:** Tech source picker **Simulate** + connected-pill colors (Polar teal / Feather green / Sim amber). **β.51:** Phone-persisted HRV packages + delayed transfer (PROTOCOL §7; wire still `ritual_*`). **FT host:** accepts delayed packages, `ritual_ack`, dedupe by `session_id`; UI says **HRV recording**. **HnH:** recorded-HRV ingest shipping (live stream **or** saved HRV → Session History + ECG/EDF; quiet save mid-stream; connect `ritual_request` + **Request saved HRV**). **Next:** profile `session_timing` → RMSSD. Park `session_control` until after. β.50: ECG sensor modal actions stacked + centered. β.45+: unified Polar/Feather source picker. β.44: NDJSON `coeffs_get` → `mcu_coeffs` (Online GET).
 
 ### Caregiver wording (phone + FT agents)
 
@@ -10,7 +10,7 @@
 
 | Surface | Prefer | Avoid |
 |---------|--------|-------|
-| Patient + Tech UI, FT day log, HnH status | **Record HRV**, status **HRV recording**, **Last HRV** / **Send HRV** (phone), **Request saved HRV** (FT host) | ritual, package, persist |
+| Patient + Tech UI, FT day log, HnH status | **Record HRV**, status **HRV recording**, **Last HRV** / **Send HRV** (phone), **Request saved HRV** (FT / HnH hosts) | ritual, package, persist |
 | NDJSON / PROTOCOL / code identifiers | `kind: "ritual"`, `ritual_ack`, `ritual_request`, `ritual_chunk`, `ritual_persist` | renaming wire types for copy |
 
 **Send** (phone) vs **Request** (host) are different verbs on purpose — do not collapse them into one string. Debug logs may still print wire type names; meters and buttons a caregiver sees must not.
@@ -161,7 +161,7 @@ Later (hosts + phone): HnH recorded-HRV ingest (alongside live stream); sending 
 
 **Goal:** Live biofeedback charts (HR / RMSSD / ECG) **and** ingest of phone-recorded HRV sessions (delayed / Send), via the same discover + TCP client.
 
-**Host status (2026-09-10):** light pass done. UI is Phone Bridge only (`PC BLE` code remains dormant and a stored `ble` pref is rewritten). PC patient pacer removed. Official bridge `rmssd` snapshots are displayed as a cross-check. Soft preference remains either Stream or Record (HRV recording); phone stays mode authority. HnH does **not** send `session_control` yet (optional / later). **Recorded-HRV ingest** (PROTOCOL §7) still open.
+**Host status (2026-09-15):** light pass done. UI is Phone Bridge only (`PC BLE` code remains dormant and a stored `ble` pref is rewritten). PC patient pacer removed. Official bridge `rmssd` snapshots are displayed as a cross-check. Soft preference remains either Stream or Record (HRV recording); phone stays mode authority. HnH does **not** send `session_control` yet (optional / later). **Recorded-HRV ingest shipping:** delayed / Send / connect `ritual_request` → Session History (IBI + bridge RMSSD + ECG/`session.edf`); `ritual_ack` + dedupe by phone `session_id`; quiet save if a package arrives mid-stream. **More → Request saved HRV** pulls the latest package while connected.
 
 ### Expect from the bridge (today — shipping)
 
@@ -175,8 +175,9 @@ Later (hosts + phone): HnH recorded-HRV ingest (alongside live stream); sending 
 - [ ] May use `session_control` stream or record (not implemented; phone remains mode authority)  
 - [x] May display bridge `rmssd` snapshots; **PC Python RMSSD remains OK as cross-check** (side-column **Bridge RMSSD**; live chart unchanged)  
 - [x] **Demote or remove the PC breathing pacer** for patient use — phone owns the patient-facing pacer (PC one has been slow/stuttery across machines)  
-- [ ] Accept delayed / Send **saved HRV** packages (`session_summary` / `ritual_chunk` on the wire); reply `ritual_ack`; dedupe `session_id` (PROTOCOL §7). Prefer IBI → native session history; UI copy = **saved HRV** / **HRV recording**, never “ritual”.  
-- [ ] If a package arrives while a live stream is open: **quiet save** into Session History + short status line — do **not** flip phone mode or interrupt the live charts.
+- [x] Accept delayed / Send **saved HRV** packages (`session_summary` / `ritual_chunk` on the wire); reply `ritual_ack`; dedupe `session_id` (PROTOCOL §7). Prefer IBI → native session history; ECG chunks → `session.edf` for replay; UI copy = **saved HRV** / **HRV recording**, never “ritual”.  
+- [x] If a package arrives while a live stream is open: **quiet save** into Session History + short status line — do **not** flip phone mode or interrupt the live charts.  
+- [x] **Request saved HRV** (host `ritual_request`) — sent on connect and via More menu while linked  
 ### Import path (related)
 
 - [x] HnH can import **IBI/RR lists** and compute RMSSD; it does **not** derive RMSSD from raw ECG-only imports  
@@ -224,7 +225,7 @@ Full intent + sketch messages: [PROTOCOL.md](./PROTOCOL.md) §5.3.
 
 ## Suggested integration order / priority (2026-09-15)
 
-1. **HnH** — light pass done (`client_app`, ignore unknown types, PC pacer removed, bridge `rmssd` displayed as cross-check). Next: **recorded-HRV ingest** (live stream already shipping; quiet save if package arrives mid-stream). `session_control` still optional.  
+1. **HnH** — light pass + **recorded-HRV ingest done** (live stream **or** saved HRV → History/ECG; quiet mid-stream save; connect + More **Request saved HRV**). `session_control` still optional / parked.  
 2. **FlareTracker** — bench + H10 caregiver path verified (phone **≥ v1.0.0-beta.18**; Companion **v1.0.8** in repo). Day log Start/Download/Update/Restart; does not send `session_control`. Toggle still default off. **Delayed transfer:** accepts `session_summary` + `rmssd`, ignores IBI/ECG chunks, `ritual_ack`, dedupe by `session_id`. Caregiver UI says **HRV recording** / **Request saved HRV** (wire still `ritual_*`).  
 3. **VNS-TA** — light pass + **Stream smoke verified** on recent APK. Feather via phone BLE shipping; Tuner Online verified; assisted tune in ECG-Box Tuner. Do **not** send `session_control` yet.  
-4. **Phone next:** profile `session_timing` → RMSSD; HnH recorded-HRV ingest; **Startup Wizard** MVP on phone (layout map §7). **Hosts:** no PROTOCOL/Companion changes; **optional** help copy pointing at phone ☰ **Start session** (Shared facts table). Phone UI uses **Record HRV** / **Last HRV** / **Send HRV** on **all** user-facing screens including Tech (wire still `ritual_*`).
+4. **Phone next:** profile `session_timing` → RMSSD. **Startup Wizard** MVP on phone (layout map §7). **Hosts:** no PROTOCOL/Companion changes required for wizard; **optional** help copy pointing at phone ☰ **Start session**. Phone UI uses **Record HRV** / **Last HRV** / **Send HRV** on **all** user-facing screens including Tech (wire still `ritual_*`).
