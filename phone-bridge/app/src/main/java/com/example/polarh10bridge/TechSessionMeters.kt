@@ -27,7 +27,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -141,12 +146,13 @@ fun TechSessionMeters(
 ) {
     var nowElapsed by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     var showFlagHelp by remember { mutableStateOf(false) }
-    var showProfilePicker by remember { mutableStateOf(false) }
     var showAddPatient by remember { mutableStateOf(false) }
     var showRenamePatient by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var patientMenuExpanded by remember { mutableStateOf(false) }
     var addPatientName by remember { mutableStateOf("") }
     var renamePatientName by remember { mutableStateOf("") }
+    var deleteConfirmTyped by remember { mutableStateOf("") }
     var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
     var offlineCoeffsExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(featherActiveProfileId, featherCoeffsEpoch) {
@@ -422,13 +428,114 @@ fun TechSessionMeters(
                 )
             }
             if (offlineCoeffsExpanded) {
-                Text(
-                    text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
-                    color = TechTextDark,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+                if (onSelectFeatherProfile != null) {
+                    // Box + DropdownMenu (not ExposedDropdownMenuBox): Material3's exposed
+                    // box often reserves full menu height in-layout → huge gap below the field.
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = "$featherActiveDisplayName ($featherActiveProfileId)",
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            label = { Text("Active patient", fontSize = 11.sp) },
+                            trailingIcon = {
+                                Text(
+                                    text = if (patientMenuExpanded) "▴" else "▾",
+                                    color = TechTextDark.copy(alpha = 0.7f),
+                                    fontSize = 14.sp,
+                                )
+                            },
+                            textStyle =
+                                TextStyle(
+                                    color = TechTextDark,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            colors =
+                                OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = TechTextDark,
+                                    unfocusedTextColor = TechTextDark,
+                                    focusedBorderColor = TechInfoBlue,
+                                    unfocusedBorderColor = TechPanelBorder,
+                                    focusedLabelColor = TechInfoBlue,
+                                    unfocusedLabelColor = TechTextDark.copy(alpha = 0.55f),
+                                    cursorColor = TechInfoBlue,
+                                ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        // TextField consumes taps; overlay opens the menu.
+                        Box(
+                            modifier =
+                                Modifier
+                                    .matchParentSize()
+                                    .clickable { patientMenuExpanded = true },
+                        )
+                        DropdownMenu(
+                            expanded = patientMenuExpanded,
+                            onDismissRequest = { patientMenuExpanded = false },
+                        ) {
+                            featherProfiles.forEach { summary ->
+                                val selected = summary.profileId == featherActiveProfileId
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text =
+                                                buildString {
+                                                    append(summary.displayName)
+                                                    append(" (")
+                                                    append(summary.profileId)
+                                                    append(")")
+                                                    if (selected) append(" ✓")
+                                                },
+                                            color = if (selected) TechInfoBlue else TechTextDark,
+                                            fontWeight =
+                                                if (selected) {
+                                                    FontWeight.SemiBold
+                                                } else {
+                                                    FontWeight.Normal
+                                                },
+                                            fontSize = 14.sp,
+                                        )
+                                    },
+                                    onClick = {
+                                        onSelectFeatherProfile(summary.profileId)
+                                        patientMenuExpanded = false
+                                    },
+                                )
+                            }
+                            if (onAddFeatherPatient != null) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "+ Add new patient…",
+                                            color = TechInfoBlue,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp,
+                                        )
+                                    },
+                                    onClick = {
+                                        patientMenuExpanded = false
+                                        addPatientName = ""
+                                        showAddPatient = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
+                        color = TechTextDark,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
                 if (featherProfileStatus.isNotBlank() && !profileMatchAttention) {
                     Text(
                         text = featherProfileStatus,
@@ -440,34 +547,37 @@ fun TechSessionMeters(
                 }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 0.dp),
                 ) {
-                    TextButton(onClick = { showProfilePicker = true }) {
-                        Text("Change", color = TechInfoBlue, fontSize = 13.sp)
-                    }
-                    if (onAddFeatherPatient != null) {
-                        TextButton(
-                            onClick = {
-                                addPatientName = ""
-                                showAddPatient = true
-                            },
-                        ) {
-                            Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
-                        }
-                    }
                     if (onRenameFeatherPatient != null) {
                         TextButton(
                             onClick = {
                                 renamePatientName = featherActiveDisplayName
                                 showRenamePatient = true
                             },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier =
+                                Modifier
+                                    .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp)
+                                    .heightIn(max = 32.dp),
                         ) {
-                            Text("Rename", color = TechInfoBlue, fontSize = 13.sp)
+                            Text("Edit name", color = TechInfoBlue, fontSize = 13.sp)
                         }
                     }
                     if (onDeleteFeatherProfile != null) {
-                        TextButton(onClick = { showDeleteConfirm = true }) {
-                            Text("Delete", color = TechInfoBlue, fontSize = 13.sp)
+                        TextButton(
+                            onClick = {
+                                deleteConfirmTyped = ""
+                                showDeleteConfirm = true
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier =
+                                Modifier
+                                    .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp)
+                                    .heightIn(max = 32.dp),
+                        ) {
+                            Text("Delete name", color = TechInfoBlue, fontSize = 13.sp)
                         }
                     }
                 }
@@ -483,7 +593,7 @@ fun TechSessionMeters(
                     color = TechTextDark.copy(alpha = 0.62f),
                     fontSize = 11.sp,
                     lineHeight = 13.sp,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = 0.dp, bottom = 4.dp),
                 )
                 FeatherPatientProfile.EDITABLE_COEFF_KEYS.forEach { key ->
                     OutlinedTextField(
@@ -676,52 +786,6 @@ fun TechSessionMeters(
         )
     }
 
-    if (showProfilePicker && onSelectFeatherProfile != null) {
-        AlertDialog(
-            onDismissRequest = { showProfilePicker = false },
-            containerColor = TechHelpDialogBg,
-            title = {
-                Text(
-                    text = "Select patient profile",
-                    color = TechHelpText,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    featherProfiles.forEach { summary ->
-                        val selected = summary.profileId == featherActiveProfileId
-                        TextButton(
-                            onClick = {
-                                onSelectFeatherProfile(summary.profileId)
-                                showProfilePicker = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                text =
-                                    buildString {
-                                        append(summary.displayName)
-                                        append(" (")
-                                        append(summary.profileId)
-                                        append(")")
-                                        if (selected) append(" ✓")
-                                    },
-                                color = if (selected) TechInfoBlue else TechHelpText,
-                                fontSize = 14.sp,
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showProfilePicker = false }) {
-                    Text("Close", color = TechInfoBlue)
-                }
-            },
-        )
-    }
-
     if (showAddPatient && onAddFeatherPatient != null) {
         AlertDialog(
             onDismissRequest = { showAddPatient = false },
@@ -785,7 +849,7 @@ fun TechSessionMeters(
             containerColor = TechHelpDialogBg,
             title = {
                 Text(
-                    text = "Rename patient",
+                    text = "Edit name",
                     color = TechHelpText,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -827,7 +891,7 @@ fun TechSessionMeters(
                     },
                     enabled = renamePatientName.trim().isNotEmpty(),
                 ) {
-                    Text("Rename", color = TechInfoBlue)
+                    Text("Save", color = TechInfoBlue)
                 }
             },
             dismissButton = {
@@ -839,37 +903,83 @@ fun TechSessionMeters(
     }
 
     if (showDeleteConfirm && onDeleteFeatherProfile != null) {
+        val deleteUnlocked = deleteConfirmTyped.trim() == "DELETE"
         AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+            onDismissRequest = {
+                showDeleteConfirm = false
+                deleteConfirmTyped = ""
+            },
             containerColor = TechHelpDialogBg,
             title = {
                 Text(
-                    text = "Delete profile?",
+                    text = "Delete patient profile?",
                     color = TechHelpText,
                     fontWeight = FontWeight.SemiBold,
                 )
             },
             text = {
-                Text(
-                    text =
-                        "Remove “$featherActiveDisplayName” ($featherActiveProfileId) from this phone. " +
-                            "Cannot undo. Keep at least one profile.",
-                    color = TechHelpTextMuted,
-                    fontSize = 13.sp,
-                )
+                Column {
+                    Text(
+                        text =
+                            "Permanently remove “$featherActiveDisplayName” ($featherActiveProfileId) " +
+                                "and its coeffs from this phone. Cannot undo. Keep at least one profile.",
+                        color = TechHelpTextMuted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 10.dp),
+                    )
+                    Text(
+                        text = "Type DELETE to confirm.",
+                        color = TechHelpText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                    OutlinedTextField(
+                        value = deleteConfirmTyped,
+                        onValueChange = { deleteConfirmTyped = it },
+                        label = { Text("DELETE") },
+                        singleLine = true,
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TechHelpText,
+                                unfocusedTextColor = TechHelpText,
+                                focusedBorderColor = Color(0xFFFF8A80),
+                                unfocusedBorderColor = TechPanelBorder,
+                                focusedLabelColor = Color(0xFFFF8A80),
+                                unfocusedLabelColor = TechHelpTextMuted,
+                                cursorColor = Color(0xFFFF8A80),
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDeleteFeatherProfile(featherActiveProfileId)
                         showDeleteConfirm = false
+                        deleteConfirmTyped = ""
                     },
+                    enabled = deleteUnlocked,
                 ) {
-                    Text("Delete", color = Color(0xFFFF8A80))
+                    Text(
+                        "Delete",
+                        color =
+                            if (deleteUnlocked) {
+                                Color(0xFFFF8A80)
+                            } else {
+                                TechHelpTextMuted
+                            },
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        deleteConfirmTyped = ""
+                    },
+                ) {
                     Text("Cancel", color = TechHelpTextMuted)
                 }
             },

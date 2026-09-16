@@ -169,10 +169,9 @@ Feather connecting (Find when Feather is selected)
   [Cancel] stops BLE; tap outside hides overlay but connect continues
 
 Tech-only nested dialogs
-  ├─ Profile picker (Change)
-  ├─ Add patient (name → OK)
-  ├─ Rename display name (id unchanged)
-  ├─ Delete confirm
+  ├─ Active patient dropdown (pick + Add new patient…)
+  ├─ Edit name (display name; id unchanged)
+  ├─ Delete name (type DELETE to confirm; removes profile)
   ├─ PC patient hint → Keep/Switch (Feather/Simulate override)
   ├─ No/ambiguous match → amber pulsing attention banner
   ├─ Quality flag help [i]

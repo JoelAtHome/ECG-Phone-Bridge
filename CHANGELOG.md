@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.61
+- polish: Tech Offline — **Active patient** dropdown (pick + Add new…); removed Change / Add patient links; **Edit name**; tighter spacing above “Offline working set…”.
+- polish: **Delete name** requires typing `DELETE` to confirm (removes whole patient profile).
+
 ## Version 1.0.0-beta.60
 - enhancement: Tech **Rename** patient display name (keeps `profile_id`); PC match-miss / ambiguous status is bold amber pulsing banner (visible even when Offline collapsed).
 
