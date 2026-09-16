@@ -1019,7 +1019,7 @@ class MainActivity : ComponentActivity() {
 
     /** Offline ← phone library (SoR). Does not touch MCU. */
     private fun getFeatherOfflineFromLibrary() {
-        refreshFeatherProfileUi(status = "Get — Offline ← library")
+        refreshFeatherProfileUi(status = "Get — Offline from library")
     }
 
     /** Offline → phone library (SoR). Does not push MCU (use Send to Feather). */
@@ -1063,7 +1063,7 @@ class MainActivity : ComponentActivity() {
                 active.copy(coeffs = merged).coeffsForBleWrite(),
             )
         featherBleClient?.writeCoeffsJson(bytes)
-        refreshFeatherProfileUi(status = "Send — Offline → Feather (not stored)")
+        refreshFeatherProfileUi(status = "Send — Offline to Feather (not stored)")
     }
 
     private fun saveFeatherActiveCoeffs(draft: Map<String, String>) {
@@ -3742,25 +3742,23 @@ private fun BridgeMainScreen(
                         textAlign = TextAlign.Center,
                     )
                 }
-                if (!state.techView) {
-                    val pacerPrefs =
-                        remember(context) {
-                            context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
-                        }
-                    val initialPacerPreset =
-                        remember(pacerPrefs) {
-                            val saved = pacerPrefs.getString(BRIDGE_PACER_PRESET_PREF_KEY, null)
-                            BreathPacePreset.entries.firstOrNull { it.name == saved }
-                                ?: BreathPacePreset.COHERENCE
-                        }
-                    PatientBreathingPacer(
-                        initialPreset = initialPacerPreset,
-                        onPresetChanged = { chosen ->
-                            pacerPrefs.edit().putString(BRIDGE_PACER_PRESET_PREF_KEY, chosen.name).apply()
-                        },
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                }
+                val pacerPrefs =
+                    remember(context) {
+                        context.getSharedPreferences(BRIDGE_PREFS_NAME, Context.MODE_PRIVATE)
+                    }
+                val initialPacerPreset =
+                    remember(pacerPrefs) {
+                        val saved = pacerPrefs.getString(BRIDGE_PACER_PRESET_PREF_KEY, null)
+                        BreathPacePreset.entries.firstOrNull { it.name == saved }
+                            ?: BreathPacePreset.COHERENCE
+                    }
+                PatientBreathingPacer(
+                    initialPreset = initialPacerPreset,
+                    onPresetChanged = { chosen ->
+                        pacerPrefs.edit().putString(BRIDGE_PACER_PRESET_PREF_KEY, chosen.name).apply()
+                    },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
         }
 

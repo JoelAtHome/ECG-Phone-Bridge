@@ -4,6 +4,11 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.64
+- fix: Offline coeff fields no longer clip values (removed too-short fixed height).
+- polish: Offline help copy uses “from/to” instead of Unicode arrows (font baseline mismatch).
+- polish: Breathing pacer back at bottom of **Tech** view (same as Patient).
+
 ## Version 1.0.0-beta.63
 - enhancement: Tech ECG strip draws MCU lookback **R markers** from Feather `peak_flags` (same rolling window as the wave).
 

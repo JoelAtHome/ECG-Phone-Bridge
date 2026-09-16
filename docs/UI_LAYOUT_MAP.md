@@ -49,7 +49,7 @@ Printable wireframes of **what ships today**. Mark up freely; this is not a rede
 │  ║  TECH VIEW ONLY                   ║  │
 │  ║  · Capture session panel          ║  │
 │  ║  · Tech meters (+ profile/BLE)    ║  │
-│  ║  · (no breathing pacer)           ║  │
+│  ║  · Breathing pacer (bottom)       ║  │
 │  ╚═══════════════════════════════════╝  │
 │                                         │
 │  ╔═══════════════════════════════════╗  │
@@ -223,7 +223,7 @@ Known parked / cleanup themes from handoff (not commitments):
 |------|--------|----------------|
 | Source CTA | Polar / Feather / Simulate (Tech) + Change | Connected pill: Polar teal, Feather green, Sim amber+pulse |
 | Capture Start/Stop | Tech only | OK for patient? |
-| Breathing pacer | Patient only | |
+| Breathing pacer | Patient + Tech (bottom) | |
 | Profile + coeffs | Collapsed Offline section | |
 | ECG strip | Under ECG-Box detector | |
 | First-run | **Startup Wizard** MVP | Full-screen session coach; menu **Start session** |

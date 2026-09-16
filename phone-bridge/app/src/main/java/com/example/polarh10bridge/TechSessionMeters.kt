@@ -601,8 +601,8 @@ fun TechSessionMeters(
                             "Tuner linked — Offline is a read-only mirror of Tuner. " +
                                 "Edit on PC; Store/Get/Send on phone are locked."
                         } else {
-                            "Offline working set. Get ← library · Store → library · " +
-                                "Send → Feather (MCU). Connect Feather pushes active profile once."
+                            "Offline working set. Get from library · Store to library · " +
+                                "Send to Feather (MCU). Connect Feather pushes active profile once."
                         },
                     color = TechTextDark.copy(alpha = 0.62f),
                     fontSize = 11.sp,
@@ -652,8 +652,7 @@ fun TechSessionMeters(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp)
-                                .height(52.dp),
+                                .padding(top = 4.dp),
                     )
                 }
                 val coeffsDirty =
