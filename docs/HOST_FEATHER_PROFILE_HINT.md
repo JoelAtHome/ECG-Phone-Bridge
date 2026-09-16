@@ -75,9 +75,9 @@ Without re-send on switch, the phone only learns the patient at link-up.
 
 ## Field tips
 
-1. On the phone, name Feather profiles like host patients (e.g. display name **Payton** or id `payton`). Factory **Patient 1** will not match **Payton** until renamed.  
+1. On the phone, name Feather profiles like host patients (e.g. display name **Payton** or id `payton`). Use Tech **Rename** to set the person’s name without changing `profile_id` — keep placement in notes/id (e.g. id `joel_biceps`, display **Joel Koblich**). Factory **Patient 1** will not match **Payton** until renamed.  
 2. Select **Feather** (or Simulate) on the phone before expecting the confirm dialog.  
-3. Sideload phone **≥ v1.0.0-beta.59**.
+3. Sideload phone **≥ v1.0.0-beta.60** (Rename + stronger no-match banner; soft-match since β.59).
 
 ---
 

@@ -983,6 +983,18 @@ class MainActivity : ComponentActivity() {
         pushActiveProfileToTunerIfLinked()
     }
 
+    private fun renameFeatherPatientDisplayName(newDisplayName: String) {
+        val store = featherProfileStore ?: return
+        val id = store.activeProfileId()
+        val (saved, msg) = store.renameDisplayName(id, newDisplayName)
+        if (saved == null) {
+            refreshFeatherProfileUi(status = msg)
+            return
+        }
+        refreshFeatherProfileUi(status = msg)
+        pushActiveProfileToTunerIfLinked()
+    }
+
     private fun deleteFeatherProfile(profileId: String) {
         val store = featherProfileStore ?: return
         val (ok, msg) = store.deleteProfile(profileId)
@@ -2972,6 +2984,7 @@ class MainActivity : ComponentActivity() {
                     onRefreshTechMeters = { refreshTechQualityUi() },
                     onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                     onAddFeatherPatient = { name -> addFeatherPatient(name) },
+                    onRenameFeatherPatient = { name -> renameFeatherPatientDisplayName(name) },
                     onDeleteFeatherProfile = { id -> deleteFeatherProfile(id) },
                     onSaveFeatherProfileCoeffs = { draft -> storeFeatherOfflineCoeffs(draft) },
                     onGetFeatherOffline = { getFeatherOfflineFromLibrary() },
@@ -3177,6 +3190,7 @@ private fun BridgeMainScreen(
     onRefreshTechMeters: () -> Unit,
     onSelectFeatherProfile: (String) -> Unit,
     onAddFeatherPatient: (String) -> Unit,
+    onRenameFeatherPatient: (String) -> Unit,
     onDeleteFeatherProfile: (String) -> Unit,
     onSaveFeatherProfileCoeffs: (Map<String, String>) -> Unit,
     onGetFeatherOffline: () -> Unit,
@@ -3680,6 +3694,7 @@ private fun BridgeMainScreen(
                             state.pcClientApp.equals("ecg_box_tuner", ignoreCase = true),
                         onSelectFeatherProfile = onSelectFeatherProfile,
                         onAddFeatherPatient = onAddFeatherPatient,
+                        onRenameFeatherPatient = onRenameFeatherPatient,
                         onDeleteFeatherProfile = onDeleteFeatherProfile,
                         onSaveFeatherProfileCoeffs = onSaveFeatherProfileCoeffs,
                         onGetFeatherOffline = onGetFeatherOffline,

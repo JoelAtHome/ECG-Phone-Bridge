@@ -1,6 +1,12 @@
 package com.example.polarh10bridge
 
 import android.os.SystemClock
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,6 +73,16 @@ private val TechInfoBlue = Color(0xFF0B57D0)
 private val TechHelpDialogBg = Color(0xFF2B2B2B)
 private val TechHelpText = Color(0xFFE8E8E8)
 private val TechHelpTextMuted = Color(0xFFC8C8C8)
+private val ProfileMatchAlertBg = Color(0xFFFEF3C7)
+private val ProfileMatchAlertBorder = Color(0xFFD97706)
+private val ProfileMatchAlertText = Color(0xFF92400E)
+
+/** PC patient hint failed to resolve — needs Tech attention. */
+private fun isFeatherProfileMatchAttention(status: String): Boolean {
+    val s = status.trim()
+    return s.startsWith("No Feather profile", ignoreCase = true) ||
+        s.startsWith("Ambiguous Feather profile", ignoreCase = true)
+}
 
 private val QualityFlagHelp: List<Pair<String, String>> =
     listOf(
@@ -116,6 +132,7 @@ fun TechSessionMeters(
     tunerLinked: Boolean = false,
     onSelectFeatherProfile: ((String) -> Unit)? = null,
     onAddFeatherPatient: ((String) -> Unit)? = null,
+    onRenameFeatherPatient: ((String) -> Unit)? = null,
     onDeleteFeatherProfile: ((String) -> Unit)? = null,
     onSaveFeatherProfileCoeffs: ((Map<String, String>) -> Unit)? = null,
     onGetFeatherOffline: (() -> Unit)? = null,
@@ -126,8 +143,10 @@ fun TechSessionMeters(
     var showFlagHelp by remember { mutableStateOf(false) }
     var showProfilePicker by remember { mutableStateOf(false) }
     var showAddPatient by remember { mutableStateOf(false) }
+    var showRenamePatient by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var addPatientName by remember { mutableStateOf("") }
+    var renamePatientName by remember { mutableStateOf("") }
     var coeffDraft by remember { mutableStateOf(featherActiveCoeffs) }
     var offlineCoeffsExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(featherActiveProfileId, featherCoeffsEpoch) {
@@ -139,6 +158,7 @@ fun TechSessionMeters(
             delay(250)
         }
     }
+    val profileMatchAttention = isFeatherProfileMatchAttention(featherProfileStatus)
 
     val elapsedSec =
         if (sessionActive && sessionStartedElapsedMs > 0L) {
@@ -392,6 +412,15 @@ fun TechSessionMeters(
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
+            if (profileMatchAttention && featherProfileStatus.isNotBlank()) {
+                FeatherProfileMatchAttentionBanner(
+                    message = featherProfileStatus,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                )
+            }
             if (offlineCoeffsExpanded) {
                 Text(
                     text = "Active: $featherActiveDisplayName ($featherActiveProfileId)",
@@ -400,7 +429,7 @@ fun TechSessionMeters(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 2.dp),
                 )
-                if (featherProfileStatus.isNotBlank()) {
+                if (featherProfileStatus.isNotBlank() && !profileMatchAttention) {
                     Text(
                         text = featherProfileStatus,
                         color = TechTextDark.copy(alpha = 0.7f),
@@ -424,6 +453,16 @@ fun TechSessionMeters(
                             },
                         ) {
                             Text("Add patient", color = TechInfoBlue, fontSize = 13.sp)
+                        }
+                    }
+                    if (onRenameFeatherPatient != null) {
+                        TextButton(
+                            onClick = {
+                                renamePatientName = featherActiveDisplayName
+                                showRenamePatient = true
+                            },
+                        ) {
+                            Text("Rename", color = TechInfoBlue, fontSize = 13.sp)
                         }
                     }
                     if (onDeleteFeatherProfile != null) {
@@ -740,6 +779,65 @@ fun TechSessionMeters(
         )
     }
 
+    if (showRenamePatient && onRenameFeatherPatient != null) {
+        AlertDialog(
+            onDismissRequest = { showRenamePatient = false },
+            containerColor = TechHelpDialogBg,
+            title = {
+                Text(
+                    text = "Rename patient",
+                    color = TechHelpText,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text =
+                            "Changes the display name only. Profile id ($featherActiveProfileId) " +
+                                "stays the same — use the person’s name so PC apps can match.",
+                        color = TechHelpTextMuted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = renamePatientName,
+                        onValueChange = { renamePatientName = it },
+                        label = { Text("Display name") },
+                        singleLine = true,
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TechHelpText,
+                                unfocusedTextColor = TechHelpText,
+                                focusedBorderColor = TechInfoBlue,
+                                unfocusedBorderColor = TechPanelBorder,
+                                focusedLabelColor = TechInfoBlue,
+                                unfocusedLabelColor = TechHelpTextMuted,
+                                cursorColor = TechInfoBlue,
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRenameFeatherPatient(renamePatientName)
+                        showRenamePatient = false
+                    },
+                    enabled = renamePatientName.trim().isNotEmpty(),
+                ) {
+                    Text("Rename", color = TechInfoBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenamePatient = false }) {
+                    Text("Cancel", color = TechHelpTextMuted)
+                }
+            },
+        )
+    }
+
     if (showDeleteConfirm && onDeleteFeatherProfile != null) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
@@ -818,6 +916,44 @@ fun TechSessionMeters(
                     Text("Close", color = TechHelpText)
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun FeatherProfileMatchAttentionBanner(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    val infinite = rememberInfiniteTransition(label = "profileMatchAlert")
+    val pulseAlpha by infinite.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(700, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "profileMatchAlertPulse",
+    )
+    Box(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(ProfileMatchAlertBg.copy(alpha = 0.55f + 0.45f * pulseAlpha))
+                .border(
+                    width = 2.dp,
+                    color = ProfileMatchAlertBorder.copy(alpha = pulseAlpha),
+                    shape = RoundedCornerShape(8.dp),
+                )
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = message,
+            color = ProfileMatchAlertText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 18.sp,
         )
     }
 }

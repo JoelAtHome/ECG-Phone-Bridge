@@ -265,6 +265,22 @@ class FeatherProfileStoreTest {
     }
 
     @Test
+    fun rename_display_name_keeps_profile_id() {
+        val store = FeatherProfileStore(tmp.newFolder("feather_profiles7"))
+        store.ensureFactoryProfiles()
+        store.setActiveProfileId("patient-2")
+        val (saved, msg) = store.renameDisplayName("patient-2", "Joel Koblich")
+        assertNotNull(saved)
+        assertTrue(msg.contains("Renamed"))
+        assertEquals("patient-2", saved!!.profileId)
+        assertEquals("Joel Koblich", saved.displayName)
+        assertEquals("Joel Koblich", store.load("patient-2")!!.displayName)
+        val (empty, emptyMsg) = store.renameDisplayName("patient-2", "  ")
+        assertNull(empty)
+        assertTrue(emptyMsg.contains("required"))
+    }
+
+    @Test
     fun merge_editable_coeff_draft() {
         val demo = FeatherPatientProfile.defaultDemo()
         val draft = FeatherPatientProfile.coeffDraftFrom(demo).toMutableMap()

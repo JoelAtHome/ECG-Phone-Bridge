@@ -454,6 +454,30 @@ class FeatherProfileStore(
     }
 
     /**
+     * Change [display_name] only — [profile_id] and file name stay stable (hint matching + Tuner).
+     */
+    fun renameDisplayName(
+        profileId: String,
+        newDisplayName: String,
+    ): Pair<FeatherPatientProfile?, String> {
+        ensureFactoryProfiles()
+        val label = newDisplayName.trim()
+        if (label.isEmpty()) return null to "Name required"
+        val existing = load(profileId) ?: return null to "Profile not found"
+        if (existing.displayName == label) {
+            return existing to "Unchanged"
+        }
+        val saved =
+            save(
+                existing.copy(
+                    displayName = label,
+                    updatedAt = Instant.now().toString(),
+                ),
+            )
+        return saved to "Renamed to ${saved.displayName}"
+    }
+
+    /**
      * Clone [cloneFromId] (default demo) into a new patient. Sets active to the new profile.
      * Strips `demo_seed` from hardware so migrations do not rewrite named patients.
      */

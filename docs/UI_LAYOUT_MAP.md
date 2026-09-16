@@ -171,8 +171,10 @@ Feather connecting (Find when Feather is selected)
 Tech-only nested dialogs
   ├─ Profile picker (Change)
   ├─ Add patient (name → OK)
+  ├─ Rename display name (id unchanged)
   ├─ Delete confirm
   ├─ PC patient hint → Keep/Switch (Feather/Simulate override)
+  ├─ No/ambiguous match → amber pulsing attention banner
   ├─ Quality flag help [i]
   └─ Simulate Feather blocked (live Polar / ECG-Box connected → OK)
 ```
