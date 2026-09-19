@@ -58,6 +58,8 @@ object RmssdCalculator {
         val window: Window?,
         val quality: Quality,
         val rollingCandidates: List<RollingEstimate> = emptyList(),
+        /** Mean HR (whole bpm) over the official analysis-window IBIs. */
+        val hrBpm: Int? = null,
     )
 
     data class RollingEstimate(
@@ -157,6 +159,7 @@ object RmssdCalculator {
                 ),
                 quality = Quality(ibis.size, skippedPct, flags.distinct()),
                 rollingCandidates = emptyList(),
+                hrBpm = meanHrBpm(spanIbis.map { it.ibiMs }),
             )
         }
 
@@ -169,6 +172,7 @@ object RmssdCalculator {
             flags += QualityFlags.END_DIVERGENCE
         }
 
+        val selectedIbis = ibisInHalfOpen(ibis, timesSec, selected.startS, selected.endS)
         return Result(
             rmssdMs = plateau,
             window = Window(
@@ -179,6 +183,8 @@ object RmssdCalculator {
             ),
             quality = Quality(ibis.size, skippedPct, flags.distinct()),
             rollingCandidates = rolling,
+            hrBpm = meanHrBpm(selectedIbis.map { it.ibiMs })
+                ?: meanHrBpm(ibis.map { it.ibiMs }),
         )
     }
 
@@ -194,6 +200,16 @@ object RmssdCalculator {
         }
         if (n == 0) return null
         return sqrt(sumSq / n)
+    }
+
+    /** Mean heart rate (whole bpm) from IBIs. Null if empty or outside 20–300. */
+    fun meanHrBpm(ibiMs: List<Double>): Int? {
+        if (ibiMs.isEmpty()) return null
+        val meanIbi = ibiMs.average()
+        if (!(meanIbi > 0.0) || !meanIbi.isFinite()) return null
+        val bpm = 60_000.0 / meanIbi
+        if (!bpm.isFinite() || bpm < 20.0 || bpm > 300.0) return null
+        return kotlin.math.round(bpm).toInt()
     }
 
     internal fun cumulativeEndTimesSec(ibis: List<IbiSample>): List<Double> {

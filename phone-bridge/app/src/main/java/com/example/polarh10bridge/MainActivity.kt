@@ -315,6 +315,8 @@ class MainActivity : ComponentActivity() {
     private val discoveryExecutor = Executors.newSingleThreadExecutor()
     /** Socket writes must not run on the UI thread (NetworkOnMainThreadException drops Stop). */
     private val bridgeWriteExecutor = Executors.newSingleThreadExecutor()
+    /** Inbound PC lines; kept off the accept thread so a new host can replace a stuck socket. */
+    private val bridgeReadExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var rrStreamingStarted = false
@@ -432,6 +434,7 @@ class MainActivity : ComponentActivity() {
 
     @Volatile
     private var bridgeWriter: java.io.PrintWriter? = null
+    @Volatile
     private var bridgeClient: Socket? = null
 
     private val discoverySocketLock = Any()
@@ -1647,13 +1650,147 @@ class MainActivity : ComponentActivity() {
 
     /** Drop a dead PC socket so accept() can take the next host. PrintWriter swallows IO errors. */
     private fun closeBridgeClient(client: Socket, reason: String) {
-        if (bridgeClient !== client) return
-        Log.d("HnHBridge", "closing PC socket: $reason")
-        bridgeWriter = null
-        bridgeClient = null
+        synchronized(writerLock) {
+            if (bridgeClient !== client) return
+            Log.d("HnHBridge", "closing PC socket: $reason")
+            bridgeWriter = null
+            bridgeClient = null
+        }
         try {
             client.close()
         } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * One PC at a time with **replace** policy: a new inbound TCP connection
+     * closes the previous host socket so a restarted HnH/FT can recover without
+     * force-stopping this app. Capture on the phone is unchanged.
+     */
+    private fun attachBridgeClient(client: Socket) {
+        client.keepAlive = true
+        client.tcpNoDelay = true
+        Log.d("HnHBridge", "PC connected from ${client.inetAddress.hostAddress}")
+
+        try {
+            val previous = synchronized(writerLock) {
+                val writer = java.io.PrintWriter(
+                    java.io.OutputStreamWriter(client.getOutputStream(), Charsets.UTF_8),
+                    true,
+                )
+                val old = bridgeClient
+                bridgeClient = client
+                bridgeWriter = writer
+                old
+            }
+            if (previous != null && previous !== client) {
+                Log.d("HnHBridge", "replacing previous PC socket (${previous.inetAddress?.hostAddress})")
+                try {
+                    previous.close()
+                } catch (_: Exception) {
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HnHBridge", "PC attach failed", e)
+            try {
+                client.close()
+            } catch (_: Exception) {
+            }
+            return
+        }
+
+        mainHandler.post {
+            screenState.value =
+                screenState.value.copy(
+                    pcBridgeConnected = true,
+                    pcBridgeIp = client.inetAddress?.hostAddress,
+                    pcBridgeUserName = null,
+                    pcClientApp = null,
+                    featherProfileHintPending = null,
+                )
+        }
+
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "status")
+                .put("message", "Phone bridge connected")
+                .put("connected", true)
+                .put("protocol", BRIDGE_PROTOCOL_ID)
+                .toString(),
+        )
+        lastPublishedContactState?.let { sendSensorQualityLine(it) }
+            ?: run {
+                val known = screenState.value.sensorContact
+                if (known != SensorContactState.Unknown) {
+                    lastPublishedContactState = known
+                    sendSensorQualityLine(known)
+                }
+            }
+        if (sessionController.isActive()) {
+            sendBridgeJsonLine(sessionController.sessionStateJson().toString())
+            mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
+            mainHandler.postDelayed(bridgeWireKeepAliveRunnable, 1_000L)
+        } else {
+            ritualAutoPushSentSessionId = null
+            mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+            mainHandler.postDelayed(ritualClientInfoFallbackRunnable, 2_500L)
+            if (ritualPackageStore?.latestUnacked() == null) {
+                sessionController.lastWireStopForReplay()?.let { replay ->
+                    replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
+                    replay.sessionState?.let { sendBridgeJsonLine(it.toString()) }
+                }
+            }
+        }
+
+        bridgeReadExecutor.execute { runBridgeClientSession(client) }
+    }
+
+    private fun runBridgeClientSession(client: Socket) {
+        try {
+            val input = client.getInputStream().bufferedReader(Charsets.UTF_8)
+            while (true) {
+                val line = input.readLine()
+                if (line == null) {
+                    Log.d("HnHBridge", "PC closed TCP (EOF)")
+                    break
+                }
+                handlePcBridgeInboundLine(line)
+            }
+        } catch (e: SocketException) {
+            Log.d("HnHBridge", "TCP connection lost: ${e.message}")
+        } catch (e: Exception) {
+            Log.e("HnHBridge", "TCP read error", e)
+        } finally {
+            val droppedCurrent: Boolean
+            synchronized(writerLock) {
+                droppedCurrent = bridgeClient === client
+                if (droppedCurrent) {
+                    bridgeWriter = null
+                    bridgeClient = null
+                }
+            }
+            try {
+                client.close()
+            } catch (_: Exception) {
+            }
+            if (droppedCurrent) {
+                mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+                ritualAutoPushSentSessionId = null
+                mainHandler.post {
+                    updateScreen {
+                        it.copy(
+                            pcBridgeConnected = false,
+                            pcBridgeIp = null,
+                            pcBridgeUserName = null,
+                            pcClientApp = null,
+                            featherProfileHintPending = null,
+                        )
+                    }
+                    refreshFeatherProfileUi(status = "PC disconnected")
+                    syncSessionUiFromController()
+                }
+                Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
+            }
         }
     }
 
@@ -2858,98 +2995,9 @@ class MainActivity : ComponentActivity() {
                         Log.d("HnHBridge", "TCP listening on port $listenPort")
 
                         while (!Thread.currentThread().isInterrupted) {
-                            server.accept().use { client ->
-                                client.keepAlive = true
-                                client.tcpNoDelay = true
-                                Log.d("HnHBridge", "PC connected from ${client.inetAddress.hostAddress}")
-
-                                bridgeClient = client
-                                val writer = java.io.PrintWriter(
-                                    java.io.OutputStreamWriter(client.getOutputStream(), Charsets.UTF_8),
-                                    true,
-                                )
-                                bridgeWriter = writer
-                                mainHandler.post {
-                                    screenState.value =
-                                        screenState.value.copy(
-                                            pcBridgeConnected = true,
-                                            pcBridgeIp = client.inetAddress?.hostAddress,
-                                            pcBridgeUserName = null,
-                                            pcClientApp = null,
-                                            featherProfileHintPending = null,
-                                        )
-                                }
-
-                                sendBridgeJsonLine(
-                                    JSONObject()
-                                        .put("type", "status")
-                                        .put("message", "Phone bridge connected")
-                                        .put("connected", true)
-                                        .put("protocol", BRIDGE_PROTOCOL_ID)
-                                        .toString(),
-                                )
-                                // Re-announce contact/link quality so hosts that connected mid-session see it.
-                                lastPublishedContactState?.let { sendSensorQualityLine(it) }
-                                    ?: run {
-                                        val known = screenState.value.sensorContact
-                                        if (known != SensorContactState.Unknown) {
-                                            lastPublishedContactState = known
-                                            sendSensorQualityLine(known)
-                                        }
-                                    }
-                                if (sessionController.isActive()) {
-                                    sendBridgeJsonLine(sessionController.sessionStateJson().toString())
-                                    mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
-                                    mainHandler.postDelayed(bridgeWireKeepAliveRunnable, 1_000L)
-                                } else {
-                                    ritualAutoPushSentSessionId = null
-                                    mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
-                                    mainHandler.postDelayed(ritualClientInfoFallbackRunnable, 2_500L)
-                                    // If nothing persisted yet, keep legacy RAM stop replay.
-                                    if (ritualPackageStore?.latestUnacked() == null) {
-                                        sessionController.lastWireStopForReplay()?.let { replay ->
-                                            replay.rmssd?.let { sendBridgeJsonLine(it.toString()) }
-                                            replay.sessionState?.let { sendBridgeJsonLine(it.toString()) }
-                                        }
-                                    }
-                                }
-
-                                try {
-                                    val input = client.getInputStream().bufferedReader(Charsets.UTF_8)
-                                    while (true) {
-                                        val line = input.readLine()
-                                        if (line == null) {
-                                            Log.d("HnHBridge", "PC closed TCP (EOF)")
-                                            break
-                                        }
-                                        handlePcBridgeInboundLine(line)
-                                    }
-                                } catch (e: SocketException) {
-                                    Log.d("HnHBridge", "TCP connection lost: ${e.message}")
-                                } catch (e: Exception) {
-                                    Log.e("HnHBridge", "TCP read error", e)
-                                } finally {
-                                    bridgeWriter = null
-                                    bridgeClient = null
-                                    mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
-                                    ritualAutoPushSentSessionId = null
-                                    mainHandler.post {
-                                        updateScreen {
-                                            it.copy(
-                                                pcBridgeConnected = false,
-                                                pcBridgeIp = null,
-                                                pcBridgeUserName = null,
-                                                pcClientApp = null,
-                                                featherProfileHintPending = null,
-                                            )
-                                        }
-                                        // Restore Offline from SoR after Tuner echo mirror ends.
-                                        refreshFeatherProfileUi(status = "PC disconnected")
-                                        syncSessionUiFromController()
-                                    }
-                                    Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
-                                }
-                            }
+                            // Keep accept() free so a restarted PC can replace a half-open host.
+                            val client = server.accept()
+                            attachBridgeClient(client)
                         }
                     }
                 } catch (e: Exception) {
@@ -3188,6 +3236,7 @@ class MainActivity : ComponentActivity() {
         discoveryExecutor.shutdownNow()
         bridgeExecutor.shutdownNow()
         bridgeWriteExecutor.shutdownNow()
+        bridgeReadExecutor.shutdownNow()
 
         if (::polarApi.isInitialized) {
             polarApi.shutDown()

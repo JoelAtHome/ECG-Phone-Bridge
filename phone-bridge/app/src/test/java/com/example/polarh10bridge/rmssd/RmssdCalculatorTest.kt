@@ -29,6 +29,13 @@ class RmssdCalculatorTest {
     }
 
     @Test
+    fun meanHrBpm_fromIbis() {
+        assertEquals(75, RmssdCalculator.meanHrBpm(listOf(800.0, 800.0, 800.0)))
+        assertNull(RmssdCalculator.meanHrBpm(emptyList()))
+        assertNull(RmssdCalculator.meanHrBpm(listOf(10.0)))
+    }
+
+    @Test
     fun compute_insufficientBeats() {
         val result = RmssdCalculator.compute(listOf(IbiSample(800.0)))
         assertNull(result.rmssdMs)
@@ -58,6 +65,9 @@ class RmssdCalculatorTest {
         // Modest variation → RMSSD should be tens of ms, not ~0 and not hundreds.
         assertTrue(result.rmssdMs!! in 5.0..80.0)
         assertFalse(QualityFlags.INSUFFICIENT_BEATS in result.quality.flags)
+        val hr = result.hrBpm
+        assertNotNull(hr)
+        assertTrue(hr!! in 110..130)
     }
 
     @Test

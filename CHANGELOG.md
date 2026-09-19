@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.65
+- fix: A new PC TCP connection now **replaces** a stuck/half-open host socket instead of waiting until the old `readLine()` ends. Restarted Hertz & Hearts / FlareTracker can reconnect without force-stopping the phone app. Phone-side capture is unchanged.
+- enhancement: Official `rmssd` snapshot includes `hr_bpm` (mean HR over the analysis window) so FlareTracker can show heart rate on the HRV log.
+
 ## Version 1.0.0-beta.64
 - fix: Offline coeff fields no longer clip values (removed too-short fixed height).
 - polish: Offline help copy uses “from/to” instead of Unicode arrows (font baseline mismatch).

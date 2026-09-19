@@ -381,6 +381,7 @@ class BridgeSessionController(
                 .put("rmssd_source", "bridge")
                 .put("source_device", sourceDevice)
                 .put("emitted_at", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
+        result.hrBpm?.let { obj.put("hr_bpm", it) }
         result.window?.let { w ->
             obj.put(
                 "window",

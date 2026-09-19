@@ -320,7 +320,7 @@ Phone UI chooses mode; PC may also request (phone remains authority if conflict 
 
 
 
-**One TCP client at a time.** A second host connecting while another is connected: refuse or replace (pick one policy when implementing; document in CHANGELOG). Do not run two PC sessions in parallel.
+**One TCP client at a time.** A second host connecting while another is connected uses **replace**: the phone closes the previous PC socket and serves the new one. Do not run two PC sessions in parallel.
 
 
 
@@ -450,6 +450,8 @@ Computed **on the phone from IBI** (see architecture). Not a substitute for live
 
   "source_device": "FEATHER",
 
+  "hr_bpm": 78,
+
   "window": {
 
     "settle_trim_s": 45,
@@ -489,6 +491,10 @@ Computed **on the phone from IBI** (see architecture). Not a substitute for live
 | `rmssd_ms` | yes | Official value |
 
 | `rmssd_source` | yes | Always `"bridge"` for official |
+
+| `source_device` | recommended | `POLAR_H10` \| `FEATHER` \| `OTHER` |
+
+| `hr_bpm` | recommended | Mean heart rate (whole bpm) over the official analysis-window IBIs |
 
 | `window` | recommended | For FlareTracker audit / trends |
 
