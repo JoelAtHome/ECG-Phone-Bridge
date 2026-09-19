@@ -87,3 +87,12 @@ class FeatherLeadOffTracker {
         return next
     }
 }
+
+/**
+ * Whether Feather ECG batches should go to NDJSON hosts / ritual buffer.
+ * Tech strip always updates independently. Null snapshot (LOD never seen) → forward.
+ */
+object FeatherEcgExportGate {
+    fun shouldForwardToHosts(snap: FeatherLeadOffSnapshot?): Boolean =
+        snap?.hostsShouldWarn() != true
+}

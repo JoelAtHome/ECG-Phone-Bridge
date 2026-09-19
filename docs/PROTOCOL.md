@@ -206,6 +206,8 @@ MCU open-lead (LO+/LO−) arrives on BLE status/QC notify. The phone **edge-forw
 
 Do **not** invent a contact bit from ECG SNR. Do **not** map Feather LOD into `sensor_quality.contact_state` (that remains Polar skin contact). Quiet IBI notify is enough for official RMSSD when leads are open (MCU publish gate).
 
+When `use_leads_off && leads_off`, the phone **gates** live Feather `type:"ecg"` and ritual ECG buffering (Tech strip may still update if samples arrive). Feather `rr` stays MCU-quiet via the publish gate — the phone does not re-gate IBI from LOD.
+
 ### 3.2 Shipping types (PC → phone)
 
 

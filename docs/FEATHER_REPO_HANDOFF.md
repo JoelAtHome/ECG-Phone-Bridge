@@ -21,7 +21,7 @@ Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path
 | Packet codecs + profile store (unit-tested under `feather/`) | Host-backed profile sync |
 | Tech patient profile picker + Connect coeffs push | `min_snr` / `min_peak_mwi` in Tech editor / factory seeds |
 | Tech **Simulate Feather** + **Connect Feather** live GATT | Tuner `get_qc` / `mcu_qc` NDJSON |
-| Edge-forward MCU **`use_leads_off` / `leads_off`** on NDJSON `status` (**β.68+**) | Host UI “check electrodes” (HnH / VNS-TA) |
+| Edge-forward MCU **`use_leads_off` / `leads_off`** on NDJSON `status` (**β.68+**) | Host UI “check electrodes” — **HnH / VNS-TA shipping**; optional phone `min_snr`/`min_peak_mwi` profile keys |
 | Host path smoke-tested via sim; Polar still works when sim is off | |
 | **Disconnect sensor** without closing the app | |
 

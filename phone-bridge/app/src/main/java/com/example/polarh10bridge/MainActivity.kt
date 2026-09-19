@@ -1236,6 +1236,13 @@ class MainActivity : ComponentActivity() {
                 featherEcgPacketCount = state.featherEcgPacketCount + 1,
             )
         }
+        // Tech strip always; gate host NDJSON + ritual when MCU reports open leads.
+        if (!com.example.polarh10bridge.feather.FeatherEcgExportGate.shouldForwardToHosts(
+                featherLeadOffTracker.last(),
+            )
+        ) {
+            return
+        }
         val samplesJson = samplesMv.joinToString(prefix = "[", postfix = "]")
         val peaksJson =
             peaksAligned.joinToString(prefix = "[", postfix = "]") { if (it) "1" else "0" }

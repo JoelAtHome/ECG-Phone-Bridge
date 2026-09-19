@@ -1,6 +1,7 @@
 package com.example.polarh10bridge
 
 import com.example.polarh10bridge.feather.FeatherBleContract
+import com.example.polarh10bridge.feather.FeatherEcgExportGate
 import com.example.polarh10bridge.feather.FeatherLeadOffParser
 import com.example.polarh10bridge.feather.FeatherLeadOffSnapshot
 import com.example.polarh10bridge.feather.FeatherLeadOffTracker
@@ -77,5 +78,37 @@ class FeatherLeadOffTest {
         assertTrue(obj.getBoolean("use_leads_off"))
         assertTrue(obj.getBoolean("leads_off"))
         assertEquals(FeatherBleContract.SOURCE_DEVICE_WIRE, obj.getString("source_device"))
+    }
+
+    @Test
+    fun exportGate_nullSnapshot_forwards() {
+        assertTrue(FeatherEcgExportGate.shouldForwardToHosts(null))
+    }
+
+    @Test
+    fun exportGate_leadsOk_forwards() {
+        assertTrue(
+            FeatherEcgExportGate.shouldForwardToHosts(
+                FeatherLeadOffSnapshot(useLeadsOff = true, leadsOff = false),
+            ),
+        )
+    }
+
+    @Test
+    fun exportGate_lodDisabled_forwardsEvenIfLeadsOff() {
+        assertTrue(
+            FeatherEcgExportGate.shouldForwardToHosts(
+                FeatherLeadOffSnapshot(useLeadsOff = false, leadsOff = true),
+            ),
+        )
+    }
+
+    @Test
+    fun exportGate_openLeads_blocksHosts() {
+        assertFalse(
+            FeatherEcgExportGate.shouldForwardToHosts(
+                FeatherLeadOffSnapshot(useLeadsOff = true, leadsOff = true),
+            ),
+        )
     }
 }
