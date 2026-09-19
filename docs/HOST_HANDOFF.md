@@ -172,7 +172,7 @@ Later (hosts + phone): HnH recorded-HRV ingest (alongside live stream); sending 
 
 - [x] Keep using **`HnH_PHONE_BRIDGE_DISCOVER_V1`** + TCP NDJSON  
 - [x] Parse `status`, `rr`, `ecg` as today (live stream path)  
-- [x] **Feather lead-off:** when `status` includes `use_leads_off` + `leads_off`, show “check electrodes” if both true (PROTOCOL §3.1). Ignore when `use_leads_off` is false. Not `sensor_quality`.  
+- [x] **Feather lead-off:** when `status` includes `use_leads_off` + `leads_off`, show “check electrodes” if both true (PROTOCOL §3.1). Ignore when `use_leads_off` is false. Not `sensor_quality`. Expect live `ecg` to pause while LOD is active (**β.69+** phone gate); no host re-gate required.  
 - [x] Send `client_info` with `pc_user` (active profile) — already supported  
 - [x] **Re-send `client_info` whenever the active patient/profile changes** (not only on TCP connect) — PROTOCOL §8.2 Feather profile hint  
 - [x] Optional: non-blocking status banner for phone `Feather profile confirm/switched/kept…` messages  

@@ -1,9 +1,21 @@
 # Handoff — Feather / ECG-Box agents (BLE → phone)
 
-**Date:** 2026-09-19 (LOD status forward on phone)  
+**Date:** 2026-09-19 (LOD ECG stream — request archived; finish-state on ECG-Box)  
 **From:** ECG-Phone-Bridge (phone edge went first)  
 **To:** Agents / humans working in [ECG-Box](https://github.com/JoelAtHome/ecg-box)  
 **Not a medical device.**
+
+---
+
+## 0. LOD ECG stream — doc ownership
+
+| Need | Open |
+|------|------|
+| **Finish state** (acceptance, §0 status, Phase 3, β.68/β.69) | ECG-Box [`docs/TUNER_AGENT_HANDOFF.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/TUNER_AGENT_HANDOFF.md) — **other ECG-Box agents open this first** |
+| **Wire / LOD contract** (Lead-off + client handoff table) | ECG-Box [`docs/FEATHER_BLE.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/FEATHER_BLE.md) |
+| Phone **request** archive (not done status) | [MCU_HANDOFF_LOD_ECG_STREAM.md](./MCU_HANDOFF_LOD_ECG_STREAM.md) |
+
+Phone **β.69** gates host/ritual `ecg` while LOD; Tech strip scrolls when MCU keeps emitting open-lead ECG (IBI still MCU-suppressed).
 
 ---
 
@@ -13,7 +25,7 @@ Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path
 
 **Feather MCU (ECG-Box) → phone over BLE → same Wi‑Fi NDJSON hosts already consume.**
 
-**Phone status (as of v1.0.0-beta.68):**
+**Phone status (as of v1.0.0-beta.69):**
 
 | Done on phone | Not done yet |
 |---------------|--------------|
@@ -22,6 +34,7 @@ Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path
 | Tech patient profile picker + Connect coeffs push | `min_snr` / `min_peak_mwi` in Tech editor / factory seeds |
 | Tech **Simulate Feather** + **Connect Feather** live GATT | Tuner `get_qc` / `mcu_qc` NDJSON |
 | Edge-forward MCU **`use_leads_off` / `leads_off`** on NDJSON `status` (**β.68+**) | Host UI “check electrodes” — **HnH / VNS-TA shipping**; optional phone `min_snr`/`min_peak_mwi` profile keys |
+| Gate host/ritual Feather **`ecg`** while LOD (**β.69+**); Tech strip accepts samples | MCU open-lead ECG stream — **finish-state:** ECG-Box `TUNER_AGENT_HANDOFF.md` / `FEATHER_BLE.md` |
 | Host path smoke-tested via sim; Polar still works when sim is off | |
 | **Disconnect sensor** without closing the app | |
 
@@ -29,6 +42,7 @@ Firmware implements BLE against the GATT doc + ECG-Box [`docs/FEATHER_BLE.md`](h
 
 | Doc in this repo | Why open it |
 |------------------|-------------|
+| [MCU_HANDOFF_LOD_ECG_STREAM.md](./MCU_HANDOFF_LOD_ECG_STREAM.md) | Phone→MCU **request** archive (done status is on ECG-Box) |
 | [FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md) | **Authoritative BLE contract** (UUIDs, packets, session sequence) |
 | [FEATHER_PROFILE_SCHEMA.md](./FEATHER_PROFILE_SCHEMA.md) | Patient profile JSON / coeffs names |
 | [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) | Phone sim test now; live BLE checklist later |
