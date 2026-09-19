@@ -235,7 +235,7 @@ Known parked / cleanup themes from handoff (not commitments):
 
 **Goal:** Occasional users reach a ready state without hunting Tech/Patient, Stream/Record, or the data-path Find control. Power users skip via **Exit to main screen**.
 
-**Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. Same optional **Update available** banner as Tech/Patient (`Get update` | `Later`) at the top of the overlay. No Simulate, coeffs, strip, or port settings in the wizard.
+**Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. Same optional **Update available** banner as Tech/Patient (`Get update` | `Later`) at the top of the overlay. No Simulate, coeff edit, strip, or port settings in the wizard. Ready confirms active patient (name + Change picker).
 
 **Entry**
 - **Every cold start** (Activity create) opens the wizard — session coach, not one-shot onboarding. Exit dismisses until process death or ☰ **Start session**.
@@ -308,11 +308,15 @@ Known parked / cleanup themes from handoff (not commitments):
 ┌─ READY ─────────────────────────────────┐
 │  Summary: Caregiver · Record HRV ·      │
 │           Polar · PC linked | alone     │
+│  Patient: {displayName}                 │
+│     [ Change patient… ] → pick dialog   │
 │     [ Start recording ]  or             │
 │     [ Start stream ]     or             │
 │     [ Go to breathing pacer ]           │
 │                    [Back] [Exit]        │
 └─────────────────────────────────────────┘
+  Patient line + Change: Caregiver Record/Stream only
+  (Breathe skips). Picker reuses profile list; no coeff edit.
 ```
 
 ### Flow (Mermaid)
@@ -343,12 +347,14 @@ flowchart TD
 | `bridge_wizard_last_job` | `record` / `stream` / `breathe` |
 | Local step enum | `Role → Job → Permissions → Sensor → Connect → Host → Ready` |
 
-Wizard reads live `BridgeScreenState` for sensor link, PC link, and Wi‑Fi IP hint. Writes via existing Activity hooks: `setTechView`, `setSelectedSourceKind`, `setPreferredSessionMode`, `beginFindSource`, `startBridgeSession`.
+Wizard reads live `BridgeScreenState` for sensor link, PC link, Wi‑Fi IP hint, and active patient. Writes via existing Activity hooks: `setTechView`, `setSelectedSourceKind`, `setPreferredSessionMode`, `beginFindSource`, `startBridgeSession`, `selectFeatherProfile`.
 
-**Out of v1:** Simulate, profile/coeffs, quality chips, stuck-checker deep links, post-Stop Send HRV nudge (later).
+**Out of v1:** Simulate, coeff edit in wizard, quality chips, stuck-checker deep links, post-Stop Send HRV nudge (later).
+
+**In wizard (Ready):** Caregiver capture shows active patient name + **Change patient…** (pick from phone profiles; same store as Tech Offline).
 
 **Code:** `StartupWizard.kt` + menu / first-run wiring in `MainActivity`.
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.66; §7 wizard sketch added for β.54 work. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.67; §7 wizard sketch added for β.54 work. Update when chrome changes.*

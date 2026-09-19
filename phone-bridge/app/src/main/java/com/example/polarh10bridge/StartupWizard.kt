@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -30,6 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.RadioButton
@@ -57,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.polarh10bridge.feather.FeatherProfileSummary
 import kotlinx.coroutines.delay
 
 /** Caregiver vs patient — maps to Tech / Patient view. */
@@ -202,6 +206,7 @@ private fun AnimatedEllipsisText(
 
 /**
  * Full-screen session coach. Reuses Find / session Start via callbacks; no Simulate or Tech chrome.
+ * Caregiver Ready confirms active Feather patient (pick only — no coeff edit).
  */
 @Composable
 internal fun StartupWizardOverlay(
@@ -217,6 +222,7 @@ internal fun StartupWizardOverlay(
     onFindSource: () -> Unit,
     onDisconnectSensor: () -> Unit,
     onStartSession: () -> Unit,
+    onSelectFeatherProfile: (String) -> Unit,
     onFinished: (markCompleted: Boolean) -> Unit,
     availableUpdate: AvailableAppUpdate?,
     onAvailableUpdateChange: (AvailableAppUpdate?) -> Unit,
@@ -241,6 +247,7 @@ internal fun StartupWizardOverlay(
     var hostChoice by remember { mutableStateOf(HostChoice.WaitForPc) }
     var permissionsOk by remember { mutableStateOf(bridgeBlePermissionsGranted(context)) }
     var findPressed by remember { mutableStateOf(false) }
+    var showPatientPicker by remember { mutableStateOf(false) }
     var resolvedWifiIp by remember {
         mutableStateOf(phoneIpHint ?: state.phoneWifiIpv4)
     }
@@ -740,8 +747,9 @@ internal fun StartupWizardOverlay(
                         }
                     }
                     WizardStep.Ready -> {
+                        val showPatientConfirm = job.needsSensorAndHost()
                         val summary =
-                            if (!job.needsSensorAndHost()) {
+                            if (!showPatientConfirm) {
                                 "${role.name} · ${job.title()}"
                             } else {
                                 val hostLine =
@@ -760,7 +768,29 @@ internal fun StartupWizardOverlay(
                             color = TextDark,
                             lineHeight = 22.sp,
                         )
-                        Spacer(Modifier.height(16.dp))
+                        if (showPatientConfirm) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Patient: ${state.featherActiveDisplayName}",
+                                fontSize = 15.sp,
+                                color = TextDark,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 22.sp,
+                            )
+                            TextButton(onClick = { showPatientPicker = true }) {
+                                Text(
+                                    text = "Change patient…",
+                                    color = BannerRed,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
+                        }
+                        Spacer(
+                            modifier =
+                                Modifier.height(if (showPatientConfirm) 8.dp else 16.dp),
+                        )
                         val primaryLabel =
                             when (job) {
                                 WizardJob.RecordHrv -> "Start recording"
@@ -852,10 +882,90 @@ internal fun StartupWizardOverlay(
                     }
                 }
             }
+
+            if (showPatientPicker) {
+                WizardPatientPickerDialog(
+                    profiles = state.featherProfiles,
+                    activeProfileId = state.featherActiveProfileId,
+                    onSelect = { id ->
+                        onSelectFeatherProfile(id)
+                        showPatientPicker = false
+                    },
+                    onDismiss = { showPatientPicker = false },
+                )
+            }
             }
         }
     }
 }
+
+
+@Composable
+private fun WizardPatientPickerDialog(
+    profiles: List<FeatherProfileSummary>,
+    activeProfileId: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        title = {
+            Text(
+                text = "Active patient",
+                color = TextDark,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
+            ) {
+                if (profiles.isEmpty()) {
+                    Text(
+                        text = "No patient profiles on this phone.",
+                        color = TextDark.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                    )
+                } else {
+                    profiles.forEach { summary ->
+                        val selected = summary.profileId == activeProfileId
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelect(summary.profileId) }
+                                    .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text =
+                                    buildString {
+                                        append(summary.displayName)
+                                        if (selected) append(" ✓")
+                                    },
+                                color = TextDark,
+                                fontWeight =
+                                    if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                fontSize = 15.sp,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextDark)
+            }
+        },
+    )
+}
+
 
 @Composable
 private fun WizardRadio(

@@ -3101,6 +3101,7 @@ class MainActivity : ComponentActivity() {
                         onFindSource = { beginFindSource() },
                         onDisconnectSensor = { disconnectConnectedSensor() },
                         onStartSession = { startBridgeSession() },
+                        onSelectFeatherProfile = { id -> selectFeatherProfile(id) },
                         onFinished = { markCompleted ->
                             if (markCompleted) {
                                 saveWizardCompletedPref(true)

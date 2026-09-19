@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.67
+- enhancement: Startup Wizard Ready (Record / Stream) shows **Patient: {name}** and **Change patient…** so the active Feather profile is confirmed before Start.
+
 ## Version 1.0.0-beta.66
 - fix: **Update available** banner also shows on Startup Wizard screens (was covered until Tech/Patient).
 
