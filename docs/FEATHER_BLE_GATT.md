@@ -93,13 +93,13 @@ Body is a JSON object (subset of profile `coeffs`). Example:
   "peak_end_frac": 0.55,
   "r_peak_refine_ms": 200,
   "fiducial_delay_ms": 40,
-  "ibi_outlier_lo": 0.65,
-  "ibi_outlier_hi": 1.4,
-  "ibi_rmssd_max_ms": 1000
+  "ibi_outlier_lo": 0.75,
+  "ibi_outlier_hi": 1.30,
+  "ibi_rmssd_max_ms": 1200
 }
 ```
 
-Omit or `null` fields mean “leave firmware default.” Unknown keys → ignore (forward compatible).
+Omit or `null` fields mean “leave firmware default.” Unknown keys → ignore (forward compatible). Optional publish-gate keys (`min_snr`, `min_peak_mwi`) may appear on newer MCU builds; phone may omit them until profile editor ships those knobs.
 
 If payload exceeds MTU, use **Write with long write** / queued chunks: phone sends one complete JSON per apply (prefer single write after MTU exchange). Firmware applies atomically on valid JSON parse.
 
@@ -109,6 +109,8 @@ If payload exceeds MTU, use **Write with long write** / queued chunks: phone sen
 {"cmd":"start_stream"}
 {"cmd":"stop_stream"}
 {"cmd":"apply_coeffs"}
+{"cmd":"get_coeffs"}
+{"cmd":"get_qc"}
 {"cmd":"ping"}
 ```
 
@@ -118,6 +120,7 @@ If payload exceeds MTU, use **Write with long write** / queued chunks: phone sen
 | `stop_stream` | Stop notifies |
 | `apply_coeffs` | Apply last successfully written coeffs object (optional if write already applies) |
 | `get_coeffs` | Dump RAM knobs via status notify `{"type":"coeffs","coeffs":{…}}` |
+| `get_qc` | Dump tech health via status notify `{"type":"qc","qc":{…}}` (includes LOD / SNR) |
 | `ping` | Optional; expect status notify |
 
 ### 4.5 Status notify (`c3f0a005-…`) — UTF-8 JSON (optional)
@@ -129,12 +132,15 @@ If payload exceeds MTU, use **Write with long write** / queued chunks: phone sen
   "fw": "hframe_ecg_hrv",
   "board": "huzzah32-3591",
   "sample_hz": 250,
+  "use_leads_off": true,
   "leads_off": false,
   "feather_rmssd_ms": 14.2
 }
 ```
 
 `feather_rmssd_ms` is **debug only** — never the FlareTracker value of record.
+
+**Lead-off:** When `use_leads_off` / `leads_off` change (or first observed), the phone emits NDJSON `type:"status"` with the same fields plus `source_device:"FEATHER"` (see [PROTOCOL.md](./PROTOCOL.md) §3.1). Hosts must not treat Polar `sensor_quality.contact_state` as Feather open-lead.
 
 ---
 

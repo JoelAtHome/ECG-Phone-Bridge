@@ -22,7 +22,7 @@
 
 ```bat
 cd phone-bridge
-gradlew.bat test --tests com.example.polarh10bridge.FeatherCodecAndProfileTest
+gradlew.bat :app:testDebugUnitTest --tests com.example.polarh10bridge.FeatherCodecAndProfileTest
 ```
 
 ---
@@ -39,6 +39,25 @@ Prereqs: Feather flashed with `hframe_ecg_hrv` `ENABLE_BLE=1`, advertising **`EC
 6. XOR: disconnect Feather before connecting Polar (and the reverse).
 
 **β.36+:** Factory labels — Typical patch torso / Patient 1 (Payton) / Patient 2 (Joel). Active profile coeffs are written on Connect (patch/torso known-good from β.32+ for the typical seed). **β.35+:** Tech **Patient profile** picker — Change / Add patient (clone typical) / edit coeffs → Save; Connect Feather pushes the **active** profile (Save while connected also pushes). Session timing remains phone-default until wired.
+
+### B.1 Lead-off / IBI quality (phone ≥ **v1.0.0-beta.68**)
+
+Prereqs: stock 3-lead board with `USE_LEADS_OFF=1` (default). Host on same Wi‑Fi optional.
+
+1. Connect Feather → Streaming; Tech **Contact** should move to **leads OK (Feather)** once status/QC carries LOD (or stay “not reported” until the first LOD-bearing notify).  
+2. With a host linked, open one RA/LA/RL snap (or float a lead). Expect:  
+   - Tech: **Contact: check electrodes (leads off)** (red)  
+   - Host NDJSON: `{"type":"status",…,"use_leads_off":true,"leads_off":true,"source_device":"FEATHER"}` (edge only — not every heartbeat)  
+   - Live `rr` quiet or sparse (MCU publish gate); no steady fake ~110–120 bpm from phone  
+3. Re-seat leads → Tech **leads OK**; host `status` with `leads_off:false`; IBIs resume within a few seconds.  
+4. **Do not** expect `sensor_quality.contact_state` to flip for Feather (Polar-only). Hosts that show “check electrodes” must read `status.leads_off` when `use_leads_off` is true.
+
+**Unit tests:**
+
+```bat
+cd phone-bridge
+gradlew.bat :app:testDebugUnitTest --tests com.example.polarh10bridge.FeatherLeadOffTest
+```
 
 ---
 

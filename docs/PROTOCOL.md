@@ -160,6 +160,8 @@ Same object; new fields optional so old HnH still works:
 
 {"type":"sensor_quality","contact_state":"in_contact","contact":true,"contact_supported":true,"rssi_dbm":-67,"rssi_is_contact":false}
 
+{"type":"status","message":"Feather lead-off","connected":true,"use_leads_off":true,"leads_off":true,"source_device":"FEATHER"}
+
 ```
 
 
@@ -183,6 +185,26 @@ Optional on Feather ECG notifies (packet v2+): `peak_flags` — parallel `0`/`1`
 
 
 When `contact_state` is `no_contact`, the phone **gates** live `rr` / `ecg` (and does not feed those IBIs into official bridge RMSSD). Unknown / unsupported contact does not gate.
+
+#### Feather lead-off on `status` (not `sensor_quality`)
+
+MCU open-lead (LO+/LO−) arrives on BLE status/QC notify. The phone **edge-forwards** changes as additive fields on an existing `type:"status"` line:
+
+| Field | Meaning |
+
+|-------|---------|
+
+| `use_leads_off` | MCU compiled with lead-off pins (`USE_LEADS_OFF`). When `false`, hosts **ignore** `leads_off` (e.g. 2-lead AC mod). |
+
+| `leads_off` | Either LO pin reported open. Show “check electrodes” only when `use_leads_off && leads_off`. |
+
+| `source_device` | `"FEATHER"` when present on these lines |
+
+| `message` | Human hint: `Feather lead-off` / `Feather leads OK` / `Feather lead-off disabled` |
+
+
+
+Do **not** invent a contact bit from ECG SNR. Do **not** map Feather LOD into `sensor_quality.contact_state` (that remains Polar skin contact). Quiet IBI notify is enough for official RMSSD when leads are open (MCU publish gate).
 
 ### 3.2 Shipping types (PC → phone)
 

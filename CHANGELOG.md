@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.68
+- enhancement: Feather MCU lead-off (`use_leads_off` / `leads_off`) edge-forwarded on NDJSON `status` with `source_device: FEATHER`; Tech meters show “check electrodes (leads off)”. Not mapped to Polar `sensor_quality`.
+
 ## Version 1.0.0-beta.67
 - enhancement: Startup Wizard Ready (Record / Stream) shows **Patient: {name}** and **Change patient…** so the active Feather profile is confirmed before Start.
 

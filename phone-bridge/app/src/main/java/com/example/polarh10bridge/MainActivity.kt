@@ -272,6 +272,13 @@ internal data class BridgeScreenState(
     val recentHrBpm: Double? = null,
     /** Skin/electrode contact from sensor HR — not BLE RSSI. */
     val sensorContact: SensorContactState = SensorContactState.Unknown,
+    /**
+     * Feather MCU lead-off when [featherUseLeadsOff] is true. Null until first
+     * status/QC notify with LOD fields (or after disconnect reset).
+     */
+    val featherLeadsOff: Boolean? = null,
+    /** Compile-time MCU `USE_LEADS_OFF`; when false, hosts ignore [featherLeadsOff]. */
+    val featherUseLeadsOff: Boolean? = null,
     val lastAcceptedBeats: Int = 0,
     val lastQualityFlags: List<String> = emptyList(),
     /** Tech-only: inject synthetic Feather IBIs into the bridge edge (no BLE box required). */
@@ -343,6 +350,8 @@ class MainActivity : ComponentActivity() {
             maybeAutoPushRitual(screenState.value.pcClientApp, forceHnHCompatible = true)
         }
     private var featherBleClient: com.example.polarh10bridge.feather.FeatherBleClient? = null
+    private val featherLeadOffTracker =
+        com.example.polarh10bridge.feather.FeatherLeadOffTracker()
     /** After Tech Keep on a PC patient hint, suppress re-prompt for the same pc_user. */
     private var featherHintKeepDebounceKey: String? = null
     private var featherHintKeepDebounceUntilElapsedMs: Long = 0L
@@ -732,6 +741,11 @@ class MainActivity : ComponentActivity() {
                                 phase ==
                                 com.example.polarh10bridge.feather.FeatherBleClient.Phase.Error
                             ) {
+                                if (phase ==
+                                    com.example.polarh10bridge.feather.FeatherBleClient.Phase.Idle
+                                ) {
+                                    featherLeadOffTracker.reset()
+                                }
                                 updateScreen {
                                     it.copy(
                                         featherBleConnected = false,
@@ -771,6 +785,24 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 it.featherEcgPacketCount
                                             },
+                                        featherLeadsOff =
+                                            if (phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle
+                                            ) {
+                                                null
+                                            } else {
+                                                it.featherLeadsOff
+                                            },
+                                        featherUseLeadsOff =
+                                            if (phase ==
+                                                com.example.polarh10bridge.feather.FeatherBleClient
+                                                    .Phase.Idle
+                                            ) {
+                                                null
+                                            } else {
+                                                it.featherUseLeadsOff
+                                            },
                                     )
                                 }
                             }
@@ -788,6 +820,7 @@ class MainActivity : ComponentActivity() {
                             Log.d("HnHBridge", "Feather status: $json")
                             // Keep UI detail human (phase strings). Raw status JSON is for Tuner/logs.
                             forwardMcuCoeffsStatusToTunerIfNeeded(json)
+                            handleFeatherLeadOffStatus(json)
                         }
 
                         override fun onEcgSamplesUv(
@@ -1076,6 +1109,7 @@ class MainActivity : ComponentActivity() {
 
     private fun disconnectFeatherBle() {
         featherBleClient?.disconnect()
+        featherLeadOffTracker.reset()
         updateScreen {
             it.copy(
                 featherBleConnected = false,
@@ -1085,6 +1119,8 @@ class MainActivity : ComponentActivity() {
                 featherEcgTraceMv = emptyList(),
                 featherEcgTracePeaks = emptyList(),
                 featherEcgPacketCount = 0,
+                featherLeadsOff = null,
+                featherUseLeadsOff = null,
                 connectedSensorName =
                     if (it.sensorConnected) it.connectedSensorName else "",
                 sensorContact =
@@ -1095,6 +1131,21 @@ class MainActivity : ComponentActivity() {
                     },
             )
         }
+    }
+
+    /**
+     * Edge-forward MCU `use_leads_off` / `leads_off` on NDJSON `status`.
+     * Does not map into [SensorContactState] / `sensor_quality`.
+     */
+    private fun handleFeatherLeadOffStatus(json: String) {
+        val snap = featherLeadOffTracker.observe(json) ?: return
+        updateScreen {
+            it.copy(
+                featherUseLeadsOff = snap.useLeadsOff,
+                featherLeadsOff = snap.leadsOff,
+            )
+        }
+        sendBridgeJsonLine(snap.toStatusJson(connected = true))
     }
 
     private fun ingestSourceRrMs(rr: Int, updateHrEveryBeat: Boolean = false) {
@@ -3743,6 +3794,8 @@ private fun BridgeMainScreen(
                         featherBleDetail = state.featherBleDetail,
                         featherBleLastIbiMs = state.featherBleLastIbiMs,
                         featherBleConnected = state.featherBleConnected,
+                        featherLeadsOff = state.featherLeadsOff,
+                        featherUseLeadsOff = state.featherUseLeadsOff,
                         featherEcgTraceMv = state.featherEcgTraceMv,
                         featherEcgTracePeaks = state.featherEcgTracePeaks,
                         featherEcgSampleHz = state.featherEcgSampleHz,

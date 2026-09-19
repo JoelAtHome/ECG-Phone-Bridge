@@ -357,4 +357,4 @@ Wizard reads live `BridgeScreenState` for sensor link, PC link, Wi‑Fi IP hint,
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.67; §7 wizard sketch added for β.54 work. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.68; §7 wizard sketch added for β.54 work. Update when chrome changes.*

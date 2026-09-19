@@ -128,6 +128,9 @@ fun TechSessionMeters(
     featherBleDetail: String = "",
     featherBleLastIbiMs: Int? = null,
     featherBleConnected: Boolean = false,
+    /** MCU LO+/LO−; null until status notify. Warn only when useLeadsOff && leadsOff. */
+    featherLeadsOff: Boolean? = null,
+    featherUseLeadsOff: Boolean? = null,
     featherEcgTraceMv: List<Float> = emptyList(),
     featherEcgTracePeaks: List<Boolean> = emptyList(),
     featherEcgSampleHz: Int = 250,
@@ -247,21 +250,28 @@ fun TechSessionMeters(
             text =
                 buildString {
                     append("Contact: ")
-                    append(
-                        when (sensorContact) {
-                            SensorContactState.InContact -> "skin OK"
-                            SensorContactState.NoContact -> "no skin contact (RR/ECG gated)"
-                            SensorContactState.Unknown ->
-                                if (featherBleConnected || featherSimActive) {
-                                    "not reported (Feather)"
-                                } else {
-                                    "unknown (sensor may not report)"
-                                }
-                        },
-                    )
+                    val featherLodWarn =
+                        featherUseLeadsOff == true && featherLeadsOff == true
+                    when {
+                        featherLodWarn -> append("check electrodes (leads off)")
+                        sensorContact == SensorContactState.InContact -> append("skin OK")
+                        sensorContact == SensorContactState.NoContact ->
+                            append("no skin contact (RR/ECG gated)")
+                        featherBleConnected || featherSimActive -> {
+                            when {
+                                featherUseLeadsOff == false ->
+                                    append("leads-off N/A (2-lead / disabled)")
+                                featherLeadsOff == false -> append("leads OK (Feather)")
+                                else -> append("not reported (Feather)")
+                            }
+                        }
+                        else -> append("unknown (sensor may not report)")
+                    }
                 },
             color =
-                if (sensorContact == SensorContactState.NoContact) {
+                if (sensorContact == SensorContactState.NoContact ||
+                    (featherUseLeadsOff == true && featherLeadsOff == true)
+                ) {
                     Color(0xFFB3261E)
                 } else {
                     TechTextDark.copy(alpha = 0.85f)

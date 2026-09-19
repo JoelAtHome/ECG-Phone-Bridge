@@ -1,6 +1,6 @@
 # Handoff — Feather / ECG-Box agents (BLE → phone)
 
-**Date:** 2026-09-11 (refreshed same day after phone β.25–28)  
+**Date:** 2026-09-19 (LOD status forward on phone)  
 **From:** ECG-Phone-Bridge (phone edge went first)  
 **To:** Agents / humans working in [ECG-Box](https://github.com/JoelAtHome/ecg-box)  
 **Not a medical device.**
@@ -13,18 +13,19 @@ Polar H10 → phone → VNS-TA is field-verified and shipping. Next product path
 
 **Feather MCU (ECG-Box) → phone over BLE → same Wi‑Fi NDJSON hosts already consume.**
 
-**Phone status (as of v1.0.0-beta.29):**
+**Phone status (as of v1.0.0-beta.68):**
 
 | Done on phone | Not done yet |
 |---------------|--------------|
-| GATT contract locked ([FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md)) | Full patient-profile picker UX |
+| GATT contract locked ([FEATHER_BLE_GATT.md](./FEATHER_BLE_GATT.md)) | Profile `session_timing` → `RmssdCalculator` |
 | Packet codecs + profile store (unit-tested under `feather/`) | Host-backed profile sync |
-| Tech **Simulate Feather IBIs** (RSA-style) → same `rr` / RMSSD / NDJSON with `source_device: FEATHER` | |
-| Tech **Connect Feather** live GATT (scan / CCCD / coeffs / start_stream / IBI) | |
+| Tech patient profile picker + Connect coeffs push | `min_snr` / `min_peak_mwi` in Tech editor / factory seeds |
+| Tech **Simulate Feather** + **Connect Feather** live GATT | Tuner `get_qc` / `mcu_qc` NDJSON |
+| Edge-forward MCU **`use_leads_off` / `leads_off`** on NDJSON `status` (**β.68+**) | Host UI “check electrodes” (HnH / VNS-TA) |
 | Host path smoke-tested via sim; Polar still works when sim is off | |
 | **Disconnect sensor** without closing the app | |
 
-Firmware can implement BLE against the GATT doc. Joint test: flash MCU + phone **≥ β.29** Tech → Connect Feather (see [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) §B).
+Firmware implements BLE against the GATT doc + ECG-Box [`docs/FEATHER_BLE.md`](https://github.com/JoelAtHome/ecg-box/blob/main/docs/FEATHER_BLE.md) (publish gate, LOD, QC). Joint test: flash MCU + phone Tech → Connect Feather (see [FEATHER_PHONE_TEST.md](./FEATHER_PHONE_TEST.md) §B / §B.1).
 
 | Doc in this repo | Why open it |
 |------------------|-------------|

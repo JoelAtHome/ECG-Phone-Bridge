@@ -4,8 +4,10 @@ package com.example.polarh10bridge
  * Skin/electrode contact from the sensor — not BLE RSSI.
  *
  * Polar H10 reports contact via HR samples (`contactStatus` /
- * `contactStatusSupported`). Feather GATT has no contact characteristic today,
- * so Feather sessions stay [SensorContactState.Unknown] (do not fake OK).
+ * `contactStatusSupported`). Feather has no Polar-style contact bit — sessions
+ * stay [SensorContactState.Unknown] (do not fake OK). Open-lead (LO+/LO−) is a
+ * separate MCU signal forwarded on NDJSON `status` as `use_leads_off` /
+ * `leads_off` (see [feather.FeatherLeadOffTracker]), not as `sensor_quality`.
  * RSSI only describes radio link quality.
  */
 enum class SensorContactState {
