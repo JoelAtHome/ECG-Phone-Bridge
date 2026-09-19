@@ -3026,6 +3026,8 @@ class MainActivity : ComponentActivity() {
                     // process death or ☰ Start session. Pref still records last finish for hosts.
                     mutableStateOf(true)
                 }
+                // Shared so the banner is visible on the wizard overlay, not only Tech/Patient.
+                var availableUpdate by remember { mutableStateOf<AvailableAppUpdate?>(null) }
                 BridgeMainScreen(
                     state = state,
                     ipHintRefreshSession = ipHintRefreshSession,
@@ -3067,6 +3069,8 @@ class MainActivity : ComponentActivity() {
                     onSendFeatherOffline = { draft -> sendFeatherOfflineToMcu(draft) },
                     onAcceptFeatherProfileHint = { acceptFeatherProfileHint() },
                     onDismissFeatherProfileHint = { dismissFeatherProfileHint() },
+                    availableUpdate = availableUpdate,
+                    onAvailableUpdateChange = { availableUpdate = it },
                 )
                 if (showStartupWizard) {
                     StartupWizardOverlay(
@@ -3103,6 +3107,8 @@ class MainActivity : ComponentActivity() {
                             }
                             showStartupWizard = false
                         },
+                        availableUpdate = availableUpdate,
+                        onAvailableUpdateChange = { availableUpdate = it },
                     )
                 }
                 if (state.bleDialogVisible) {
@@ -3274,6 +3280,8 @@ private fun BridgeMainScreen(
     onSendFeatherOffline: (Map<String, String>) -> Unit,
     onAcceptFeatherProfileHint: () -> Unit,
     onDismissFeatherProfileHint: () -> Unit,
+    availableUpdate: AvailableAppUpdate?,
+    onAvailableUpdateChange: (AvailableAppUpdate?) -> Unit,
 ) {
     val context = LocalContext.current
     var wifiRadioEnabled by remember(context) {
@@ -3349,16 +3357,18 @@ private fun BridgeMainScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showConnectionSettings by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
-    var availableUpdate by remember { mutableStateOf<AvailableAppUpdate?>(null) }
     var updateCheckInProgress by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val menuScope = rememberCoroutineScope()
+    val onAvailableUpdateChangeState by rememberUpdatedState(onAvailableUpdateChange)
 
     LaunchedEffect(versionName) {
         if (versionName.isBlank()) return@LaunchedEffect
         // Always hit GitHub on cold start so a release published after the last
         // cached check (6h) is not missed. Cache still applies to non-forced calls.
-        availableUpdate = checkForAvailableAppUpdate(context, versionName, forceNetwork = true)
+        onAvailableUpdateChangeState(
+            checkForAvailableAppUpdate(context, versionName, forceNetwork = true),
+        )
     }
 
     Column(
@@ -3453,11 +3463,11 @@ private fun BridgeMainScreen(
                                             val msg =
                                                 when (result) {
                                                     is AppUpdateCheckResult.Available -> {
-                                                        availableUpdate = result.update
+                                                        onAvailableUpdateChange(result.update)
                                                         "Update available: ${result.update.versionLabel}"
                                                     }
                                                     AppUpdateCheckResult.UpToDate -> {
-                                                        availableUpdate = null
+                                                        onAvailableUpdateChange(null)
                                                         "You're up to date ($versionName)"
                                                     }
                                                     AppUpdateCheckResult.Failed ->
@@ -3491,40 +3501,14 @@ private fun BridgeMainScreen(
             }
             val update = availableUpdate
             if (update != null) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFFDCEBFF),
-                ) {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Update available: ${update.versionLabel}",
-                            modifier = Modifier.weight(1f),
-                            color = TextDark,
-                            fontSize = 13.sp,
-                            lineHeight = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        TextButton(
-                            onClick = { uriHandler.openUri(update.releaseUrl) },
-                        ) {
-                            Text("Get update", color = Color(0xFF0B57D0), fontWeight = FontWeight.Bold)
-                        }
-                        TextButton(
-                            onClick = {
-                                dismissAvailableAppUpdate(context, update.tagName)
-                                availableUpdate = null
-                            },
-                        ) {
-                            Text("Later", color = TextDark.copy(alpha = 0.7f))
-                        }
-                    }
-                }
+                AppUpdateBanner(
+                    update = update,
+                    onGetUpdate = { uriHandler.openUri(update.releaseUrl) },
+                    onLater = {
+                        dismissAvailableAppUpdate(context, update.tagName)
+                        onAvailableUpdateChange(null)
+                    },
+                )
             }
             val showWifiClientOffBanner = !wifiRadioEnabled && !state.pcBridgeConnected
             if (showWifiClientOffBanner) {
@@ -4161,6 +4145,42 @@ private fun ConnectionSettingsDialog(
                 }
             },
         )
+    }
+}
+
+@Composable
+internal fun AppUpdateBanner(
+    update: AvailableAppUpdate,
+    onGetUpdate: () -> Unit,
+    onLater: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xFFDCEBFF),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Update available: ${update.versionLabel}",
+                modifier = Modifier.weight(1f),
+                color = TextDark,
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            TextButton(onClick = onGetUpdate) {
+                Text("Get update", color = Color(0xFF0B57D0), fontWeight = FontWeight.Bold)
+            }
+            TextButton(onClick = onLater) {
+                Text("Later", color = TextDark.copy(alpha = 0.7f))
+            }
+        }
     }
 }
 

@@ -235,7 +235,7 @@ Known parked / cleanup themes from handoff (not commitments):
 
 **Goal:** Occasional users reach a ready state without hunting Tech/Patient, Stream/Record, or the data-path Find control. Power users skip via **Exit to main screen**.
 
-**Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. No Simulate, coeffs, strip, or port settings in the wizard.
+**Shape:** Full-screen overlay (not coach-marks on the dense scroll). Reuses existing Find / BLE dialogs / session Start. Same optional **Update available** banner as Tech/Patient (`Get update` | `Later`) at the top of the overlay. No Simulate, coeffs, strip, or port settings in the wizard.
 
 **Entry**
 - **Every cold start** (Activity create) opens the wizard — session coach, not one-shot onboarding. Exit dismisses until process death or ☰ **Start session**.
@@ -260,6 +260,7 @@ Known parked / cleanup themes from handoff (not commitments):
 
 ```
 ┌─ ROLE ──────────────────────────────────┐
+│  [opt] Update available: Get | Later    │
 │  Who is using this phone?               │
 │  ○ Caregiver   ○ Patient                │
 │                    [Continue]  [Exit]   │
@@ -350,4 +351,4 @@ Wizard reads live `BridgeScreenState` for sensor link, PC link, and Wi‑Fi IP h
 
 ---
 
-*Generated from Compose layout as of v1.0.0-beta.52; §7 wizard sketch added for β.54 work. Update when chrome changes.*
+*Generated from Compose layout as of v1.0.0-beta.66; §7 wizard sketch added for β.54 work. Update when chrome changes.*

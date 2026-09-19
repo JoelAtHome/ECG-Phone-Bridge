@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -217,8 +218,11 @@ internal fun StartupWizardOverlay(
     onDisconnectSensor: () -> Unit,
     onStartSession: () -> Unit,
     onFinished: (markCompleted: Boolean) -> Unit,
+    availableUpdate: AvailableAppUpdate?,
+    onAvailableUpdateChange: (AvailableAppUpdate?) -> Unit,
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     var role by remember { mutableStateOf(initialRole) }
     var job by remember {
         mutableStateOf(
@@ -399,9 +403,26 @@ internal fun StartupWizardOverlay(
                         WindowInsets.statusBars.union(
                             WindowInsets.displayCutout.only(WindowInsetsSides.Top),
                         ),
-                    )
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    ),
         ) {
+            val update = availableUpdate
+            if (update != null) {
+                AppUpdateBanner(
+                    update = update,
+                    onGetUpdate = { uriHandler.openUri(update.releaseUrl) },
+                    onLater = {
+                        dismissAvailableAppUpdate(context, update.tagName)
+                        onAvailableUpdateChange(null)
+                    },
+                )
+            }
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+            ) {
             Text(
                 text = "Start session",
                 fontWeight = FontWeight.SemiBold,
@@ -830,6 +851,7 @@ internal fun StartupWizardOverlay(
                         }
                     }
                 }
+            }
             }
         }
     }
