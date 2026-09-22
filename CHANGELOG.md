@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.71
+- fix: A PC that disappears without a clean TCP close (HnH closed, killed, or Wi-Fi dropped) no longer leaves the phone showing Connected. Unacked data aborts the socket after 45s, and a failed write clears the connected state. A normal HnH disconnect still drops immediately.
+- fix: **Find sensor** (startup wizard and the data-path sensor control) stays gray and inactive while a sensor search is in progress.
+
 ## Version 1.0.0-beta.70
 - enhancement: Live `rr` and `ecg` lines include `source_device` (`FEATHER` or `POLAR_H10`) so hosts can name the ECG sensor from the stream itself.
 - fix: On PC connect, replay the current Feather lead-off snapshot so a host that joins while leads are already open shows “check electrodes” instead of sitting on “Signal identifying” with no ECG or beats.

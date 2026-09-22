@@ -17,7 +17,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.system.Os
+import android.system.OsConstants
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -165,6 +168,13 @@ private const val BLE_RSSI_STALE_REARM_MS = 4_000L
 private const val BLE_RSSI_POLAR_BURST_MS = 3_500L
 /** App-level TCP traffic so idle Wi-Fi/NAT paths do not drop a quiet PC link (~60s). */
 private const val BRIDGE_LINK_PING_MS = 10_000L
+/**
+ * Abort the PC socket if sent bytes stay unacked this long. Without it, a host
+ * that vanishes without FIN/RST (process kill, sleep, Wi-Fi drop) stays
+ * "connected" until the kernel retransmit limit, often many minutes. Pings
+ * every [BRIDGE_LINK_PING_MS] give the stack data to time out.
+ */
+private const val BRIDGE_TCP_USER_TIMEOUT_MS = 45_000
 /**
  * Scan probes open TCP and close without sending a line. Wait this long before
  * discarding them. A real host sends client_info immediately.
@@ -1729,6 +1739,7 @@ class MainActivity : ComponentActivity() {
         val client = bridgeClient ?: return
         val payload = (json + "\n").toByteArray(Charsets.UTF_8)
         bridgeWriteExecutor.execute {
+            var failed = false
             synchronized(writerLock) {
                 if (bridgeClient !== client) return@execute
                 try {
@@ -1737,16 +1748,22 @@ class MainActivity : ComponentActivity() {
                     out.flush()
                 } catch (e: Exception) {
                     Log.e("HnHBridge", "bridge write failed", e)
-                    closeBridgeClient(client, "write failed")
+                    failed = true
                 }
             }
+            if (failed) detachLiveBridgeClient(client, "write failed")
         }
     }
 
-    /** Drop a dead PC socket so accept() can take the next host. PrintWriter swallows IO errors. */
-    private fun closeBridgeClient(client: Socket, reason: String) {
+    /**
+     * Drop [client] when it is still the live PC link, and clear the connected UI.
+     * A failed write used to null the socket and leave [pcBridgeConnected] set:
+     * the read loop then saw a different current client and skipped its UI update,
+     * so the phone kept showing Hertz & Hearts after the TCP path was already dead.
+     */
+    private fun detachLiveBridgeClient(client: Socket, reason: String): Boolean {
         synchronized(writerLock) {
-            if (bridgeClient !== client) return
+            if (bridgeClient !== client) return false
             Log.d("HnHBridge", "closing PC socket: $reason")
             bridgeWriter = null
             bridgeClient = null
@@ -1754,6 +1771,41 @@ class MainActivity : ComponentActivity() {
         try {
             client.close()
         } catch (_: Exception) {
+        }
+        mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+        mainHandler.removeCallbacks(bridgeLinkPingRunnable)
+        releaseBridgeWifiLock()
+        ritualAutoPushSentSessionId = null
+        mainHandler.post {
+            updateScreen {
+                it.copy(
+                    pcBridgeConnected = false,
+                    pcBridgeIp = null,
+                    pcBridgeUserName = null,
+                    pcClientApp = null,
+                    featherProfileHintPending = null,
+                )
+            }
+            refreshFeatherProfileUi(status = "PC disconnected")
+            syncSessionUiFromController()
+        }
+        Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
+        return true
+    }
+
+    /** Fail a half-open PC link in about [BRIDGE_TCP_USER_TIMEOUT_MS], not many minutes. */
+    private fun armBridgeTcpUserTimeout(client: Socket) {
+        try {
+            ParcelFileDescriptor.fromSocket(client).use { pfd ->
+                Os.setsockoptInt(
+                    pfd.fileDescriptor,
+                    OsConstants.IPPROTO_TCP,
+                    OsConstants.TCP_USER_TIMEOUT,
+                    BRIDGE_TCP_USER_TIMEOUT_MS,
+                )
+            }
+        } catch (e: Exception) {
+            Log.d("HnHBridge", "TCP user timeout not set: ${e.message}")
         }
     }
 
@@ -1765,6 +1817,7 @@ class MainActivity : ComponentActivity() {
     private fun observeInboundClient(client: Socket) {
         client.keepAlive = true
         client.tcpNoDelay = true
+        armBridgeTcpUserTimeout(client)
         try {
             client.soTimeout = BRIDGE_PROVISIONAL_READ_MS
         } catch (_: Exception) {
@@ -1919,37 +1972,11 @@ class MainActivity : ComponentActivity() {
                 Log.d("HnHBridge", "TCP probe ended: ${e.message}")
             }
         } finally {
-            val droppedCurrent: Boolean
-            synchronized(writerLock) {
-                droppedCurrent = bridgeClient === client
-                if (droppedCurrent) {
-                    bridgeWriter = null
-                    bridgeClient = null
+            if (!detachLiveBridgeClient(client, "read ended")) {
+                try {
+                    client.close()
+                } catch (_: Exception) {
                 }
-            }
-            try {
-                client.close()
-            } catch (_: Exception) {
-            }
-            if (droppedCurrent) {
-                mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
-                mainHandler.removeCallbacks(bridgeLinkPingRunnable)
-                releaseBridgeWifiLock()
-                ritualAutoPushSentSessionId = null
-                mainHandler.post {
-                    updateScreen {
-                        it.copy(
-                            pcBridgeConnected = false,
-                            pcBridgeIp = null,
-                            pcBridgeUserName = null,
-                            pcClientApp = null,
-                            featherProfileHintPending = null,
-                        )
-                    }
-                    refreshFeatherProfileUi(status = "PC disconnected")
-                    syncSessionUiFromController()
-                }
-                Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
             }
         }
     }
@@ -3487,6 +3514,47 @@ private fun BridgeMainScreen(
     var showSourcePicker by remember { mutableStateOf(false) }
     var showConnectedSensorActions by remember { mutableStateOf(false) }
     var showSimBlocked by remember { mutableStateOf(false) }
+    var findTapPending by remember { mutableStateOf(false) }
+    val latestFindState by rememberUpdatedState(state)
+    LaunchedEffect(findTapPending) {
+        if (!findTapPending) return@LaunchedEffect
+        var sawBusy = false
+        var ticks = 0
+        while (findTapPending) {
+            val current = latestFindState
+            if (current.diagramSourceActive()) {
+                findTapPending = false
+                break
+            }
+            val busy =
+                current.bleScanning ||
+                    current.bleConnecting ||
+                    (
+                        current.selectedSourceKind == SourceKind.Feather &&
+                            featherPhaseIsBusy(current.featherBlePhase) &&
+                            !current.featherBleConnected
+                    )
+            if (busy) sawBusy = true
+            if ((sawBusy && !busy) || (ticks >= 16 && !sawBusy)) {
+                findTapPending = false
+                break
+            }
+            delay(50)
+            ticks++
+        }
+    }
+    val lookingForSensor =
+        !state.diagramSourceActive() &&
+            (
+                findTapPending ||
+                    state.bleScanning ||
+                    state.bleConnecting ||
+                    (
+                        state.selectedSourceKind == SourceKind.Feather &&
+                            featherPhaseIsBusy(state.featherBlePhase) &&
+                            !state.featherBleConnected
+                    )
+            )
     LaunchedEffect(state.phoneWifiIpv4, ipHintRefreshSession) {
         connectHintIpv4 = null
         var best: String? = null
@@ -3783,6 +3851,7 @@ private fun BridgeMainScreen(
                     pcBridgeIp = state.pcBridgeIp,
                     pcBridgeUserName = state.pcBridgeUserName,
                     pcClientApp = state.pcClientApp,
+                    findingSource = lookingForSensor,
                     onFindSource = {
                         if (state.diagramSourceActive()) {
                             showConnectedSensorActions = true
@@ -3792,6 +3861,7 @@ private fun BridgeMainScreen(
                         ) {
                             showSimBlocked = true
                         } else {
+                            findTapPending = true
                             onFindSource()
                         }
                     },

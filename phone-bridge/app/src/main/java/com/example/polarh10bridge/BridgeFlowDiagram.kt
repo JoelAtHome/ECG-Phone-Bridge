@@ -91,6 +91,7 @@ internal fun BridgeFlowDiagram(
     pcBridgeIp: String? = null,
     pcBridgeUserName: String?,
     pcClientApp: String? = null,
+    findingSource: Boolean = false,
     onFindSource: () -> Unit,
     onChangeSource: () -> Unit,
     modifier: Modifier = Modifier,
@@ -239,6 +240,7 @@ internal fun BridgeFlowDiagram(
 
         Button(
             onClick = onFindSource,
+            enabled = !findingSource,
             modifier =
                 Modifier
                     .fillMaxWidth(0.86f),
@@ -247,8 +249,14 @@ internal fun BridgeFlowDiagram(
                 ButtonDefaults.buttonColors(
                     containerColor = sourceBg,
                     contentColor = DiagramTextDark,
+                    disabledContainerColor = Color(0xFFE0E0E0),
+                    disabledContentColor = Color(0xFF9E9E9E),
                 ),
-            border = androidx.compose.foundation.BorderStroke(3.dp, sourceBorder),
+            border =
+                androidx.compose.foundation.BorderStroke(
+                    3.dp,
+                    if (findingSource) DiagramLineInactive else sourceBorder,
+                ),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 7.dp, horizontal = 12.dp),
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -278,7 +286,9 @@ internal fun BridgeFlowDiagram(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color =
-                        if (sourceLinked) {
+                        if (findingSource) {
+                            Color(0xFF9E9E9E)
+                        } else if (sourceLinked) {
                             // Sim: pill bg/border already pulses — keep label solid.
                             // Live Polar/Feather: soft label alpha pulse.
                             if (sourceKind == SourceKind.Simulate) {

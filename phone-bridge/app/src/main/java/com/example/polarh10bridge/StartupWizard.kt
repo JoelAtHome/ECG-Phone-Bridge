@@ -338,6 +338,50 @@ internal fun StartupWizardOverlay(
             SourceKind.Feather -> state.featherBleConnected
             SourceKind.Simulate -> state.featherSimActive
         }
+    val latestWizardState by rememberUpdatedState(state)
+    val latestSensorKind by rememberUpdatedState(sensorKind)
+    val latestSensorLinked by rememberUpdatedState(sensorLinked)
+    // Find sensor stays gray until the posted scan actually finishes (or never starts).
+    LaunchedEffect(findPressed) {
+        if (!findPressed) return@LaunchedEffect
+        var sawBusy = false
+        var ticks = 0
+        val phaseAtStart = latestWizardState.featherBlePhase
+        while (findPressed) {
+            val current = latestWizardState
+            val kind = latestSensorKind
+            val busy =
+                when (kind) {
+                    SourceKind.PolarH10 -> current.bleScanning || current.bleConnecting
+                    SourceKind.Feather -> featherPhaseIsBusy(current.featherBlePhase)
+                    SourceKind.Simulate -> false
+                }
+            val simStarted = kind == SourceKind.Simulate && current.featherSimActive
+            if (latestSensorLinked || simStarted) {
+                findPressed = false
+                break
+            }
+            if (busy) sawBusy = true
+            val featherFailed =
+                kind == SourceKind.Feather &&
+                    current.featherBlePhase == "Error" &&
+                    current.featherBlePhase != phaseAtStart
+            val gaveUp = featherFailed || (sawBusy && !busy) || (ticks >= 16 && !sawBusy)
+            if (gaveUp) {
+                findPressed = false
+                break
+            }
+            delay(50)
+            ticks++
+        }
+    }
+    val lookingForSensor =
+        findPressed ||
+            when (sensorKind) {
+                SourceKind.PolarH10 -> state.bleScanning || state.bleConnecting
+                SourceKind.Feather -> featherPhaseIsBusy(state.featherBlePhase) && !sensorLinked
+                SourceKind.Simulate -> false
+            }
 
     fun stepAfterJobOrRoleTowardCapture(): WizardStep =
         when {
@@ -595,7 +639,14 @@ internal fun StartupWizardOverlay(
                                     findPressed = true
                                     onFindSource()
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = BannerRed),
+                                enabled = !lookingForSensor,
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = BannerRed,
+                                        contentColor = Color.White,
+                                        disabledContainerColor = Color(0xFFBDBDBD),
+                                        disabledContentColor = Color(0xFF757575),
+                                    ),
                             ) {
                                 Text("Find sensor", maxLines = 1, softWrap = false)
                             }
