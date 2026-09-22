@@ -168,6 +168,8 @@ Same object; new fields optional so old HnH still works:
 
 Optional on Feather ECG notifies (packet v2+): `peak_flags` — parallel `0`/`1` array marking lookback R-peak samples (same length as `samples_mv`). Absent or all zeros on Polar / legacy Feather.
 
+Live `rr` and `ecg` lines include optional `source_device` (`FEATHER` or `POLAR_H10`). Older hosts ignore it. Hosts that name the sensor in a report should remember the last value for the open session; a disconnect clears the live socket copy.
+
 | `sensor_quality` field | Meaning |
 
 |------------------------|---------|

@@ -4,6 +4,12 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.70
+- enhancement: Live `rr` and `ecg` lines include `source_device` (`FEATHER` or `POLAR_H10`) so hosts can name the ECG sensor from the stream itself.
+- fix: On PC connect, replay the current Feather lead-off snapshot so a host that joins while leads are already open shows “check electrodes” instead of sitting on “Signal identifying” with no ECG or beats.
+- fix: A TCP connect that never sends a line (HnH / VNS-TA Scan probes) no longer replaces the live PC socket, so Hertz & Hearts is not kicked off with “remote closed connection.”
+- fix: While a PC is linked, send a small `ping` every 10s and hold a Wi-Fi lock so an idle link is not dropped after about a minute.
+
 ## Version 1.0.0-beta.69
 - enhancement: When Feather `use_leads_off && leads_off`, Tech ECG strip still updates but live NDJSON `ecg` and ritual ECG buffering are gated (mirrors Polar contact gate for waveform only; IBI stays MCU-quiet).
 

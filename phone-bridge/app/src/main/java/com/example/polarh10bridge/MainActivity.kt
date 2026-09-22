@@ -125,6 +125,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -162,6 +163,13 @@ private const val BLE_RSSI_RESUBSCRIBE_MS = 2_000L
 private const val BLE_RSSI_STALE_REARM_MS = 4_000L
 /** Polar-only fallback: short burst scan when we have no BLE address to match (rare). */
 private const val BLE_RSSI_POLAR_BURST_MS = 3_500L
+/** App-level TCP traffic so idle Wi-Fi/NAT paths do not drop a quiet PC link (~60s). */
+private const val BRIDGE_LINK_PING_MS = 10_000L
+/**
+ * Scan probes open TCP and close without sending a line. Wait this long before
+ * discarding them. A real host sends client_info immediately.
+ */
+private const val BRIDGE_PROVISIONAL_READ_MS = 8_000
 /** Min time between on-screen connected-sensor dBm updates (scan may run faster). */
 private const val BLE_RSSI_UI_THROTTLE_MS = 1_500L
 
@@ -322,8 +330,11 @@ class MainActivity : ComponentActivity() {
     private val discoveryExecutor = Executors.newSingleThreadExecutor()
     /** Socket writes must not run on the UI thread (NetworkOnMainThreadException drops Stop). */
     private val bridgeWriteExecutor = Executors.newSingleThreadExecutor()
-    /** Inbound PC lines; kept off the accept thread so a new host can replace a stuck socket. */
-    private val bridgeReadExecutor = Executors.newSingleThreadExecutor()
+    /**
+     * One reader thread per PC socket. A Scan probe must be readable while the live
+     * host is still blocked in readLine(); a single thread cannot do both.
+     */
+    private val bridgeReadExecutor = Executors.newCachedThreadPool()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var rrStreamingStarted = false
@@ -441,10 +452,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    /** Keeps the PC TCP path warm when no ECG/RR is flowing. Hosts ignore type ping. */
+    private val bridgeLinkPingRunnable =
+        object : Runnable {
+            override fun run() {
+                if (bridgeClient == null) return
+                sendBridgeJsonLine("""{"type":"ping","role":"phone"}""")
+                if (bridgeClient != null) {
+                    mainHandler.postDelayed(this, BRIDGE_LINK_PING_MS)
+                }
+            }
+        }
+
     @Volatile
     private var bridgeWriter: java.io.PrintWriter? = null
     @Volatile
     private var bridgeClient: Socket? = null
+    private var bridgeWifiLock: WifiManager.WifiLock? = null
 
     private val discoverySocketLock = Any()
     @Volatile
@@ -1148,11 +1172,22 @@ class MainActivity : ComponentActivity() {
         sendBridgeJsonLine(snap.toStatusJson(connected = true))
     }
 
+    /** Live beats carry source_device so hosts can name the sensor without a session_state line. */
+    private fun sendSourceRrLine(rr: Int) {
+        sendBridgeJsonLine(
+            JSONObject()
+                .put("type", "rr")
+                .put("rr_ms", rr)
+                .put("source_device", sourceDeviceWire())
+                .toString(),
+        )
+    }
+
     private fun ingestSourceRrMs(rr: Int, updateHrEveryBeat: Boolean = false) {
         if (rr <= 0) return
         val now = SystemClock.elapsedRealtime()
         sessionController.onRrMs(rr, now)
-        sendBridgeJsonLine("""{"type":"rr","rr_ms":$rr}""")
+        sendSourceRrLine(rr)
         val rolling =
             sessionController.maybeRollingRmssdJson(
                 now,
@@ -1247,7 +1282,7 @@ class MainActivity : ComponentActivity() {
         val peaksJson =
             peaksAligned.joinToString(prefix = "[", postfix = "]") { if (it) "1" else "0" }
         sendBridgeJsonLine(
-            """{"type":"ecg","sample_rate_hz":$hz,"samples_mv":$samplesJson,"peak_flags":$peaksJson}""",
+            """{"type":"ecg","source_device":"${sourceDeviceWire()}","sample_rate_hz":$hz,"samples_mv":$samplesJson,"peak_flags":$peaksJson}""",
         )
         sessionController.onEcgMv(hz, samplesMv)
     }
@@ -1554,6 +1589,8 @@ class MainActivity : ComponentActivity() {
             }
             bridgeClient = null
             bridgeWriter = null
+            mainHandler.removeCallbacks(bridgeLinkPingRunnable)
+            releaseBridgeWifiLock()
             try {
                 bridgeServerSocket?.close()
             } catch (_: Exception) {
@@ -1721,17 +1758,27 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * One PC at a time with **replace** policy: a new inbound TCP connection
-     * closes the previous host socket so a restarted HnH/FT can recover without
-     * force-stopping this app. Capture on the phone is unchanged.
+     * Accept the socket but do not make it the live PC link until it sends a line.
+     * HnH/VNS-TA Scan opens TCP and closes immediately; that must not kick a live host.
+     * A restarted host sends client_info and then replaces a stuck socket.
      */
-    private fun attachBridgeClient(client: Socket) {
+    private fun observeInboundClient(client: Socket) {
         client.keepAlive = true
         client.tcpNoDelay = true
-        Log.d("HnHBridge", "PC connected from ${client.inetAddress.hostAddress}")
-
         try {
-            val previous = synchronized(writerLock) {
+            client.soTimeout = BRIDGE_PROVISIONAL_READ_MS
+        } catch (_: Exception) {
+        }
+        Log.d("HnHBridge", "TCP accept from ${client.inetAddress?.hostAddress}")
+        bridgeReadExecutor.execute { runBridgeClientSession(client) }
+    }
+
+    /** Promote [client] to the one PC link and close the previous host socket. */
+    private fun commitBridgeClient(client: Socket): Boolean {
+        val previous: Socket?
+        try {
+            previous = synchronized(writerLock) {
+                if (client.isClosed) return false
                 val writer = java.io.PrintWriter(
                     java.io.OutputStreamWriter(client.getOutputStream(), Charsets.UTF_8),
                     true,
@@ -1741,8 +1788,15 @@ class MainActivity : ComponentActivity() {
                 bridgeWriter = writer
                 old
             }
+            try {
+                client.soTimeout = 0
+            } catch (_: Exception) {
+            }
             if (previous != null && previous !== client) {
-                Log.d("HnHBridge", "replacing previous PC socket (${previous.inetAddress?.hostAddress})")
+                Log.d(
+                    "HnHBridge",
+                    "replacing previous PC socket (${previous.inetAddress?.hostAddress})",
+                )
                 try {
                     previous.close()
                 } catch (_: Exception) {
@@ -1754,9 +1808,19 @@ class MainActivity : ComponentActivity() {
                 client.close()
             } catch (_: Exception) {
             }
-            return
+            synchronized(writerLock) {
+                if (bridgeClient === client) {
+                    bridgeWriter = null
+                    bridgeClient = null
+                }
+            }
+            return false
         }
 
+        Log.d("HnHBridge", "PC session from ${client.inetAddress?.hostAddress}")
+        acquireBridgeWifiLock()
+        mainHandler.removeCallbacks(bridgeLinkPingRunnable)
+        mainHandler.postDelayed(bridgeLinkPingRunnable, BRIDGE_LINK_PING_MS)
         mainHandler.post {
             screenState.value =
                 screenState.value.copy(
@@ -1784,6 +1848,11 @@ class MainActivity : ComponentActivity() {
                     sendSensorQualityLine(known)
                 }
             }
+        // Lead-off is edge-triggered. A host that connects after the edge
+        // (leads already open) must still see the current snapshot.
+        featherLeadOffTracker.last()?.let { snap ->
+            sendBridgeJsonLine(snap.toStatusJson(connected = true))
+        }
         if (sessionController.isActive()) {
             sendBridgeJsonLine(sessionController.sessionStateJson().toString())
             mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
@@ -1799,13 +1868,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
-        bridgeReadExecutor.execute { runBridgeClientSession(client) }
+        return true
     }
 
     private fun runBridgeClientSession(client: Socket) {
+        var committed = false
         try {
             val input = client.getInputStream().bufferedReader(Charsets.UTF_8)
+            var first = input.readLine()
+            while (first != null && first.isBlank()) {
+                first = input.readLine()
+            }
+            if (first == null) {
+                Log.d(
+                    "HnHBridge",
+                    "ignoring TCP client with no data (${client.inetAddress?.hostAddress})",
+                )
+                return
+            }
+            if (!commitBridgeClient(client)) return
+            committed = true
+            handlePcBridgeInboundLine(first)
             while (true) {
                 val line = input.readLine()
                 if (line == null) {
@@ -1814,10 +1897,27 @@ class MainActivity : ComponentActivity() {
                 }
                 handlePcBridgeInboundLine(line)
             }
+        } catch (e: SocketTimeoutException) {
+            if (!committed) {
+                Log.d(
+                    "HnHBridge",
+                    "ignoring silent TCP client (${client.inetAddress?.hostAddress})",
+                )
+            } else {
+                Log.d("HnHBridge", "TCP read timeout: ${e.message}")
+            }
         } catch (e: SocketException) {
-            Log.d("HnHBridge", "TCP connection lost: ${e.message}")
+            if (committed) {
+                Log.d("HnHBridge", "TCP connection lost: ${e.message}")
+            } else {
+                Log.d("HnHBridge", "TCP probe closed: ${e.message}")
+            }
         } catch (e: Exception) {
-            Log.e("HnHBridge", "TCP read error", e)
+            if (committed) {
+                Log.e("HnHBridge", "TCP read error", e)
+            } else {
+                Log.d("HnHBridge", "TCP probe ended: ${e.message}")
+            }
         } finally {
             val droppedCurrent: Boolean
             synchronized(writerLock) {
@@ -1833,6 +1933,8 @@ class MainActivity : ComponentActivity() {
             }
             if (droppedCurrent) {
                 mainHandler.removeCallbacks(ritualClientInfoFallbackRunnable)
+                mainHandler.removeCallbacks(bridgeLinkPingRunnable)
+                releaseBridgeWifiLock()
                 ritualAutoPushSentSessionId = null
                 mainHandler.post {
                     updateScreen {
@@ -1849,6 +1951,36 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.d("HnHBridge", "PC bridge TCP closed (capture continues on phone until Stop)")
             }
+        }
+    }
+
+    private fun acquireBridgeWifiLock() {
+        try {
+            val lock = bridgeWifiLock ?: run {
+                val wm = applicationContext.getSystemService(WifiManager::class.java) ?: return
+                val mode =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                    }
+                wm.createWifiLock(mode, "ecg-phone-bridge-link").also {
+                    it.setReferenceCounted(false)
+                    bridgeWifiLock = it
+                }
+            }
+            if (!lock.isHeld) lock.acquire()
+        } catch (e: Exception) {
+            Log.d("HnHBridge", "Wi-Fi lock not acquired: ${e.message}")
+        }
+    }
+
+    private fun releaseBridgeWifiLock() {
+        try {
+            val lock = bridgeWifiLock ?: return
+            if (lock.isHeld) lock.release()
+        } catch (_: Exception) {
         }
     }
 
@@ -2890,7 +3022,7 @@ class MainActivity : ComponentActivity() {
                                             if (rr > 0) {
                                                 val now = SystemClock.elapsedRealtime()
                                                 sessionController.onRrMs(rr, now)
-                                                sendBridgeJsonLine("""{"type":"rr","rr_ms":$rr}""")
+                                                sendSourceRrLine(rr)
                                                 val rolling =
                                                     sessionController.maybeRollingRmssdJson(
                                                         now,
@@ -2955,7 +3087,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 val batch = if (samplesMv.size > 130) samplesMv.takeLast(130) else samplesMv
-                                val json = """{"type":"ecg","sample_rate_hz":130,"samples_mv":$batch}"""
+                                val json =
+                                    """{"type":"ecg","source_device":"${sourceDeviceWire()}","sample_rate_hz":130,"samples_mv":$batch}"""
                                 sendBridgeJsonLine(json)
                                 sessionController.onEcgMv(130, batch)
                                 Log.d("HnHBridge", "ECG batch sent size=${batch.size}")
@@ -3053,9 +3186,9 @@ class MainActivity : ComponentActivity() {
                         Log.d("HnHBridge", "TCP listening on port $listenPort")
 
                         while (!Thread.currentThread().isInterrupted) {
-                            // Keep accept() free so a restarted PC can replace a half-open host.
+                            // Keep accept() free. Probes are ignored; a host that sends a line replaces.
                             val client = server.accept()
-                            attachBridgeClient(client)
+                            observeInboundClient(client)
                         }
                     }
                 } catch (e: Exception) {
@@ -3272,6 +3405,8 @@ class MainActivity : ComponentActivity() {
         stopConnectedRssiPolling()
 
         mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
+        mainHandler.removeCallbacks(bridgeLinkPingRunnable)
+        releaseBridgeWifiLock()
         bridgeClient?.let { client ->
             try {
                 client.close()
