@@ -26,6 +26,9 @@ data class RitualPackage(
     val rmssdJson: String?,
     val sessionStateJson: String?,
     val acked: Boolean = false,
+    /** Feather patient profile active at Record Stop. Absent on older packages. */
+    val profileId: String? = null,
+    val profileDisplayName: String? = null,
 ) {
     val hasEcg: Boolean get() = ecgUv.isNotEmpty()
     val ibiCount: Int get() = ibiMs.size
@@ -85,6 +88,10 @@ data class RitualPackage(
                 },
             )
             .put("acked", acked)
+            .apply {
+                profileId?.takeIf { it.isNotBlank() }?.let { put("profile_id", it) }
+                profileDisplayName?.takeIf { it.isNotBlank() }?.let { put("profile_display_name", it) }
+            }
     }
 
     override fun equals(other: Any?): Boolean {
@@ -103,13 +110,17 @@ data class RitualPackage(
             ecgTruncated == other.ecgTruncated &&
             rmssdJson == other.rmssdJson &&
             sessionStateJson == other.sessionStateJson &&
-            acked == other.acked
+            acked == other.acked &&
+            profileId == other.profileId &&
+            profileDisplayName == other.profileDisplayName
     }
 
     override fun hashCode(): Int {
         var result = sessionId.hashCode()
         result = 31 * result + ecgUv.contentHashCode()
         result = 31 * result + acked.hashCode()
+        result = 31 * result + (profileId?.hashCode() ?: 0)
+        result = 31 * result + (profileDisplayName?.hashCode() ?: 0)
         return result
     }
 
@@ -148,6 +159,8 @@ data class RitualPackage(
                 rmssdJson = rmssdObj?.toString(),
                 sessionStateJson = stateObj?.toString(),
                 acked = obj.optBoolean("acked", false),
+                profileId = obj.optString("profile_id", "").trim().ifEmpty { null },
+                profileDisplayName = obj.optString("profile_display_name", "").trim().ifEmpty { null },
             )
         }
 

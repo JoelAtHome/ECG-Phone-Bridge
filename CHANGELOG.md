@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.73
+- enhancement: Capture panel lists each saved HRV recording (time, RMSSD, duration, patient, sent or pending) with **Send** and **Delete**. Record Stop stores the active patient profile. Hosts can request the same list with `ritual_list` (PROTOCOL §7). A `ritual_request` with no `session_id` is unchanged.
+- enhancement: A `ritual_request` that names a `session_id` the phone does not have gets `ritual_unavailable` (`reason: not_found`) instead of silence. A request with no id is unchanged, including when nothing is stored.
+
 ## Version 1.0.0-beta.72
 - polish: Capture panel states that the phone keeps the last 5 HRV recordings, with how many are stored and how many more can be stored. Record Stop toast reports the same counts (and still says to upload in FT or HnH when no PC is connected). At 5, both say the next recording replaces the oldest.
 

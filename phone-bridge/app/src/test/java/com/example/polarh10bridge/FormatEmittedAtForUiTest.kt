@@ -1,5 +1,6 @@
 package com.example.polarh10bridge
 
+import com.example.polarh10bridge.ritual.RitualRecordingSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,6 +21,25 @@ class FormatEmittedAtForUiTest {
     @Test
     fun invalidFallsBackToTruncated() {
         assertEquals("not-an-instant-valu", formatEmittedAtForUi("not-an-instant-value"))
+    }
+
+    @Test
+    fun recordingRow_isOneCompactLine() {
+        assertEquals("3:01", formatDurationForUi(181.2))
+        val label =
+            hrvRecordingRowLabel(
+                RitualRecordingSummary(
+                    sessionId = "s",
+                    acked = false,
+                    rmssdMs = 42.4,
+                    emittedAt = "2026-09-25T15:14:00Z",
+                    durationS = 181.0,
+                    profileId = "patient-2",
+                    profileDisplayName = "Joel",
+                ),
+            )
+        assertTrue(label.endsWith(" · 42 ms · 3:01 · Joel · pending"))
+        assertTrue(label.startsWith("2026-09-25 "))
     }
 
     @Test

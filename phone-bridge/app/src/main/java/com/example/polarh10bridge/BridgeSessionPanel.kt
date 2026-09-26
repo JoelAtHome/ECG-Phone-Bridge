@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.RadioButton
@@ -15,14 +17,20 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.polarh10bridge.ritual.RitualPackageStore
+import com.example.polarh10bridge.ritual.RitualRecordingSummary
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -76,6 +84,31 @@ private fun hrvStorageCounts(stored: Int, max: Int): String {
     return "$kept stored, $remaining more can be stored"
 }
 
+/** `m:ss` for a saved recording. Hours roll into the minute count (`125:00`). */
+internal fun formatDurationForUi(durationS: Double): String {
+    if (durationS.isNaN()) return "0:00"
+    val seconds = durationS.toLong().coerceIn(0L, 24L * 60L * 60L)
+    return String.format(Locale.US, "%d:%02d", seconds / 60L, seconds % 60L)
+}
+
+/** One Capture-panel line: time, RMSSD, duration, patient, sent or pending. */
+internal fun hrvRecordingRowLabel(row: RitualRecordingSummary): String {
+    val parts = ArrayList<String>(5)
+    val whenLabel = formatEmittedAtForUi(row.emittedAt).ifBlank { "—" }
+    parts.add(whenLabel)
+    parts.add(
+        if (row.rmssdMs != null) {
+            String.format(Locale.US, "%.0f ms", row.rmssdMs)
+        } else {
+            "— ms"
+        },
+    )
+    parts.add(formatDurationForUi(row.durationS))
+    row.profileDisplayName?.trim()?.takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+    parts.add(if (row.acked) "sent" else "pending")
+    return parts.joinToString(" · ")
+}
+
 /** Wire `emitted_at` is UTC ISO; show device-local wall time for caregivers. */
 internal fun formatEmittedAtForUi(raw: String): String {
     val trimmed = raw.trim()
@@ -103,18 +136,18 @@ fun BridgeSessionPanel(
     featherSimActive: Boolean = false,
     /** Live Feather GATT client connected/streaming. */
     featherBleConnected: Boolean = false,
-    lastRitualSessionId: String? = null,
-    lastRitualAcked: Boolean = false,
-    lastRitualRmssdMs: Double? = null,
-    lastRitualEmittedAt: String? = null,
+    ritualRecordings: List<RitualRecordingSummary> = emptyList(),
     ritualStoredCount: Int = 0,
     onModeSelected: (BridgeSessionMode) -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onSendLastRitual: (() -> Unit)? = null,
+    onSendRitual: (String) -> Unit = {},
+    onDeleteRitual: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val canStart = !active && (sensorConnected || featherSimActive || featherBleConnected)
+    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    val pendingDelete = ritualRecordings.firstOrNull { it.sessionId == pendingDeleteId }
     Column(
         modifier =
             modifier
@@ -202,45 +235,74 @@ fun BridgeSessionPanel(
             modifier = Modifier.padding(bottom = 4.dp),
         )
 
-        if (!lastRitualSessionId.isNullOrBlank()) {
+        ritualRecordings.forEach { row ->
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 6.dp),
+                        .padding(bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text =
-                        buildString {
-                            append("Last HRV · ")
-                            append(if (lastRitualAcked) "sent" else "pending")
-                            lastRitualRmssdMs?.let {
-                                append(" · ")
-                                append(String.format(Locale.US, "%.0f ms", it))
-                            }
-                            lastRitualEmittedAt?.takeIf { it.isNotBlank() }?.let { at ->
-                                append(" · ")
-                                append(formatEmittedAtForUi(at))
-                            }
-                        },
-                    color = SessionTextDark.copy(alpha = 0.62f),
+                    text = hrvRecordingRowLabel(row),
+                    color = SessionTextDark.copy(alpha = 0.75f),
                     fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                if (onSendLastRitual != null) {
-                    TextButton(
-                        onClick = onSendLastRitual,
-                        enabled = !active,
-                    ) {
-                        Text(
-                            "Send HRV",
-                            color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
-                            fontSize = 12.sp,
-                        )
-                    }
+                TextButton(
+                    onClick = { onSendRitual(row.sessionId) },
+                    enabled = !active,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text(
+                        "Send",
+                        color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                    )
+                }
+                TextButton(
+                    onClick = { pendingDeleteId = row.sessionId },
+                    enabled = !active,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text(
+                        "Delete",
+                        color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                    )
                 }
             }
+        }
+        if (pendingDelete != null) {
+            AlertDialog(
+                onDismissRequest = { pendingDeleteId = null },
+                title = { Text("Delete recording?") },
+                text = {
+                    Text(
+                        "Remove this recording from the phone.\n\n${hrvRecordingRowLabel(pendingDelete)}",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val id = pendingDelete.sessionId
+                            pendingDeleteId = null
+                            onDeleteRitual(id)
+                        },
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeleteId = null }) {
+                        Text("Cancel")
+                    }
+                },
+            )
         }
 
         if (!sensorConnected && !featherSimActive && !featherBleConnected) {

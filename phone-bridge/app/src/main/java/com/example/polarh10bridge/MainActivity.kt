@@ -326,11 +326,8 @@ internal data class BridgeScreenState(
     val selectedSourceKind: SourceKind = SourceKind.PolarH10,
     /** Feather Find overlay; hide without cancel keeps BLE work going. */
     val featherConnectOverlayVisible: Boolean = false,
-    /** Last Record ritual on disk (Tech line + Send). */
-    val lastRitualSessionId: String? = null,
-    val lastRitualAcked: Boolean = false,
-    val lastRitualRmssdMs: Double? = null,
-    val lastRitualEmittedAt: String? = null,
+    /** Saved Record packages on disk, newest first. */
+    val ritualRecordings: List<com.example.polarh10bridge.ritual.RitualRecordingSummary> = emptyList(),
     /** How many Record packages are on disk (ring cap is [com.example.polarh10bridge.ritual.RitualPackageStore.MAX_PACKAGES]). */
     val ritualStoredCount: Int = 0,
 )
@@ -1474,10 +1471,14 @@ class MainActivity : ComponentActivity() {
         if (!sessionController.isActive()) return
         mainHandler.removeCallbacks(bridgeWireKeepAliveRunnable)
         val wasRecord = sessionController.activeMode == BridgeSessionMode.Record
+        val profileId = screenState.value.featherActiveProfileId.trim().ifEmpty { null }
+        val profileName = screenState.value.featherActiveDisplayName.trim().ifEmpty { null }
         val result =
             sessionController.stop(
                 sourceDevice = sourceDeviceWire(),
                 nowElapsedMs = SystemClock.elapsedRealtime(),
+                profileId = profileId,
+                profileDisplayName = profileName,
             )
         val rmssdValue =
             result.rmssd?.optDouble("rmssd_ms", Double.NaN)?.takeIf { !it.isNaN() }
@@ -1509,15 +1510,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshRitualUiFromStore() {
-        val summary = ritualPackageStore?.summaryUi()
-        val stored = ritualPackageStore?.count() ?: 0
+        val recordings = ritualPackageStore?.summaries().orEmpty()
         updateScreen {
             it.copy(
-                lastRitualSessionId = summary?.sessionId,
-                lastRitualAcked = summary?.acked ?: false,
-                lastRitualRmssdMs = summary?.rmssdMs,
-                lastRitualEmittedAt = summary?.emittedAt,
-                ritualStoredCount = stored,
+                ritualRecordings = recordings,
+                ritualStoredCount = recordings.size,
             )
         }
     }
@@ -1554,22 +1551,41 @@ class MainActivity : ComponentActivity() {
         sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.DelayedPush)
     }
 
-    private fun sendLastRitualManual() {
+    private fun sendRitualById(sessionId: String) {
         val store = ritualPackageStore ?: return
-        val pkg = store.latest() ?: return
+        val pkg = store.get(sessionId) ?: return
+        if (bridgeClient == null) {
+            mainHandler.post {
+                Toast
+                    .makeText(
+                        this,
+                        "No PC connected — HRV stays on phone",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+            }
+            return
+        }
         sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.ManualSend)
         mainHandler.post {
             Toast
                 .makeText(
                     this,
-                    if (screenState.value.pcBridgeConnected) {
-                        "Sent HRV ${pkg.sessionId}"
-                    } else {
-                        "No PC connected — HRV stays on phone"
-                    },
+                    "Sent HRV ${pkg.sessionId}",
                     Toast.LENGTH_SHORT,
                 ).show()
         }
+    }
+
+    private fun deleteRitualRecording(sessionId: String) {
+        ritualPackageStore?.delete(sessionId)
+        refreshRitualUiFromStore()
+    }
+
+    private fun sendRitualCatalogToPc() {
+        val packages = ritualPackageStore?.list().orEmpty()
+        sendBridgeJsonLine(
+            com.example.polarh10bridge.ritual.RitualWireCodec.ritualList(packages).toString(),
+        )
     }
 
     private fun handleRitualAck(sessionId: String) {
@@ -1586,12 +1602,18 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
-        val pkg =
-            if (rawId != null) {
-                store.get(rawId)
-            } else {
-                store.latestUnacked() ?: store.latest()
-            } ?: return
+        if (rawId != null) {
+            val named = store.get(rawId)
+            if (named == null) {
+                sendBridgeJsonLine(
+                    com.example.polarh10bridge.ritual.RitualWireCodec.ritualUnavailable(rawId).toString(),
+                )
+                return
+            }
+            sendRitualPackage(named, com.example.polarh10bridge.ritual.RitualTransferReason.ManualSend)
+            return
+        }
+        val pkg = store.latestUnacked() ?: store.latest() ?: return
         sendRitualPackage(pkg, com.example.polarh10bridge.ritual.RitualTransferReason.ManualSend)
     }
 
@@ -2057,6 +2079,9 @@ class MainActivity : ComponentActivity() {
                 }
                 "ritual_request" -> {
                     mainHandler.post { handleRitualRequest(payload) }
+                }
+                "ritual_list" -> {
+                    mainHandler.post { sendRitualCatalogToPc() }
                 }
                 "session_control" -> {
                     when (payload.optString("action").lowercase(Locale.US)) {
@@ -2889,8 +2914,7 @@ class MainActivity : ComponentActivity() {
             activeProfile?.let {
                 com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
             }.orEmpty()
-        val ritualSummary = ritualPackageStore?.summaryUi()
-        val ritualStoredCount = ritualPackageStore?.count() ?: 0
+        val ritualRecordings = ritualPackageStore?.summaries().orEmpty()
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -2907,11 +2931,8 @@ class MainActivity : ComponentActivity() {
                 featherActiveDisplayName = activeProfile?.displayName ?: "Demo",
                 featherActiveCoeffs = activeCoeffs,
                 featherCoeffsEpoch = 1,
-                lastRitualSessionId = ritualSummary?.sessionId,
-                lastRitualAcked = ritualSummary?.acked ?: false,
-                lastRitualRmssdMs = ritualSummary?.rmssdMs,
-                lastRitualEmittedAt = ritualSummary?.emittedAt,
-                ritualStoredCount = ritualStoredCount,
+                ritualRecordings = ritualRecordings,
+                ritualStoredCount = ritualRecordings.size,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -3173,6 +3194,8 @@ class MainActivity : ComponentActivity() {
                                             "rmssd_snapshot",
                                             "feather_profiles",
                                             "ritual_persist",
+                                            "ritual_list",
+                                            "ritual_unavailable",
                                         ),
                                     ),
                                 )
@@ -3280,7 +3303,8 @@ class MainActivity : ComponentActivity() {
                     onSessionModeSelected = { mode -> setPreferredSessionMode(mode) },
                     onStartSession = { startBridgeSession() },
                     onStopSession = { stopBridgeSession() },
-                    onSendLastRitual = { sendLastRitualManual() },
+                    onSendRitual = { sessionId -> sendRitualById(sessionId) },
+                    onDeleteRitual = { sessionId -> deleteRitualRecording(sessionId) },
                     onToggleTechView = { setTechView(!screenState.value.techView) },
                     onOpenStartupWizard = { showStartupWizard = true },
                     onRefreshTechMeters = { refreshTechQualityUi() },
@@ -3494,7 +3518,8 @@ private fun BridgeMainScreen(
     onSessionModeSelected: (BridgeSessionMode) -> Unit,
     onStartSession: () -> Unit,
     onStopSession: () -> Unit,
-    onSendLastRitual: () -> Unit,
+    onSendRitual: (String) -> Unit,
+    onDeleteRitual: (String) -> Unit,
     onToggleTechView: () -> Unit,
     onOpenStartupWizard: () -> Unit,
     onRefreshTechMeters: () -> Unit,
@@ -3979,15 +4004,13 @@ private fun BridgeMainScreen(
                         sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
                         featherBleConnected = state.featherBleConnected,
-                        lastRitualSessionId = state.lastRitualSessionId,
-                        lastRitualAcked = state.lastRitualAcked,
-                        lastRitualRmssdMs = state.lastRitualRmssdMs,
-                        lastRitualEmittedAt = state.lastRitualEmittedAt,
+                        ritualRecordings = state.ritualRecordings,
                         ritualStoredCount = state.ritualStoredCount,
                         onModeSelected = onSessionModeSelected,
                         onStart = onStartSession,
                         onStop = onStopSession,
-                        onSendLastRitual = onSendLastRitual,
+                        onSendRitual = onSendRitual,
+                        onDeleteRitual = onDeleteRitual,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     TechSessionMeters(

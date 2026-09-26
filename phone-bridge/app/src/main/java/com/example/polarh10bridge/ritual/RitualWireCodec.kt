@@ -30,6 +30,45 @@ object RitualWireCodec {
             .put("transfer_reason", reason.wire)
             .apply {
                 pkg.rmssdMs?.let { put("rmssd_ms", it) }
+                pkg.profileId?.takeIf { it.isNotBlank() }?.let { put("profile_id", it) }
+                pkg.profileDisplayName?.takeIf { it.isNotBlank() }?.let {
+                    put("profile_display_name", it)
+                }
+            }
+
+    /** Host `ritual_list` reply. Order is newest first. Does not transfer IBI or ECG. */
+    fun ritualList(packages: List<RitualPackage>): JSONObject {
+        val recordings = JSONArray()
+        for (pkg in packages) {
+            recordings.put(catalogEntry(pkg))
+        }
+        return JSONObject()
+            .put("type", "ritual_list")
+            .put("recordings", recordings)
+    }
+
+    /**
+     * Reply when the host named a `session_id` and that package is not on the phone.
+     * A request with no id does not use this; an empty ring stays silent.
+     */
+    fun ritualUnavailable(sessionId: String): JSONObject =
+        JSONObject()
+            .put("type", "ritual_unavailable")
+            .put("session_id", sessionId)
+            .put("reason", "not_found")
+
+    fun catalogEntry(pkg: RitualPackage): JSONObject =
+        JSONObject()
+            .put("session_id", pkg.sessionId)
+            .put("emitted_at", pkg.emittedAt)
+            .put("duration_s", pkg.durationS)
+            .put("acked", pkg.acked)
+            .apply {
+                pkg.rmssdMs?.let { put("rmssd_ms", it) }
+                pkg.profileId?.takeIf { it.isNotBlank() }?.let { put("profile_id", it) }
+                pkg.profileDisplayName?.takeIf { it.isNotBlank() }?.let {
+                    put("profile_display_name", it)
+                }
             }
 
     /**

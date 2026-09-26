@@ -678,7 +678,11 @@ VNS-TA / ECG-Box Tuner: **no** auto-push. Manual send still allowed.
 
   "transfer_reason": "delayed_push",
 
-  "rmssd_ms": 52.0
+  "rmssd_ms": 52.0,
+
+  "profile_id": "patient-2",
+
+  "profile_display_name": "Joel"
 
 }
 
@@ -782,11 +786,85 @@ Then zero or more chunks (IBI first, then ECG), ~64–128 KiB of payload per lin
 
 
 
-`session_id: null` (or omit) = latest unacked, else latest package. Specific id requests that package even if already acked (re-send).
+`session_id: null` (or omit) = latest unacked, else latest package. Specific id requests that package even if already acked (re-send). This no-id behavior stays until Hertz & Hearts and FlareTracker both show the catalog picker.
 
 
 
-Discover `features` includes `"ritual_persist"`.
+**Host → phone — catalog**
+
+
+
+```json
+
+{"type":"ritual_list"}
+
+```
+
+
+
+**Phone → host — catalog** (newest first; no IBI or ECG)
+
+
+
+```json
+
+{
+
+  "type": "ritual_list",
+
+  "recordings": [
+
+    {
+
+      "session_id": "20260915T120000Z-a1b2",
+
+      "emitted_at": "2026-09-15T12:03:00Z",
+
+      "duration_s": 180.5,
+
+      "rmssd_ms": 52.0,
+
+      "profile_id": "patient-2",
+
+      "profile_display_name": "Joel",
+
+      "acked": false
+
+    }
+
+  ]
+
+}
+
+```
+
+
+
+`profile_id` and `profile_display_name` are the Feather patient active at Record Stop. They are omitted on packages saved before that field existed, and on `session_summary` when absent. `acked: true` means the phone has already queued that package to a PC (Send, live Stop, or an earlier request). Delete is phone-only; there is no host delete.
+
+
+
+**Phone → host — named request missed**
+
+
+
+Sent only when `ritual_request` included a `session_id` and that package is not on the phone (deleted, or never stored). A request with `session_id` null or omitted does not get this reply; an empty ring stays silent, same as before.
+
+
+
+```json
+
+{"type":"ritual_unavailable","session_id":"20260915T120000Z-a1b2","reason":"not_found"}
+
+```
+
+
+
+Hosts that pick from `ritual_list` should treat `ritual_unavailable` as "drop that row and request `ritual_list` again." Ignore the message until you request by id. Discover `features` includes `"ritual_unavailable"` on builds that send it.
+
+
+
+Discover `features` includes `"ritual_persist"`, `"ritual_list"`, and `"ritual_unavailable"`.
 
 
 

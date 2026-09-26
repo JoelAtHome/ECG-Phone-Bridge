@@ -63,6 +63,17 @@ class RitualPackageStore(
 
     fun count(): Int = list().size
 
+    fun summaries(): List<RitualRecordingSummary> = list().map { it.toSummary() }
+
+    fun delete(sessionId: String): Boolean =
+        lock.withLock {
+            val ids = loadIndexIds().toMutableList()
+            ids.remove(sessionId)
+            val deleted = packageFile(sessionId).delete()
+            writeIndexIds(ids)
+            deleted
+        }
+
     fun latest(): RitualPackage? = list().firstOrNull()
 
     fun latestUnacked(): RitualPackage? = list().firstOrNull { !it.acked }
@@ -141,3 +152,25 @@ data class RitualUiSummary(
     val ibiCount: Int,
     val hasEcg: Boolean,
 )
+
+/** One saved Record row for the phone list and the host `ritual_list` catalog. Newest first. */
+data class RitualRecordingSummary(
+    val sessionId: String,
+    val acked: Boolean,
+    val rmssdMs: Double?,
+    val emittedAt: String,
+    val durationS: Double,
+    val profileId: String?,
+    val profileDisplayName: String?,
+)
+
+fun RitualPackage.toSummary(): RitualRecordingSummary =
+    RitualRecordingSummary(
+        sessionId = sessionId,
+        acked = acked,
+        rmssdMs = rmssdMs,
+        emittedAt = emittedAt,
+        durationS = durationS,
+        profileId = profileId?.takeIf { it.isNotBlank() },
+        profileDisplayName = profileDisplayName?.takeIf { it.isNotBlank() },
+    )

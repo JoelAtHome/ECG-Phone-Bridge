@@ -246,7 +246,12 @@ class BridgeSessionController(
         return buildRmssdJson(sourceDevice)
     }
 
-    fun stop(sourceDevice: String, nowElapsedMs: Long = sessionStartedElapsedMs): StopResult {
+    fun stop(
+        sourceDevice: String,
+        nowElapsedMs: Long = sessionStartedElapsedMs,
+        profileId: String? = null,
+        profileDisplayName: String? = null,
+    ): StopResult {
         if (!isActive()) {
             return StopResult(sessionState = null, rmssd = null, ritualPackage = null)
         }
@@ -276,6 +281,8 @@ class BridgeSessionController(
                     durationS = durationS,
                     rmssd = rmssd,
                     sessionState = state,
+                    profileId = profileId,
+                    profileDisplayName = profileDisplayName,
                 )
             } else {
                 null
@@ -334,6 +341,8 @@ class BridgeSessionController(
         durationS: Double,
         rmssd: JSONObject?,
         sessionState: JSONObject?,
+        profileId: String?,
+        profileDisplayName: String?,
     ): RitualPackage {
         val ibiMs =
             synchronized(ibiLock) {
@@ -362,6 +371,8 @@ class BridgeSessionController(
             rmssdJson = rmssd?.toString(),
             sessionStateJson = sessionState?.toString(),
             acked = false,
+            profileId = profileId?.trim()?.ifEmpty { null },
+            profileDisplayName = profileDisplayName?.trim()?.ifEmpty { null },
         )
     }
 

@@ -4,6 +4,7 @@ import com.example.polarh10bridge.ritual.RitualPackage
 import com.example.polarh10bridge.ritual.RitualPackageStore
 import com.example.polarh10bridge.ritual.RitualTransferReason
 import com.example.polarh10bridge.ritual.RitualWireCodec
+import com.example.polarh10bridge.ritual.toSummary
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,6 +65,65 @@ class RitualPackageStoreTest {
         assertTrue(original.ecgUv.contentEquals(loaded.ecgUv))
         assertEquals(42.0, loaded.rmssdMs!!, 0.001)
         assertFalse(loaded.acked)
+    }
+
+    @Test
+    fun profile_roundTrip_and_absentOnOlderFiles() {
+        val store = RitualPackageStore(tmp.newFolder("rituals"))
+        val named =
+            samplePackage("named", ecgSamples = 4).copy(
+                profileId = "patient-2",
+                profileDisplayName = "Joel",
+            )
+        store.save(named)
+        val loaded = store.get("named")!!
+        assertEquals("patient-2", loaded.profileId)
+        assertEquals("Joel", loaded.profileDisplayName)
+        val legacy = samplePackage("legacy", ecgSamples = 4)
+        assertFalse(legacy.toFileJson().has("profile_id"))
+        assertNull(RitualPackage.fromFileJson(legacy.toFileJson()).profileDisplayName)
+    }
+
+    @Test
+    fun delete_removesPackageAndKeepsTheRest() {
+        val store = RitualPackageStore(tmp.newFolder("rituals"))
+        store.save(samplePackage("keep", ecgSamples = 4))
+        store.save(samplePackage("drop", ecgSamples = 4))
+        assertTrue(store.delete("drop"))
+        assertNull(store.get("drop"))
+        assertEquals(listOf("keep"), store.summaries().map { it.sessionId })
+    }
+
+    @Test
+    fun ritualList_isNewestFirstWithProfile() {
+        val older =
+            samplePackage("older", ecgSamples = 4).copy(
+                profileId = "patient-1",
+                profileDisplayName = "Patient 1",
+            )
+        val newer =
+            samplePackage("newer", ecgSamples = 4).copy(
+                profileDisplayName = "Joel",
+                profileId = "joel",
+            )
+        val list = RitualWireCodec.ritualList(listOf(newer, older))
+        assertEquals("ritual_list", list.getString("type"))
+        val recordings = list.getJSONArray("recordings")
+        assertEquals(2, recordings.length())
+        assertEquals("newer", recordings.getJSONObject(0).getString("session_id"))
+        assertEquals("Joel", recordings.getJSONObject(0).getString("profile_display_name"))
+        assertEquals("patient-1", recordings.getJSONObject(1).getString("profile_id"))
+        val summary = RitualWireCodec.sessionSummary(newer, RitualTransferReason.ManualSend)
+        assertEquals("Joel", summary.getString("profile_display_name"))
+        assertEquals("Joel", newer.toSummary().profileDisplayName)
+    }
+
+    @Test
+    fun ritualUnavailable_namesTheMissingSession() {
+        val msg = RitualWireCodec.ritualUnavailable("gone-1")
+        assertEquals("ritual_unavailable", msg.getString("type"))
+        assertEquals("gone-1", msg.getString("session_id"))
+        assertEquals("not_found", msg.getString("reason"))
     }
 
     @Test
@@ -153,6 +213,30 @@ class RitualPackageStoreTest {
         assertNotNull(stop.ritualPackage)
         assertEquals(3, stop.ritualPackage!!.ecgUv.size)
         assertEquals(2, stop.ritualPackage!!.ibiMs.size)
+        assertNull(stop.ritualPackage!!.profileDisplayName)
+    }
+
+    @Test
+    fun recordStop_storesPatientProfileSnapshot() {
+        val ctl = BridgeSessionController()
+        ctl.start(
+            mode = BridgeSessionMode.Record,
+            kind = BridgeSessionKind.Ritual,
+            nowElapsedMs = 1_000L,
+            sourceDevice = "FEATHER",
+        )
+        ctl.onRrMs(800, 1_500L)
+        ctl.onRrMs(820, 2_320L)
+        val stop =
+            ctl.stop(
+                "FEATHER",
+                nowElapsedMs = 181_000L,
+                profileId = "patient-2",
+                profileDisplayName = " Joel ",
+            )
+        assertEquals("patient-2", stop.ritualPackage!!.profileId)
+        assertEquals("Joel", stop.ritualPackage!!.profileDisplayName)
+        assertEquals(180.0, stop.ritualPackage!!.durationS, 0.001)
     }
 
     @Test
