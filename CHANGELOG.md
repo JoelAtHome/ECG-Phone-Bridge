@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.74
+- fix: Saved HRV rows drop the year (session ids still include it) and keep time, RMSSD, duration, and sent or pending on screen. Only a long patient name shrinks. Select a row, then Send or Delete below the list.
+
 ## Version 1.0.0-beta.73
 - enhancement: Capture panel lists each saved HRV recording (time, RMSSD, duration, patient, sent or pending) with **Send** and **Delete**. Record Stop stores the active patient profile. Hosts can request the same list with `ritual_list` (PROTOCOL §7). A `ritual_request` with no `session_id` is unchanged.
 - enhancement: A `ritual_request` that names a `session_id` the phone does not have gets `ritual_unavailable` (`reason: not_found`) instead of silence. A request with no id is unchanged, including when nothing is stored.

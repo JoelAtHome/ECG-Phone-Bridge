@@ -40,6 +40,18 @@ class FormatEmittedAtForUiTest {
             )
         assertTrue(label.endsWith(" · 42 ms · 3:01 · Joel · pending"))
         assertTrue(label.startsWith("2026-09-25 "))
+        val facts = hrvRecordingFactsLabel(
+            RitualRecordingSummary(
+                sessionId = "s",
+                acked = true,
+                rmssdMs = 34.0,
+                emittedAt = "2026-09-25T15:14:00Z",
+                durationS = 90.0,
+                profileId = null,
+                profileDisplayName = null,
+            ),
+        )
+        assertTrue(facts.matches(Regex("""\d{2}-\d{2} \d{2}:\d{2} · 34 ms · 1:30""")))
     }
 
     @Test

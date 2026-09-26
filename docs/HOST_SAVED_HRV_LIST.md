@@ -1,6 +1,6 @@
 # Saved HRV list — host handoff
 
-**Phone:** **v1.0.0-beta.73**. Discover `features` includes `ritual_list` and `ritual_unavailable`.  
+**Phone:** **v1.0.0-beta.74**. Discover `features` includes `ritual_list` and `ritual_unavailable`.  
 **Hosts:** Hertz & Hearts and FlareTracker.  
 **Wire:** [PROTOCOL.md](./PROTOCOL.md) §7.3.
 
@@ -8,7 +8,7 @@ The phone now keeps the last 5 Record sessions as a visible list. Each new recor
 
 ## What the phone does without a host change
 
-- Capture panel, one row per stored recording, newest first: local time, RMSSD, duration, patient name, `sent` or `pending`. Long names ellipsize. **Send** and **Delete** are on the row. Delete asks for confirmation.
+- Capture panel, one row per stored recording, newest first: local time, RMSSD, duration, patient name, `sent` or `pending`. Only a long patient name shrinks. Select a row, then **Send** or **Delete** under the list. Delete asks for confirmation.
 - **Send** transmits that `session_id` when a PC is connected. It does not remove the recording.
 - If a PC is still connected at Stop, that new recording is sent immediately (`transfer_reason: live_stop`) and the row shows sent. Older rows are not sent with it.
 - If the PC is gone at Stop, the row stays pending until the phone sends it or a host requests it.

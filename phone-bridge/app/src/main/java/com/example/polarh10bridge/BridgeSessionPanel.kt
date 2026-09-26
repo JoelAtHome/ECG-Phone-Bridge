@@ -2,9 +2,9 @@ package com.example.polarh10bridge
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -91,7 +91,33 @@ internal fun formatDurationForUi(durationS: Double): String {
     return String.format(Locale.US, "%d:%02d", seconds / 60L, seconds % 60L)
 }
 
-/** One Capture-panel line: time, RMSSD, duration, patient, sent or pending. */
+/** Row clock without the year, so time, duration, and sent/pending can stay on screen. */
+internal fun formatRecordingWhenForRow(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return trimmed
+    return try {
+        val instant = Instant.parse(trimmed)
+        DateTimeFormatter.ofPattern("MM-dd HH:mm")
+            .withZone(ZoneId.systemDefault())
+            .format(instant)
+    } catch (_: Exception) {
+        formatEmittedAtForUi(trimmed)
+    }
+}
+
+/** Time, RMSSD, and duration. The patient name is drawn separately so only it can shrink. */
+internal fun hrvRecordingFactsLabel(row: RitualRecordingSummary): String {
+    val whenLabel = formatRecordingWhenForRow(row.emittedAt).ifBlank { "—" }
+    val rmssd =
+        if (row.rmssdMs != null) {
+            String.format(Locale.US, "%.0f ms", row.rmssdMs)
+        } else {
+            "— ms"
+        }
+    return "$whenLabel · $rmssd · ${formatDurationForUi(row.durationS)}"
+}
+
+/** Full line for the delete confirm, where wrapping is fine. */
 internal fun hrvRecordingRowLabel(row: RitualRecordingSummary): String {
     val parts = ArrayList<String>(5)
     val whenLabel = formatEmittedAtForUi(row.emittedAt).ifBlank { "—" }
@@ -147,7 +173,11 @@ fun BridgeSessionPanel(
 ) {
     val canStart = !active && (sensorConnected || featherSimActive || featherBleConnected)
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var selectedId by remember { mutableStateOf<String?>(null) }
     val pendingDelete = ritualRecordings.firstOrNull { it.sessionId == pendingDeleteId }
+    val selected =
+        ritualRecordings.firstOrNull { it.sessionId == selectedId }
+            ?: ritualRecordings.firstOrNull()
     Column(
         modifier =
             modifier
@@ -236,44 +266,90 @@ fun BridgeSessionPanel(
         )
 
         ritualRecordings.forEach { row ->
+            val patient = row.profileDisplayName?.trim().orEmpty()
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 2.dp),
+                        .clickable(enabled = !active) { selectedId = row.sessionId },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                RadioButton(
+                    selected = row.sessionId == selected?.sessionId,
+                    onClick = { selectedId = row.sessionId },
+                    enabled = !active,
+                    colors =
+                        RadioButtonDefaults.colors(
+                            selectedColor = SessionBannerRed,
+                            unselectedColor = Color(0xFF757575),
+                            disabledSelectedColor = SessionBannerRed.copy(alpha = 0.45f),
+                            disabledUnselectedColor = Color(0xFF757575).copy(alpha = 0.45f),
+                        ),
+                )
                 Text(
-                    text = hrvRecordingRowLabel(row),
+                    text = hrvRecordingFactsLabel(row),
                     color = SessionTextDark.copy(alpha = 0.75f),
                     fontSize = 11.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    softWrap = false,
                 )
-                TextButton(
-                    onClick = { onSendRitual(row.sessionId) },
-                    enabled = !active,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                ) {
+                if (patient.isNotEmpty()) {
                     Text(
-                        "Send",
-                        color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
-                        fontSize = 12.sp,
+                        text = " · $patient",
+                        color = SessionTextDark.copy(alpha = 0.75f),
+                        fontSize = 11.sp,
                         maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                TextButton(
-                    onClick = { pendingDeleteId = row.sessionId },
+                Text(
+                    text = if (row.acked) " · sent" else " · pending",
+                    color = SessionTextDark.copy(alpha = 0.75f),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+        }
+        if (selected != null) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = { onSendRitual(selected.sessionId) },
                     enabled = !active,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = SessionBannerRed,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFBDBDBD),
+                            disabledContentColor = Color.White.copy(alpha = 0.85f),
+                        ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f),
                 ) {
-                    Text(
-                        "Delete",
-                        color = SessionBannerRed.copy(alpha = if (active) 0.38f else 1f),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                    )
+                    Text("Send", fontWeight = FontWeight.Medium)
+                }
+                Button(
+                    onClick = { pendingDeleteId = selected.sessionId },
+                    enabled = !active,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = SessionBannerRed,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFBDBDBD),
+                            disabledContentColor = Color.White.copy(alpha = 0.85f),
+                        ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Medium)
                 }
             }
         }
