@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.75
+- polish: Saved HRV sessions use two tight lines (time, RMSSD, duration, then patient and sent or pending) with Send and Delete links on the right. More space between sessions.
+
 ## Version 1.0.0-beta.74
 - fix: Saved HRV rows drop the year (session ids still include it) and keep time, RMSSD, duration, and sent or pending on screen. Only a long patient name shrinks. Select a row, then Send or Delete below the list.
 
