@@ -331,6 +331,8 @@ internal data class BridgeScreenState(
     val lastRitualAcked: Boolean = false,
     val lastRitualRmssdMs: Double? = null,
     val lastRitualEmittedAt: String? = null,
+    /** How many Record packages are on disk (ring cap is [com.example.polarh10bridge.ritual.RitualPackageStore.MAX_PACKAGES]). */
+    val ritualStoredCount: Int = 0,
 )
 
 class MainActivity : ComponentActivity() {
@@ -1485,15 +1487,15 @@ class MainActivity : ComponentActivity() {
         }
         if (wasRecord && result.ritualPackage != null) {
             sendRitualPackage(result.ritualPackage, com.example.polarh10bridge.ritual.RitualTransferReason.LiveStop)
-            if (!screenState.value.pcBridgeConnected) {
-                mainHandler.post {
-                    Toast
-                        .makeText(
-                            this,
-                            "HRV saved — upload in FT or HnH",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                }
+            val stored = ritualPackageStore?.count() ?: screenState.value.ritualStoredCount
+            val pcConnected = screenState.value.pcBridgeConnected
+            mainHandler.post {
+                Toast
+                    .makeText(
+                        this,
+                        recordStopStorageToast(stored, pcConnected = pcConnected),
+                        Toast.LENGTH_LONG,
+                    ).show()
             }
         } else {
             result.rmssd?.let { sendBridgeJsonLine(it.toString()) }
@@ -1508,12 +1510,14 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshRitualUiFromStore() {
         val summary = ritualPackageStore?.summaryUi()
+        val stored = ritualPackageStore?.count() ?: 0
         updateScreen {
             it.copy(
                 lastRitualSessionId = summary?.sessionId,
                 lastRitualAcked = summary?.acked ?: false,
                 lastRitualRmssdMs = summary?.rmssdMs,
                 lastRitualEmittedAt = summary?.emittedAt,
+                ritualStoredCount = stored,
             )
         }
     }
@@ -2886,6 +2890,7 @@ class MainActivity : ComponentActivity() {
                 com.example.polarh10bridge.feather.FeatherPatientProfile.coeffDraftFrom(it)
             }.orEmpty()
         val ritualSummary = ritualPackageStore?.summaryUi()
+        val ritualStoredCount = ritualPackageStore?.count() ?: 0
         screenState.value =
             screenState.value.copy(
                 bridgePort = bridgePort,
@@ -2906,6 +2911,7 @@ class MainActivity : ComponentActivity() {
                 lastRitualAcked = ritualSummary?.acked ?: false,
                 lastRitualRmssdMs = ritualSummary?.rmssdMs,
                 lastRitualEmittedAt = ritualSummary?.emittedAt,
+                ritualStoredCount = ritualStoredCount,
             )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -3977,6 +3983,7 @@ private fun BridgeMainScreen(
                         lastRitualAcked = state.lastRitualAcked,
                         lastRitualRmssdMs = state.lastRitualRmssdMs,
                         lastRitualEmittedAt = state.lastRitualEmittedAt,
+                        ritualStoredCount = state.ritualStoredCount,
                         onModeSelected = onSessionModeSelected,
                         onStart = onStartSession,
                         onStop = onStopSession,

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.polarh10bridge.ritual.RitualPackageStore
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -31,6 +32,49 @@ private val SessionBannerRed = Color(0xFFC1121F)
 private val SessionTextDark = Color(0xFF1A1A1A)
 private val SessionPanelBg = Color(0xFFF7F7F8)
 private val SessionPanelBorder = Color(0xFFE0E0E0)
+
+/**
+ * Standing Capture-panel line. The phone ring keeps the last [max] Record packages.
+ * At capacity the next Stop still saves; it drops the oldest.
+ */
+internal fun hrvRecordingCapacityLine(
+    stored: Int,
+    max: Int = RitualPackageStore.MAX_PACKAGES,
+): String {
+    val counts = hrvStorageCounts(stored, max)
+    return if (hrvStorageRemaining(stored, max) == 0) {
+        "Phone keeps the last $max recordings — $counts. Next replaces the oldest."
+    } else {
+        "Phone keeps the last $max recordings — $counts."
+    }
+}
+
+/** Toast after a Record Stop that persisted a package. */
+internal fun recordStopStorageToast(
+    stored: Int,
+    max: Int = RitualPackageStore.MAX_PACKAGES,
+    pcConnected: Boolean,
+): String {
+    val counts = hrvStorageCounts(stored, max)
+    val saved =
+        if (hrvStorageRemaining(stored, max) == 0) {
+            "HRV saved — $counts. Next replaces the oldest"
+        } else {
+            "HRV saved — $counts"
+        }
+    return if (pcConnected) saved else "$saved. Upload in FT or HnH"
+}
+
+private fun hrvStorageRemaining(stored: Int, max: Int): Int {
+    val cap = max.coerceAtLeast(0)
+    return cap - stored.coerceIn(0, cap)
+}
+
+private fun hrvStorageCounts(stored: Int, max: Int): String {
+    val kept = stored.coerceIn(0, max.coerceAtLeast(0))
+    val remaining = hrvStorageRemaining(kept, max)
+    return "$kept stored, $remaining more can be stored"
+}
 
 /** Wire `emitted_at` is UTC ISO; show device-local wall time for caregivers. */
 internal fun formatEmittedAtForUi(raw: String): String {
@@ -63,6 +107,7 @@ fun BridgeSessionPanel(
     lastRitualAcked: Boolean = false,
     lastRitualRmssdMs: Double? = null,
     lastRitualEmittedAt: String? = null,
+    ritualStoredCount: Int = 0,
     onModeSelected: (BridgeSessionMode) -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
@@ -148,6 +193,13 @@ fun BridgeSessionPanel(
             color = SessionTextDark.copy(alpha = 0.7f),
             fontSize = 11.sp,
             modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+        )
+        Text(
+            text = hrvRecordingCapacityLine(ritualStoredCount),
+            color = SessionTextDark.copy(alpha = 0.62f),
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            modifier = Modifier.padding(bottom = 4.dp),
         )
 
         if (!lastRitualSessionId.isNullOrBlank()) {

@@ -67,6 +67,15 @@ class RitualPackageStoreTest {
     }
 
     @Test
+    fun count_matchesSavedPackages() {
+        val store = RitualPackageStore(tmp.newFolder("rituals"), maxPackages = 5)
+        assertEquals(0, store.count())
+        store.save(samplePackage("sess-1", ecgSamples = 8))
+        store.save(samplePackage("sess-2", ecgSamples = 8))
+        assertEquals(2, store.count())
+    }
+
+    @Test
     fun prune_keepsLastFive() {
         val store = RitualPackageStore(tmp.newFolder("rituals"), maxPackages = 5)
         for (i in 1..7) {

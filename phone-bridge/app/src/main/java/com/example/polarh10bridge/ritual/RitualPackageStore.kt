@@ -61,6 +61,8 @@ class RitualPackageStore(
             }
         }
 
+    fun count(): Int = list().size
+
     fun latest(): RitualPackage? = list().firstOrNull()
 
     fun latestUnacked(): RitualPackage? = list().firstOrNull { !it.acked }

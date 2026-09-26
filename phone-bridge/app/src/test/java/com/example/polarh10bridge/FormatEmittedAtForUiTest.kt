@@ -21,4 +21,36 @@ class FormatEmittedAtForUiTest {
     fun invalidFallsBackToTruncated() {
         assertEquals("not-an-instant-valu", formatEmittedAtForUi("not-an-instant-value"))
     }
+
+    @Test
+    fun capacityLine_namesLimitStoredAndRemaining() {
+        assertEquals(
+            "Phone keeps the last 5 recordings — 0 stored, 5 more can be stored.",
+            hrvRecordingCapacityLine(0),
+        )
+        assertEquals(
+            "Phone keeps the last 5 recordings — 3 stored, 2 more can be stored.",
+            hrvRecordingCapacityLine(3),
+        )
+        assertEquals(
+            "Phone keeps the last 5 recordings — 5 stored, 0 more can be stored. Next replaces the oldest.",
+            hrvRecordingCapacityLine(5),
+        )
+    }
+
+    @Test
+    fun stopToast_reportsStorageAndUploadHintWhenPcIsAway() {
+        assertEquals(
+            "HRV saved — 1 stored, 4 more can be stored. Upload in FT or HnH",
+            recordStopStorageToast(stored = 1, pcConnected = false),
+        )
+        assertEquals(
+            "HRV saved — 4 stored, 1 more can be stored",
+            recordStopStorageToast(stored = 4, pcConnected = true),
+        )
+        assertEquals(
+            "HRV saved — 5 stored, 0 more can be stored. Next replaces the oldest. Upload in FT or HnH",
+            recordStopStorageToast(stored = 9, pcConnected = false),
+        )
+    }
 }

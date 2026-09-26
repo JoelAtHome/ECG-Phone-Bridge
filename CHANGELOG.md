@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.72
+- polish: Capture panel states that the phone keeps the last 5 HRV recordings, with how many are stored and how many more can be stored. Record Stop toast reports the same counts (and still says to upload in FT or HnH when no PC is connected). At 5, both say the next recording replaces the oldest.
+
 ## Version 1.0.0-beta.71
 - fix: A PC that disappears without a clean TCP close (HnH closed, killed, or Wi-Fi dropped) no longer leaves the phone showing Connected. Unacked data aborts the socket after 45s, and a failed write clears the connected state. A normal HnH disconnect still drops immediately.
 - fix: **Find sensor** (startup wizard and the data-path sensor control) stays gray and inactive while a sensor search is in progress.
