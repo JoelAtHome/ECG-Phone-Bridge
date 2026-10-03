@@ -213,4 +213,37 @@ class RmssdCalculatorTest {
         assertTrue(earlyChaos.isNotEmpty())
         assertTrue(earlyChaos.maxOf { it.rmssdMs } > withSettle.rmssdMs!! + 50.0)
     }
+
+    @Test
+    fun compute_live_tracksLateChange_whilePlateauStaysMid() {
+        // Mid: modest variation (~tens of ms RMSSD); late: much larger successive diffs.
+        val ibis = mutableListOf<IbiSample>()
+        val mid = listOf(500.0, 512.0, 496.0, 508.0, 504.0, 520.0, 492.0, 516.0)
+        repeat(360) { i -> ibis += IbiSample(mid[i % mid.size]) } // ~180 s
+        val late = listOf(450.0, 580.0, 420.0, 560.0, 440.0, 590.0)
+        repeat(120) { i -> ibis += IbiSample(late[i % late.size]) } // ~60 s high RMSSD
+
+        val cfg = Config(
+            settleTrimSec = 30.0,
+            analysisWindowSec = 60.0,
+            finalTrimSec = 15.0,
+            rollStepSec = 10.0,
+            minBeatsPerWindow = 20,
+            liveTrailingWindows = 3,
+        )
+        val plateau = RmssdCalculator.compute(ibis, cfg, snapshotKind = RmssdCalculator.SnapshotKind.Plateau)
+        val live = RmssdCalculator.compute(ibis, cfg, snapshotKind = RmssdCalculator.SnapshotKind.Live)
+
+        assertNotNull(plateau.rmssdMs)
+        assertNotNull(live.rmssdMs)
+        assertEquals(RmssdCalculator.Methods.MEDIAN_ROLLING_QUALITY, plateau.window!!.method)
+        assertEquals(RmssdCalculator.Methods.TRAILING_MEDIAN_ROLLING, live.window!!.method)
+        // Live should follow the late high-variability regime; plateau stays mid-session.
+        assertTrue(
+            "live=${live.rmssdMs} should exceed plateau=${plateau.rmssdMs}",
+            live.rmssdMs!! > plateau.rmssdMs!! + 15.0,
+        )
+        // Live includes freshest IBIs (no final trim); its analysis end reaches further.
+        assertTrue(live.window!!.analysisEndS > plateau.window!!.analysisEndS + 5.0)
+    }
 }

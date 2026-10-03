@@ -506,6 +506,8 @@ Computed **on the phone from IBI** (see architecture). Not a substitute for live
 
 ```
 
+Stream rolling snapshots use the same shape with `"method": "trailing_median_rolling"` (recent windows, no final trim). Record/Stop keeps `"median_rolling_quality"` (session plateau). Hosts that save HRV should only persist Stop / ritual `rmssd`, not Stream QA lines.
+
 
 
 | Field | Required | Notes |

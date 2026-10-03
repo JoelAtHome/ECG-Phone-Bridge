@@ -247,10 +247,11 @@ HnH live chart lock uses `SETTLING_DURATION` (default 15 s) + `BASELINE_DURATION
 Do **not** hard-code “always end of session” or “always mid clock time.”
 
 1. After settle, compute rolling RMSSD over the analysis window length.  
-2. Prefer a **stable plateau** (median of acceptable rolling estimates), optionally excluding a final trim.  
-3. **Do not reject solely because RMSSD is low** (e.g. &lt; 20 ms). Polar-confirmed sessions have shown **~12–17 ms** as real for some morphologies.  
-4. Reject / flag on **instability or detector failure** (high skip rate, HR jumps, no stable window, extreme mid↔end divergence without a plateau).  
-5. Persist `rmssd_ms`, window bounds, method, and quality flags with every FlareTracker snapshot.
+2. **Record Stop / ritual (official):** prefer a **stable plateau** (median of acceptable rolling estimates), excluding a final trim when the session is long enough. Method: `median_rolling_quality`.  
+3. **Stream QA (live meter):** publish a **trailing median** of the most recent few rolling windows (default 3), **without** final trim, so the bridge number can track session dynamics. Method: `trailing_median_rolling`. Stream `rmssd` is QA — not the saved ritual value.  
+4. **Do not reject solely because RMSSD is low** (e.g. &lt; 20 ms). Polar-confirmed sessions have shown **~12–17 ms** as real for some morphologies.  
+5. Reject / flag on **instability or detector failure** (high skip rate, HR jumps, no stable window, extreme mid↔end divergence without a plateau).  
+6. Persist `rmssd_ms`, window bounds, method, and quality flags with every FlareTracker snapshot.
 
 ### 6.4 Evidence notes (tuning data)
 

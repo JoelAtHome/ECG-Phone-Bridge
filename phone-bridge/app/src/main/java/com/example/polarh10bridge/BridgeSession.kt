@@ -227,10 +227,17 @@ class BridgeSessionController(
     /**
      * Recompute quality for tech UI without emitting on the wire.
      * Safe to call periodically while a session is active.
+     * Stream uses the live trailing estimate; Record keeps the ritual plateau math.
      */
     fun refreshQualitySnapshot(): RmssdCalculator.Result {
         val snapshot = synchronized(ibiLock) { ibis.toList() }
-        val result = RmssdCalculator.compute(snapshot)
+        val kind =
+            if (activeMode == BridgeSessionMode.Stream && isActive()) {
+                RmssdCalculator.SnapshotKind.Live
+            } else {
+                RmssdCalculator.SnapshotKind.Plateau
+            }
+        val result = RmssdCalculator.compute(snapshot, snapshotKind = kind)
         lastComputeResult = result
         return result
     }
@@ -243,7 +250,7 @@ class BridgeSessionController(
         val last = lastRollingEmitElapsedMs.get()
         if (nowElapsedMs - last < rollingIntervalMs) return null
         if (!lastRollingEmitElapsedMs.compareAndSet(last, nowElapsedMs)) return null
-        return buildRmssdJson(sourceDevice)
+        return buildRmssdJson(sourceDevice, RmssdCalculator.SnapshotKind.Live)
     }
 
     fun stop(
@@ -260,7 +267,8 @@ class BridgeSessionController(
         val sid = sessionId
         val started = sessionStartedElapsedMs
         runState = BridgeSessionRunState.Finalizing
-        val rmssd = buildRmssdJson(sourceDevice)
+        // Official ritual / Stop snapshot stays on the session-wide plateau.
+        val rmssd = buildRmssdJson(sourceDevice, RmssdCalculator.SnapshotKind.Plateau)
         runState = BridgeSessionRunState.Completed
         val state = sessionStateJson()
         // Return to idle for the next start; keep last sessionId on the completed message.
@@ -376,12 +384,15 @@ class BridgeSessionController(
         )
     }
 
-    private fun buildRmssdJson(sourceDevice: String): JSONObject? {
+    private fun buildRmssdJson(
+        sourceDevice: String,
+        snapshotKind: RmssdCalculator.SnapshotKind,
+    ): JSONObject? {
         val snapshot =
             synchronized(ibiLock) {
                 ibis.toList()
             }
-        val result = RmssdCalculator.compute(snapshot)
+        val result = RmssdCalculator.compute(snapshot, snapshotKind = snapshotKind)
         lastComputeResult = result
         val rmssd = result.rmssdMs ?: return null
         val obj =

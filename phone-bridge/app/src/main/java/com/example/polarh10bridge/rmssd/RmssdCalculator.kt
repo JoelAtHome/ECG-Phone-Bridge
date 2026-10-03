@@ -12,6 +12,17 @@ import kotlin.math.sqrt
  */
 object RmssdCalculator {
 
+    /**
+     * How to pick the published `rmssd_ms` from rolling candidates.
+     *
+     * - [Plateau]: session-wide median — Record Stop / official ritual snapshot.
+     * - [Live]: trailing median of recent windows — Stream QA meter (tracks change).
+     */
+    enum class SnapshotKind {
+        Plateau,
+        Live,
+    }
+
     data class Config(
         /** Seconds of IBI timeline to skip after t=0 before analysis. */
         val settleTrimSec: Double = 45.0,
@@ -28,6 +39,11 @@ object RmssdCalculator {
          * selected plateau, set [QualityFlags.END_DIVERGENCE] (informational).
          */
         val endDivergenceRatio: Double = 0.5,
+        /**
+         * [SnapshotKind.Live]: median over this many most-recent rolling windows
+         * (mild smoothing without freezing to the whole session).
+         */
+        val liveTrailingWindows: Int = 3,
     )
 
     data class IbiSample(
@@ -79,17 +95,21 @@ object RmssdCalculator {
 
     object Methods {
         const val MEDIAN_ROLLING_QUALITY = "median_rolling_quality"
+        /** Stream QA: median of the most recent rolling windows (tracks change). */
+        const val TRAILING_MEDIAN_ROLLING = "trailing_median_rolling"
         const val FULL_SPAN = "full_span_after_trims"
     }
 
     /**
      * @param ibis accepted IBIs in order (already peak-detected upstream)
      * @param skippedBeatCount optional count of beats excluded before this list
+     * @param snapshotKind [SnapshotKind.Plateau] for Stop / ritual; [SnapshotKind.Live] for Stream
      */
     fun compute(
         ibis: List<IbiSample>,
         config: Config = Config(),
         skippedBeatCount: Int = 0,
+        snapshotKind: SnapshotKind = SnapshotKind.Plateau,
     ): Result {
         val flags = mutableListOf<String>()
         val totalObserved = ibis.size + skippedBeatCount.coerceAtLeast(0)
@@ -115,7 +135,12 @@ object RmssdCalculator {
         val timesSec = cumulativeEndTimesSec(ibis)
         val durationS = timesSec.last()
         val usableStart = config.settleTrimSec.coerceAtLeast(0.0)
-        var usableEnd = durationS - config.finalTrimSec.coerceAtLeast(0.0)
+        // Live Stream meter includes the freshest IBIs; ritual plateau keeps final trim.
+        var usableEnd =
+            when (snapshotKind) {
+                SnapshotKind.Live -> durationS
+                SnapshotKind.Plateau -> durationS - config.finalTrimSec.coerceAtLeast(0.0)
+            }
         if (usableEnd <= usableStart) {
             // Session too short for both trims: keep settle, drop final trim.
             usableEnd = durationS
@@ -164,22 +189,35 @@ object RmssdCalculator {
         }
 
         val plateau = median(rolling.map { it.rmssdMs })
-        // Represent selected window as the median member's bounds (closest to plateau).
-        val selected = rolling.minBy { kotlin.math.abs(it.rmssdMs - plateau) }
-
         val lastWindow = rolling.last()
         if (plateau > 0.0 && lastWindow.rmssdMs < plateau * config.endDivergenceRatio) {
             flags += QualityFlags.END_DIVERGENCE
         }
 
+        val (value, selected, method) =
+            when (snapshotKind) {
+                SnapshotKind.Plateau -> {
+                    // Represent selected window as the median member's bounds (closest to plateau).
+                    val selected = rolling.minBy { kotlin.math.abs(it.rmssdMs - plateau) }
+                    Triple(plateau, selected, Methods.MEDIAN_ROLLING_QUALITY)
+                }
+                SnapshotKind.Live -> {
+                    val n = config.liveTrailingWindows.coerceAtLeast(1)
+                    val trailing = rolling.takeLast(n)
+                    val liveVal = median(trailing.map { it.rmssdMs })
+                    val selected = trailing.minBy { kotlin.math.abs(it.rmssdMs - liveVal) }
+                    Triple(liveVal, selected, Methods.TRAILING_MEDIAN_ROLLING)
+                }
+            }
+
         val selectedIbis = ibisInHalfOpen(ibis, timesSec, selected.startS, selected.endS)
         return Result(
-            rmssdMs = plateau,
+            rmssdMs = value,
             window = Window(
                 settleTrimS = config.settleTrimSec,
                 analysisStartS = selected.startS,
                 analysisEndS = selected.endS,
-                method = Methods.MEDIAN_ROLLING_QUALITY,
+                method = method,
             ),
             quality = Quality(ibis.size, skippedPct, flags.distinct()),
             rollingCandidates = rolling,

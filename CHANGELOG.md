@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.78
+- enhancement: Stream bridge `rmssd` tracks recent change (`trailing_median_rolling` — median of the last three 60 s windows, no final trim). Record Stop still uses the session-wide plateau (`median_rolling_quality`) for the official ritual number.
+
 ## Version 1.0.0-beta.77
 - polish: Blank-`pc_user` attention banner appends “- set name on first screen” so the caregiver knows where to fix it.
 
