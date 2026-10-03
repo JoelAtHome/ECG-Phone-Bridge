@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.77
+- polish: Blank-`pc_user` attention banner appends “- set name on first screen” so the caregiver knows where to fix it.
+
 ## Version 1.0.0-beta.76
 - enhancement: Feather profile hint matches a PC patient by full name in either order, a unique first or last name, or a placement id prefix (`Joel` → `Joel Koblich` / `joel_biceps`). Shared first names stay ambiguous.
 - fix: A linked host that sends no patient name (blank `pc_user`) now warns on the phone and on the host: `No patient name from VNS-TA — phone profile is {name}`. Previously this was silent.

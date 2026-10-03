@@ -1085,7 +1085,12 @@ private fun FeatherProfileMatchAttentionBanner(
                 .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
         Text(
-            text = message,
+            text =
+                if (message.startsWith("No patient name from")) {
+                    "$message - set name on first screen"
+                } else {
+                    message
+                },
             color = ProfileMatchAlertText,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
