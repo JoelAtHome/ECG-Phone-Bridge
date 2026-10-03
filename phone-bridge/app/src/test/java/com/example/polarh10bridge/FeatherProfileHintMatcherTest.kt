@@ -82,4 +82,78 @@ class FeatherProfileHintMatcherTest {
         assertEquals("Hertz & Hearts", FeatherProfileHintMatcher.clientAppLabel(null))
         assertEquals("FlareTracker", FeatherProfileHintMatcher.clientAppLabel("flaretracker"))
     }
+
+    @Test
+    fun givenNameMatchesFullDisplayName() {
+        val named =
+            listOf(FeatherProfileSummary("joel_biceps", "Joel Koblich"))
+        val r = FeatherProfileHintMatcher.resolve("Joel", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Match)
+        r as FeatherProfileHintMatcher.Result.Match
+        assertEquals("joel_biceps", r.profileId)
+        assertEquals("given_name", r.via)
+    }
+
+    @Test
+    fun lastCommaFirstMatchesFirstLast() {
+        val named =
+            listOf(FeatherProfileSummary("joel_biceps", "Joel Koblich"))
+        val r = FeatherProfileHintMatcher.resolve("Koblich, Joel", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Match)
+        r as FeatherProfileHintMatcher.Result.Match
+        assertEquals("joel_biceps", r.profileId)
+        assertEquals("name_tokens", r.via)
+    }
+
+    @Test
+    fun fullNameMatchesShortDisplay() {
+        val named = listOf(FeatherProfileSummary("joel", "Joel"))
+        val r = FeatherProfileHintMatcher.resolve("Joel Koblich", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Match)
+        r as FeatherProfileHintMatcher.Result.Match
+        assertEquals("joel", r.profileId)
+        assertEquals("name_part", r.via)
+    }
+
+    @Test
+    fun lastNameMatchesUniqueDisplay() {
+        val named =
+            listOf(FeatherProfileSummary("joel_biceps", "Joel Koblich"))
+        val r = FeatherProfileHintMatcher.resolve("Koblich", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Match)
+        r as FeatherProfileHintMatcher.Result.Match
+        assertEquals("name_word", r.via)
+    }
+
+    @Test
+    fun idPrefixMatchesPlacementId() {
+        val named =
+            listOf(FeatherProfileSummary("joel_biceps", "Biceps lead"))
+        val r = FeatherProfileHintMatcher.resolve("Joel", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Match)
+        r as FeatherProfileHintMatcher.Result.Match
+        assertEquals("joel_biceps", r.profileId)
+        assertEquals("id_prefix", r.via)
+    }
+
+    @Test
+    fun sharedGivenNameIsAmbiguous() {
+        val named =
+            listOf(
+                FeatherProfileSummary("joel_biceps", "Joel Koblich"),
+                FeatherProfileSummary("joel_handgrip", "Joel Smith"),
+            )
+        val r = FeatherProfileHintMatcher.resolve("Joel", named)
+        assertTrue(r is FeatherProfileHintMatcher.Result.Ambiguous)
+    }
+
+    @Test
+    fun shortPrefixDoesNotMatch() {
+        val named =
+            listOf(FeatherProfileSummary("joel_biceps", "Joel Koblich"))
+        assertEquals(
+            FeatherProfileHintMatcher.Result.None,
+            FeatherProfileHintMatcher.resolve("Jo", named),
+        )
+    }
 }

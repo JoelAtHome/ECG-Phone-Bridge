@@ -90,7 +90,8 @@ private val PatientMenuText = Color(0xFF1A1A1A)
 private fun isFeatherProfileMatchAttention(status: String): Boolean {
     val s = status.trim()
     return s.startsWith("No Feather profile", ignoreCase = true) ||
-        s.startsWith("Ambiguous Feather profile", ignoreCase = true)
+        s.startsWith("Ambiguous Feather profile", ignoreCase = true) ||
+        s.startsWith("No patient name from", ignoreCase = true)
 }
 
 private val QualityFlagHelp: List<Pair<String, String>> =

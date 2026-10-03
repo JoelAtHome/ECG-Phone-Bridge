@@ -960,6 +960,16 @@ class MainActivity : ComponentActivity() {
         val hint = pcUser?.trim().orEmpty()
         if (hint.isEmpty()) {
             clearFeatherProfileHintPending()
+            val source = screenState.value.selectedSourceKind
+            if (source != SourceKind.Feather && source != SourceKind.Simulate) {
+                return
+            }
+            val activeName = featherProfileStore?.loadActive()?.displayName?.trim().orEmpty()
+            if (activeName.isEmpty()) return
+            val appLabel = matcher.clientAppLabel(clientApp)
+            val msg = "No patient name from $appLabel — phone profile is $activeName"
+            refreshFeatherProfileUi(status = msg)
+            sendFeatherProfileHintStatus(msg)
             return
         }
         val store = featherProfileStore ?: return

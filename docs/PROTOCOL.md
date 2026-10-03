@@ -924,7 +924,7 @@ Hosts **should re-send** `client_info` whenever the active PC patient/profile ch
 
 | Phone behavior | When |
 |----------------|------|
-| Soft-match `pc_user` | Exact `profile_id` → exact `display_name` → sanitized slug vs `profile_id` |
+| Soft-match `pc_user` | Exact `profile_id` → exact `display_name` → sanitized slug vs `profile_id` → same name words in any order → unique first name, last name, or id prefix (`Joel` → `Joel Koblich` / `joel_biceps`). A tie stays ambiguous. |
 | Tech **Keep / Switch** confirm | Unique match ≠ active profile **and** source is Feather or Simulate |
 | No dialog | Already active; Polar source; no/ambiguous match; `client_app: ecg_box_tuner` |
 | Keep debounce | Same `pc_user` suppressed ~30s after Keep (reconnect nags) |

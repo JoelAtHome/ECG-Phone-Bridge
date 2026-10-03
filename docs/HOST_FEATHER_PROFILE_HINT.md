@@ -12,7 +12,9 @@ On **every** TCP `client_info`, the phone soft-matches `pc_user` to a local Feat
 
 1. Exact `profile_id` (case-insensitive)  
 2. Exact `display_name`  
-3. Sanitized slug of `pc_user` vs `profile_id` (spaces → `_`, etc.)
+3. Sanitized slug of `pc_user` vs `profile_id` (spaces → `_`, etc.)  
+4. Same name words, any order (`Koblich, Joel` vs `Joel Koblich`)  
+5. Unique first name, last name, or id prefix (`Joel` → display `Joel Koblich` or id `joel_biceps`)
 
 If the match is unique, the active profile would change, and the phone source is **Feather** or **Simulate**, Tech sees:
 
@@ -23,6 +25,7 @@ If the match is unique, the active profile would change, and the phone source is
 - **Polar** → no dialog.  
 - **ECG-Box Tuner** → no auto-prompt (still owns `profile_*`).  
 - No / ambiguous match → status text only, no dialog.
+- Blank `pc_user` while Feather or Simulate is active → status `No patient name from {app} — phone profile is {name}` (no dialog).
 
 Phone may send non-blocking `status` lines (safe to show as a banner; **no second OK/Cancel on PC**):
 
@@ -31,6 +34,7 @@ Phone may send non-blocking `status` lines (safe to show as a banner; **no secon
 {"type":"status","message":"Feather profile switched: Payton","connected":true}
 {"type":"status","message":"Feather profile kept: Patient 2","connected":true}
 {"type":"status","message":"No Feather profile for Sandy","connected":true}
+{"type":"status","message":"No patient name from VNS-TA — phone profile is Payton","connected":true}
 ```
 
 ---
@@ -75,9 +79,9 @@ Without re-send on switch, the phone only learns the patient at link-up.
 
 ## Field tips
 
-1. On the phone, name Feather profiles like host patients (e.g. display name **Payton** or id `payton`). Use Tech **Rename** to set the person’s name without changing `profile_id` — keep placement in notes/id (e.g. id `joel_biceps`, display **Joel Koblich**). Factory **Patient 1** will not match **Payton** until renamed.  
+1. On the phone, name Feather profiles like host patients (e.g. display name **Payton** or id `payton`). A unique first name also matches a longer display name or a placement id (`Joel` → **Joel Koblich** or `joel_biceps`). Two people who share that first name stay unmatched until the full name is unique. Factory **Patient 1** will not match **Payton** until renamed.  
 2. Select **Feather** (or Simulate) on the phone before expecting the confirm dialog.  
-3. Sideload phone **≥ v1.0.0-beta.60** (Rename + stronger no-match banner; soft-match since β.59).
+3. Sideload phone **≥ v1.0.0-beta.76** (looser name/id matching + blank-`pc_user` warning; Rename + soft-match since β.59–60).
 
 ---
 
