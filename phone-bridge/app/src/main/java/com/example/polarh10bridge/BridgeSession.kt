@@ -373,7 +373,7 @@ class BridgeSessionController(
             durationS = durationS,
             ibiMs = ibiMs,
             ecgSampleHz = hz,
-            ecgUv = RitualPackage.mvToUvShorts(mvCopy),
+            ecgUv = RitualPackage.mvToUvInts(mvCopy),
             ecgScaleUvPerLsb = 1.0,
             ecgTruncated = truncated,
             rmssdJson = rmssd?.toString(),

@@ -604,13 +604,13 @@ After Record Stop (`finalizing` → `completed`), the phone **always** persists 
 
 | IBI series | yes | All accepted IBIs for the capture (ms) |
 
-| ECG samples | preferred | Compact int16 µV; may be empty / truncated |
+| ECG samples | preferred | Little-endian int32 µV (`int32_uv_b64`); may be empty / truncated. Hosts still accept older `int16_uv_b64` packages. |
 
 | `session_summary` | yes (on transfer) | Envelope before payload |
 
 
 
-On-disk ECG encoding: **int16 microvolts** + `sample_rate_hz` + `scale_uv_per_lsb` (usually `1.0`). Do **not** store live NDJSON `ecg` batches.
+On-disk ECG encoding: **int32 microvolts** (`ecg_encoding`: `int32_uv_b64`) + `sample_rate_hz` + `scale_uv_per_lsb` (`1`). Files without `ecg_encoding` are legacy little-endian int16 and widen on load. Do **not** store live NDJSON `ecg` batches.
 
 
 
@@ -754,13 +754,13 @@ Then zero or more chunks (IBI first, then ECG), ~64–128 KiB of payload per lin
 
   "content": "ecg",
 
-  "encoding": "int16_uv_b64",
+  "encoding": "int32_uv_b64",
 
   "sample_rate_hz": 250,
 
-  "scale_uv_per_lsb": 1.0,
+  "scale_uv_per_lsb": 1,
 
-  "data": "<base64 little-endian int16>"
+  "data": "<base64 little-endian int32>"
 
 }
 

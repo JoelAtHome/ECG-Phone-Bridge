@@ -8,7 +8,7 @@ import java.util.Base64
 
 /**
  * Durable Record (ritual) package persisted on the phone for delayed FT/HnH transfer.
- * ECG is compact int16 µV; see docs/PROTOCOL.md §7.
+ * ECG is little-endian int32 µV (`int32_uv_b64`). Older files may still be int16; see docs/PROTOCOL.md §7.
  */
 data class RitualPackage(
     val sessionId: String,
@@ -19,8 +19,8 @@ data class RitualPackage(
     val durationS: Double,
     val ibiMs: List<Int>,
     val ecgSampleHz: Int,
-    /** Little-endian int16 samples in µV (after [ecgScaleUvPerLsb]). */
-    val ecgUv: ShortArray,
+    /** Little-endian int32 samples in µV (after [ecgScaleUvPerLsb]). */
+    val ecgUv: IntArray,
     val ecgScaleUvPerLsb: Double = 1.0,
     val ecgTruncated: Boolean = false,
     val rmssdJson: String?,
@@ -54,9 +54,9 @@ data class RitualPackage(
             .put("source_device", sourceDevice)
 
     fun toFileJson(): JSONObject {
-        val ecgBytes = ByteBuffer.allocate(ecgUv.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+        val ecgBytes = ByteBuffer.allocate(ecgUv.size * 4).order(ByteOrder.LITTLE_ENDIAN)
         for (s in ecgUv) {
-            ecgBytes.putShort(s)
+            ecgBytes.putInt(s)
         }
         return JSONObject()
             .put("schema_version", SCHEMA_VERSION)
@@ -68,6 +68,7 @@ data class RitualPackage(
             .put("duration_s", durationS)
             .put("ibi_ms", JSONArray(ibiMs))
             .put("ecg_sample_hz", ecgSampleHz)
+            .put("ecg_encoding", ECG_ENCODING_INT32)
             .put("ecg_scale_uv_per_lsb", ecgScaleUvPerLsb)
             .put("ecg_truncated", ecgTruncated)
             .put(
@@ -126,6 +127,8 @@ data class RitualPackage(
 
     companion object {
         const val SCHEMA_VERSION = 1
+        const val ECG_ENCODING_INT32 = "int32_uv_b64"
+        const val ECG_ENCODING_INT16 = "int16_uv_b64"
 
         fun fromFileJson(obj: JSONObject): RitualPackage {
             val ibiArr = obj.optJSONArray("ibi_ms") ?: JSONArray()
@@ -133,15 +136,7 @@ data class RitualPackage(
             for (i in 0 until ibiArr.length()) {
                 ibi.add(ibiArr.optInt(i))
             }
-            val b64 = obj.optString("ecg_uv_b64", "")
-            val ecgUv =
-                if (b64.isBlank()) {
-                    ShortArray(0)
-                } else {
-                    val bytes = Base64.getDecoder().decode(b64)
-                    val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-                    ShortArray(bytes.size / 2) { buf.short }
-                }
+            val ecgUv = decodeEcgUv(obj)
             val rmssdObj = obj.optJSONObject("rmssd")
             val stateObj = obj.optJSONObject("session_state")
             return RitualPackage(
@@ -164,17 +159,33 @@ data class RitualPackage(
             )
         }
 
-        /** Convert millivolt samples to int16 µV (clamped). */
-        fun mvToUvShorts(samplesMv: List<Float>): ShortArray {
-            val out = ShortArray(samplesMv.size)
+        /**
+         * Convert millivolt samples to int32 µV.
+         * Truncates toward zero, same as the previous int16 packer, without the ±32767 clamp.
+         */
+        fun mvToUvInts(samplesMv: List<Float>): IntArray {
+            val out = IntArray(samplesMv.size)
             for (i in samplesMv.indices) {
-                val uv =
-                    (samplesMv[i] * 1000.0)
-                        .toInt()
-                        .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                out[i] = uv.toShort()
+                out[i] = (samplesMv[i] * 1000.0).toInt()
             }
             return out
+        }
+
+        /**
+         * Files written before int32 omit `ecg_encoding` and store little-endian int16.
+         * Those widen to int32 on load. New files set [ECG_ENCODING_INT32].
+         */
+        private fun decodeEcgUv(obj: JSONObject): IntArray {
+            val b64 = obj.optString("ecg_uv_b64", "")
+            if (b64.isBlank()) return IntArray(0)
+            val bytes = Base64.getDecoder().decode(b64)
+            val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+            val encoding = obj.optString("ecg_encoding", ECG_ENCODING_INT16)
+            return if (encoding == ECG_ENCODING_INT32) {
+                IntArray(bytes.size / 4) { buf.int }
+            } else {
+                IntArray(bytes.size / 2) { buf.short.toInt() }
+            }
         }
     }
 }

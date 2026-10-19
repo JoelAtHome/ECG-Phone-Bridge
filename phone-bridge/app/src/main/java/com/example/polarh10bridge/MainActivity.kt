@@ -3150,12 +3150,11 @@ class MainActivity : ComponentActivity() {
                                     return@subscribe
                                 }
 
-                                val batch = if (samplesMv.size > 130) samplesMv.takeLast(130) else samplesMv
                                 val json =
-                                    """{"type":"ecg","source_device":"${sourceDeviceWire()}","sample_rate_hz":130,"samples_mv":$batch}"""
+                                    """{"type":"ecg","source_device":"${sourceDeviceWire()}","sample_rate_hz":130,"samples_mv":$samplesMv}"""
                                 sendBridgeJsonLine(json)
-                                sessionController.onEcgMv(130, batch)
-                                Log.d("HnHBridge", "ECG batch sent size=${batch.size}")
+                                sessionController.onEcgMv(130, samplesMv)
+                                Log.d("HnHBridge", "ECG batch sent size=${samplesMv.size}")
                             },
                             { err ->
                                 Log.e("HnHBridge", "ECG stream error", err)

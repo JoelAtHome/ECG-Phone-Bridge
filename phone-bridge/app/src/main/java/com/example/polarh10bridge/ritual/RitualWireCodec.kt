@@ -8,8 +8,8 @@ import java.util.Base64
 
 /** Build PROTOCOL §7 NDJSON lines for a ritual package transfer. */
 object RitualWireCodec {
-    /** Target ~96 KiB of base64 payload per ECG chunk (~72 KiB raw shorts). */
-    const val ECG_SAMPLES_PER_CHUNK = 36_000
+    /** Target ~96 KiB of base64 payload per ECG chunk (~72 KiB raw int32). */
+    const val ECG_SAMPLES_PER_CHUNK = 18_000
 
     fun sessionSummary(
         pkg: RitualPackage,
@@ -126,9 +126,9 @@ object RitualWireCodec {
         while (offset < pkg.ecgUv.size) {
             val end = minOf(offset + ECG_SAMPLES_PER_CHUNK, pkg.ecgUv.size)
             val sliceLen = end - offset
-            val buf = ByteBuffer.allocate(sliceLen * 2).order(ByteOrder.LITTLE_ENDIAN)
+            val buf = ByteBuffer.allocate(sliceLen * 4).order(ByteOrder.LITTLE_ENDIAN)
             for (i in offset until end) {
-                buf.putShort(pkg.ecgUv[i])
+                buf.putInt(pkg.ecgUv[i])
             }
             out.add(
                 JSONObject()
@@ -137,7 +137,7 @@ object RitualWireCodec {
                     .put("seq", seq)
                     .put("of", total)
                     .put("content", "ecg")
-                    .put("encoding", "int16_uv_b64")
+                    .put("encoding", RitualPackage.ECG_ENCODING_INT32)
                     .put("sample_rate_hz", pkg.ecgSampleHz)
                     .put("scale_uv_per_lsb", pkg.ecgScaleUvPerLsb)
                     .put("data", Base64.getEncoder().encodeToString(buf.array()))

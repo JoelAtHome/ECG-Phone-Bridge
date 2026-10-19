@@ -4,6 +4,10 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.79
+- fix: Polar ECG sends and stores the full Bluetooth batch. Batches longer than one second no longer drop the front, in Stream and Record.
+- enhancement: Recorded ECG is little-endian int32 microvolts (`int32_uv_b64`, `scale_uv_per_lsb` 1), so amplitudes beyond ±32.767 mV are kept. Live `samples_mv` stays full-precision floats. Older int16 packages still load.
+
 ## Version 1.0.0-beta.78
 - enhancement: Stream bridge `rmssd` tracks recent change (`trailing_median_rolling` — median of the last three 60 s windows, no final trim). Record Stop still uses the session-wide plateau (`median_rolling_quality`) for the official ritual number.
 

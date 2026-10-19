@@ -34,7 +34,7 @@ class RitualPackageStoreTest {
             durationS = 120.0,
             ibiMs = listOf(800, 810, 790, 805),
             ecgSampleHz = 250,
-            ecgUv = RitualPackage.mvToUvShorts(mv),
+            ecgUv = RitualPackage.mvToUvInts(mv),
             ecgScaleUvPerLsb = 1.0,
             ecgTruncated = false,
             rmssdJson =
@@ -176,7 +176,8 @@ class RitualPackageStoreTest {
         assertEquals("ibi", ibi.getString("content"))
         val ecgLine = lines.first { JSONObject(it).optString("content") == "ecg" }
         val ecg = JSONObject(ecgLine)
-        assertEquals("int16_uv_b64", ecg.getString("encoding"))
+        assertEquals("int32_uv_b64", ecg.getString("encoding"))
+        assertEquals(1.0, ecg.getDouble("scale_uv_per_lsb"), 0.0)
         assertTrue(ecg.getString("data").isNotBlank())
     }
 
@@ -190,8 +191,42 @@ class RitualPackageStoreTest {
     }
 
     @Test
+    fun mvToUvInts_keepsAmplitudesBeyondInt16() {
+        val uv = RitualPackage.mvToUvInts(listOf(40f, -40.5f, 0.125f))
+        assertEquals(40_000, uv[0])
+        assertEquals(-40_500, uv[1])
+        assertEquals(125, uv[2])
+        val stored =
+            samplePackage("wide", ecgSamples = 0).copy(
+                ecgUv = uv,
+            )
+        val loaded = RitualPackage.fromFileJson(stored.toFileJson())
+        assertTrue(uv.contentEquals(loaded.ecgUv))
+        assertEquals(RitualPackage.ECG_ENCODING_INT32, stored.toFileJson().getString("ecg_encoding"))
+    }
+
+    @Test
+    fun fromFileJson_widensLegacyInt16Packages() {
+        val legacyUv = shortArrayOf(100, -200, 32767)
+        val bytes = java.nio.ByteBuffer.allocate(legacyUv.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (s in legacyUv) bytes.putShort(s)
+        val legacy =
+            org.json.JSONObject()
+                .put("session_id", "old")
+                .put(
+                    "ecg_uv_b64",
+                    java.util.Base64.getEncoder().encodeToString(bytes.array()),
+                )
+        val loaded = RitualPackage.fromFileJson(legacy)
+        assertEquals(3, loaded.ecgUv.size)
+        assertEquals(100, loaded.ecgUv[0])
+        assertEquals(-200, loaded.ecgUv[1])
+        assertEquals(32767, loaded.ecgUv[2])
+    }
+
+    @Test
     fun sizeSanity_oneMinuteFeatherCompactUnder200kb() {
-        // ~250 Hz * 60 s = 15000 samples * 2 bytes ≈ 30 KB raw (+ JSON overhead)
+        // ~250 Hz * 60 s = 15000 samples * 4 bytes ≈ 60 KB raw (+ JSON overhead)
         val pkg = samplePackage("size-1", ecgSamples = 15_000)
         val json = pkg.toFileJson().toString()
         assertTrue("package too large: ${json.length}", json.length < 200_000)
