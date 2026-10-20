@@ -416,6 +416,8 @@ fun TechSessionMeters(
         FeatherEcgStrip(
             samplesMv = featherEcgTraceMv,
             peakFlags = featherEcgTracePeaks,
+            // Match appendTechEcgTrace window so new samples pin to the right (scroll ←).
+            windowSamples = (featherEcgSampleHz * 3).coerceIn(250, 1000),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -1108,6 +1110,8 @@ private fun FeatherProfileMatchAttentionBanner(
 private fun FeatherEcgStrip(
     samplesMv: List<Float>,
     peakFlags: List<Boolean> = emptyList(),
+    /** Fixed sample count for the full width (right-anchored). 0 = stretch current buffer. */
+    windowSamples: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val stroke = TechInfoBlue
@@ -1143,10 +1147,15 @@ private fun FeatherEcgStrip(
         minV -= pad
         maxV += pad
         span = maxV - minV
+        // Right-anchor to a fixed window so new ink lands on the right and the
+        // trace scrolls left — stretch-to-width looked like writing left→right.
+        val window = maxOf(windowSamples, samplesMv.size, 2)
+        val denom = (window - 1).toFloat().coerceAtLeast(1f)
+        val indexOffset = (window - samplesMv.size).coerceAtLeast(0)
+        fun xAt(i: Int): Float = w * ((indexOffset + i).toFloat() / denom)
         val path = Path()
-        val last = samplesMv.lastIndex
         samplesMv.forEachIndexed { i, v ->
-            val x = if (last == 0) 0f else w * (i.toFloat() / last.toFloat())
+            val x = xAt(i)
             val y = h * (1f - ((v - minV) / span))
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
@@ -1165,7 +1174,7 @@ private fun FeatherEcgStrip(
             val tick = (h * 0.12f).coerceIn(6f, 14f)
             for (i in peakFlags.indices) {
                 if (!peakFlags[i]) continue
-                val x = if (last == 0) 0f else w * (i.toFloat() / last.toFloat())
+                val x = xAt(i)
                 val y = h * (1f - ((samplesMv[i] - minV) / span))
                 drawLine(
                     color = peakMark,

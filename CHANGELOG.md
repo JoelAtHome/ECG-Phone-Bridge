@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.81
+- fix: Tech ECG strip right-anchors to a fixed ~3 s window so new samples appear on the right and the trace scrolls left (stretch-to-width looked like writing left→right, especially on Polar).
+
 ## Version 1.0.0-beta.80
 - enhancement: Tech ECG strip works for Polar H10 as well as Feather / Simulate (signal-quality monitor; still updates when Polar contact gates host ECG).
 
