@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.80
+- enhancement: Tech ECG strip works for Polar H10 as well as Feather / Simulate (signal-quality monitor; still updates when Polar contact gates host ECG).
+
 ## Version 1.0.0-beta.79
 - fix: Polar ECG sends and stores the full Bluetooth batch. Batches longer than one second no longer drop the front, in Stream and Record.
 - enhancement: Recorded ECG is little-endian int32 microvolts (`int32_uv_b64`, `scale_uv_per_lsb` 1), so amplitudes beyond ±32.767 mV are kept. Live `samples_mv` stays full-precision floats. Older int16 packages still load.

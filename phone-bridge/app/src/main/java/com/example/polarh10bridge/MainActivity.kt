@@ -1246,7 +1246,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun ingestFeatherEcgMv(
+    /** Rolling ~3 s Tech ECG strip — Polar, Feather live, and Simulate. */
+    private fun appendTechEcgTrace(
         sampleHz: Int,
         samplesMv: List<Float>,
         peakFlags: List<Boolean> = emptyList(),
@@ -1290,7 +1291,23 @@ class MainActivity : ComponentActivity() {
                 featherEcgPacketCount = state.featherEcgPacketCount + 1,
             )
         }
+    }
+
+    private fun ingestFeatherEcgMv(
+        sampleHz: Int,
+        samplesMv: List<Float>,
+        peakFlags: List<Boolean> = emptyList(),
+    ) {
+        if (samplesMv.isEmpty()) return
+        val hz = sampleHz.coerceAtLeast(1)
+        val peaksAligned =
+            if (peakFlags.size == samplesMv.size) {
+                peakFlags
+            } else {
+                List(samplesMv.size) { false }
+            }
         // Tech strip always; gate host NDJSON + ritual when MCU reports open leads.
+        appendTechEcgTrace(hz, samplesMv, peaksAligned)
         if (!com.example.polarh10bridge.feather.FeatherEcgExportGate.shouldForwardToHosts(
                 featherLeadOffTracker.last(),
             )
@@ -2838,6 +2855,9 @@ class MainActivity : ComponentActivity() {
                 bleConnecting = false,
                 bleRows = emptyList(),
                 bleSelectedId = null,
+                featherEcgTraceMv = emptyList(),
+                featherEcgTracePeaks = emptyList(),
+                featherEcgPacketCount = 0,
             )
         }
     }
@@ -3038,6 +3058,9 @@ class MainActivity : ComponentActivity() {
                                 connectedSensorRssi = null,
                                 sensorContact = SensorContactState.Unknown,
                                 recentHrBpm = null,
+                                featherEcgTraceMv = emptyList(),
+                                featherEcgTracePeaks = emptyList(),
+                                featherEcgPacketCount = 0,
                             )
                     }
                     stopConnectedRssiPolling()
@@ -3141,12 +3164,14 @@ class MainActivity : ComponentActivity() {
                         .observeOn(Schedulers.io())
                         .subscribe(
                             { ecgData: PolarEcgData ->
-                                if (!telemetryAllowedByContact) {
-                                    return@subscribe
-                                }
                                 val samplesMv = extractEcgMillivolts(ecgData)
                                 if (samplesMv.isEmpty()) {
                                     Log.d("HnHBridge", "ECG batch empty after parse; skipping")
+                                    return@subscribe
+                                }
+                                // Tech strip always (signal-quality monitor); gate host/ritual on contact.
+                                appendTechEcgTrace(130, samplesMv)
+                                if (!telemetryAllowedByContact) {
                                     return@subscribe
                                 }
 
@@ -4040,6 +4065,7 @@ private fun BridgeMainScreen(
                         qualityFlags = state.lastQualityFlags,
                         sensorContact = state.sensorContact,
                         connectedSensorRssi = state.connectedSensorRssi,
+                        sensorConnected = state.sensorConnected,
                         featherSimActive = state.featherSimActive,
                         featherBlePhase = state.featherBlePhase,
                         featherBleDetail = state.featherBleDetail,

@@ -124,6 +124,8 @@ fun TechSessionMeters(
     sensorContact: SensorContactState,
     /** BLE link strength only — never treat as skin contact. */
     connectedSensorRssi: Int?,
+    /** Polar H10 connected — Tech ECG strip can show Polar samples. */
+    sensorConnected: Boolean = false,
     featherSimActive: Boolean = false,
     featherBlePhase: String = "Idle",
     featherBleDetail: String = "",
@@ -389,6 +391,41 @@ fun TechSessionMeters(
                 }
             }
         }
+
+        Text(
+            text =
+                when {
+                    featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
+                        "ECG strip — ${featherEcgPacketCount} pkts, " +
+                            "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz" +
+                            if (featherEcgTracePeaks.any { it }) " · R markers" else ""
+                    sensorConnected ->
+                        "ECG strip — waiting for Polar samples…"
+                    featherBleConnected ->
+                        "ECG strip — waiting for live Feather samples…"
+                    featherSimActive ->
+                        "ECG strip — waiting for sim samples…"
+                    else ->
+                        "ECG strip — Find Polar or Feather on the data path, or Change ECG sensor → Simulate"
+                },
+            color = TechTextDark,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+        FeatherEcgStrip(
+            samplesMv = featherEcgTraceMv,
+            peakFlags = featherEcgTracePeaks,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(112.dp)
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFE3F2FD))
+                    .border(2.dp, TechInfoBlue.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+        )
 
         if (onSelectFeatherProfile != null && onSaveFeatherProfileCoeffs != null) {
             Row(
@@ -771,40 +808,8 @@ fun TechSessionMeters(
         }
         Text(
             text =
-                when {
-                    featherEcgPacketCount > 0 && featherEcgTraceMv.isNotEmpty() ->
-                        "ECG strip — ${featherEcgPacketCount} pkts, " +
-                            "~${featherEcgTraceMv.size * 1000 / featherEcgSampleHz.coerceAtLeast(1)} ms @ ${featherEcgSampleHz} Hz" +
-                            if (featherEcgTracePeaks.any { it }) " · R markers" else ""
-                    featherBleConnected ->
-                        "ECG strip — waiting for live Feather samples…"
-                    featherSimActive ->
-                        "ECG strip — waiting for sim samples…"
-                    else ->
-                        "ECG strip — Find Feather on the data path, or Change ECG sensor → Simulate"
-                },
-            color = TechTextDark,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-        FeatherEcgStrip(
-            samplesMv = featherEcgTraceMv,
-            peakFlags = featherEcgTracePeaks,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(112.dp)
-                    .padding(top = 4.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE3F2FD))
-                    .border(2.dp, TechInfoBlue.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-        )
-        Text(
-            text =
                 "Find on the data path connects ECG-Box, pushes active coeffs, and starts the detector. " +
-                    "Disconnect from the sensor pill.",
+                    "Disconnect from the sensor pill. Live ECG strip is above (Polar, Feather, or Simulate).",
             color = TechTextDark.copy(alpha = 0.62f),
             fontSize = 11.sp,
             lineHeight = 13.sp,
