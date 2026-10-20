@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.82
+- fix: Polar Tech ECG strip drip-feeds samples at ~realtime instead of dumping whole BLE batches, so the beat train no longer looks like it scrolls the wrong way (wagon-wheel aliasing). Host/ritual still get full batches immediately.
+
 ## Version 1.0.0-beta.81
 - fix: Tech ECG strip right-anchors to a fixed ~3 s window so new samples appear on the right and the trace scrolls left (stretch-to-width looked like writing left→right, especially on Polar).
 

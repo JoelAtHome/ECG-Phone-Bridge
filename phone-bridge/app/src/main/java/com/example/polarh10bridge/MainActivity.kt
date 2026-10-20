@@ -416,6 +416,58 @@ class MainActivity : ComponentActivity() {
                 mainHandler.postDelayed(this, batchN * 1000L / hz)
             }
         }
+    /**
+     * Polar ECG arrives in large BLE batches (~0.5–1 s). Dumping a whole batch into the
+     * Tech strip each time aliases against HR (wagon-wheel) so the beat train looks like
+     * it scrolls the wrong way. Drip at ~realtime so the strip advances in small leftward steps.
+     */
+    private val techEcgStripPendingLock = Any()
+    private val techEcgStripPendingMv = ArrayList<Float>(512)
+    private val techEcgStripPendingPeaks = ArrayList<Boolean>(512)
+    private var techEcgStripPendingHz = 130
+    private var techEcgStripDripPosted = false
+    private val techEcgStripDripIntervalMs = 33L
+    private val techEcgStripDripRunnable =
+        object : Runnable {
+            override fun run() {
+                val hz: Int
+                val chunkMv: List<Float>
+                val chunkPeaks: List<Boolean>
+                synchronized(techEcgStripPendingLock) {
+                    if (techEcgStripPendingMv.isEmpty()) {
+                        techEcgStripDripPosted = false
+                        return
+                    }
+                    hz = techEcgStripPendingHz.coerceAtLeast(1)
+                    // ~1 frame of realtime ECG at this sample rate.
+                    val n =
+                        ((hz * techEcgStripDripIntervalMs) / 1000L)
+                            .toInt()
+                            .coerceIn(4, 24)
+                            .coerceAtMost(techEcgStripPendingMv.size)
+                    chunkMv = ArrayList(techEcgStripPendingMv.subList(0, n))
+                    repeat(n) { techEcgStripPendingMv.removeAt(0) }
+                    chunkPeaks =
+                        if (techEcgStripPendingPeaks.size >= n) {
+                            ArrayList(techEcgStripPendingPeaks.subList(0, n)).also {
+                                repeat(n) { techEcgStripPendingPeaks.removeAt(0) }
+                            }
+                        } else {
+                            repeat(techEcgStripPendingPeaks.size.coerceAtMost(n)) {
+                                techEcgStripPendingPeaks.removeAt(0)
+                            }
+                            List(n) { false }
+                        }
+                    if (techEcgStripPendingMv.isNotEmpty()) {
+                        mainHandler.postDelayed(this, techEcgStripDripIntervalMs)
+                    } else {
+                        techEcgStripDripPosted = false
+                    }
+                }
+                appendTechEcgTrace(hz, chunkMv, chunkPeaks, countPacket = false)
+            }
+        }
+
     /** Direct LE scan for RSSI; Polar search often never re-emits the connected peripheral. */
     private var rssiLeScanCallback: ScanCallback? = null
     private var bleRssiPolarFallbackDisposable: Disposable? = null
@@ -1246,11 +1298,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Rolling ~3 s Tech ECG strip — Polar, Feather live, and Simulate. */
+    /** Queue Polar ECG for the Tech strip; host/ritual still get the full batch immediately. */
+    private fun enqueueTechEcgStripDrip(
+        sampleHz: Int,
+        samplesMv: List<Float>,
+        peakFlags: List<Boolean> = emptyList(),
+    ) {
+        if (samplesMv.isEmpty()) return
+        val hz = sampleHz.coerceAtLeast(1)
+        val peaksAligned =
+            if (peakFlags.size == samplesMv.size) {
+                peakFlags
+            } else {
+                List(samplesMv.size) { false }
+            }
+        synchronized(techEcgStripPendingLock) {
+            techEcgStripPendingHz = hz
+            techEcgStripPendingMv.addAll(samplesMv)
+            techEcgStripPendingPeaks.addAll(peaksAligned)
+            // Cap backlog (~4 s); drop oldest pending so a stall cannot grow forever.
+            val maxPending = (hz * 4).coerceIn(400, 2000)
+            while (techEcgStripPendingMv.size > maxPending) {
+                techEcgStripPendingMv.removeAt(0)
+                if (techEcgStripPendingPeaks.isNotEmpty()) {
+                    techEcgStripPendingPeaks.removeAt(0)
+                }
+            }
+            if (!techEcgStripDripPosted) {
+                techEcgStripDripPosted = true
+                mainHandler.post(techEcgStripDripRunnable)
+            }
+        }
+        // Count BLE batches, not drip frames.
+        updateScreen { it.copy(featherEcgPacketCount = it.featherEcgPacketCount + 1) }
+    }
+
+    private fun clearTechEcgStripDrip() {
+        mainHandler.removeCallbacks(techEcgStripDripRunnable)
+        synchronized(techEcgStripPendingLock) {
+            techEcgStripPendingMv.clear()
+            techEcgStripPendingPeaks.clear()
+            techEcgStripDripPosted = false
+        }
+    }
+
+    /** Rolling ~3 s Tech ECG strip — Polar (via drip), Feather live, and Simulate. */
     private fun appendTechEcgTrace(
         sampleHz: Int,
         samplesMv: List<Float>,
         peakFlags: List<Boolean> = emptyList(),
+        countPacket: Boolean = true,
     ) {
         if (samplesMv.isEmpty()) return
         val hz = sampleHz.coerceAtLeast(1)
@@ -1288,7 +1385,12 @@ class MainActivity : ComponentActivity() {
                 featherEcgTraceMv = trimmed,
                 featherEcgTracePeaks = trimmedPeaks,
                 featherEcgSampleHz = hz,
-                featherEcgPacketCount = state.featherEcgPacketCount + 1,
+                featherEcgPacketCount =
+                    if (countPacket) {
+                        state.featherEcgPacketCount + 1
+                    } else {
+                        state.featherEcgPacketCount
+                    },
             )
         }
     }
@@ -2841,6 +2943,7 @@ class MainActivity : ComponentActivity() {
         ecgDisposable?.dispose()
         ecgDisposable = null
         ecgStreamingStarted = false
+        clearTechEcgStripDrip()
         resetSensorContactGate()
         updateScreen {
             it.copy(
@@ -3046,6 +3149,7 @@ class MainActivity : ComponentActivity() {
                     ecgDisposable?.dispose()
                     ecgDisposable = null
                     ecgStreamingStarted = false
+                    clearTechEcgStripDrip()
                     resetSensorContactGate()
 
                     mainHandler.post {
@@ -3169,8 +3273,8 @@ class MainActivity : ComponentActivity() {
                                     Log.d("HnHBridge", "ECG batch empty after parse; skipping")
                                     return@subscribe
                                 }
-                                // Tech strip always (signal-quality monitor); gate host/ritual on contact.
-                                appendTechEcgTrace(130, samplesMv)
+                                // Tech strip always (drip to avoid HR wagon-wheel); gate host/ritual on contact.
+                                enqueueTechEcgStripDrip(130, samplesMv)
                                 if (!telemetryAllowedByContact) {
                                     return@subscribe
                                 }
