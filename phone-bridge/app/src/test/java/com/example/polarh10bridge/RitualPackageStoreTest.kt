@@ -271,7 +271,64 @@ class RitualPackageStoreTest {
             )
         assertEquals("patient-2", stop.ritualPackage!!.profileId)
         assertEquals("Joel", stop.ritualPackage!!.profileDisplayName)
-        assertEquals(180.0, stop.ritualPackage!!.durationS, 0.001)
+        // duration_s follows IBI span; wall_duration_s keeps the Record clock.
+        assertEquals(1.62, stop.ritualPackage!!.durationS, 0.001)
+        assertEquals(180.0, stop.ritualPackage!!.wallDurationS, 0.001)
+        assertTrue(stop.ritualPackage!!.ibiIncomplete)
+    }
+
+    @Test
+    fun recordStop_persistsFullIbiSeriesForTwoMinuteCapture() {
+        // ~118 bpm for ~134 s → ~260 IBIs (HnH acceptance: not a short prefix).
+        val ibiMs = 508
+        val beatCount = 260
+        val ctl = BridgeSessionController()
+        val t0 = 1_000L
+        ctl.start(
+            mode = BridgeSessionMode.Record,
+            kind = BridgeSessionKind.Ritual,
+            nowElapsedMs = t0,
+            sourceDevice = "FEATHER",
+        )
+        var t = t0
+        repeat(beatCount) {
+            t += ibiMs.toLong()
+            ctl.onRrMs(ibiMs, t)
+        }
+        val wallMs = 134_000L
+        val stop = ctl.stop("FEATHER", nowElapsedMs = t0 + wallMs)
+        val pkg = stop.ritualPackage!!
+        assertEquals(beatCount, pkg.ibiMs.size)
+        assertEquals(beatCount, pkg.ibiCount)
+        assertEquals(ibiMs * beatCount / 1000.0, pkg.durationS, 0.001)
+        assertEquals(ibiMs * beatCount / 1000.0, pkg.ibiSpanS, 0.001)
+        assertEquals(134.0, pkg.wallDurationS, 0.001)
+        assertFalse(pkg.ibiIncomplete)
+
+        val store = RitualPackageStore(tmp.newFolder("rituals-long"))
+        store.save(pkg)
+        val loaded = store.get(pkg.sessionId)!!
+        assertEquals(beatCount, loaded.ibiMs.size)
+        assertEquals(pkg.ibiMs, loaded.ibiMs)
+
+        val lines = RitualWireCodec.buildTransferLines(pkg, RitualTransferReason.DelayedPush)
+        val summary = JSONObject(lines.first())
+        assertEquals(beatCount, summary.getInt("ibi_count"))
+        assertEquals(pkg.durationS, summary.getDouble("duration_s"), 0.001)
+        assertEquals(pkg.wallDurationS, summary.getDouble("wall_duration_s"), 0.001)
+        assertFalse(summary.getBoolean("ibi_incomplete"))
+        val ibiSamples = ArrayList<Int>()
+        for (line in lines.drop(1)) {
+            val obj = JSONObject(line)
+            if (obj.optString("type") != "ritual_chunk") continue
+            if (obj.optString("content") != "ibi") continue
+            val arr = obj.getJSONArray("samples")
+            for (i in 0 until arr.length()) {
+                ibiSamples.add(arr.getInt(i))
+            }
+        }
+        assertEquals(beatCount, ibiSamples.size)
+        assertEquals(pkg.ibiMs, ibiSamples)
     }
 
     @Test

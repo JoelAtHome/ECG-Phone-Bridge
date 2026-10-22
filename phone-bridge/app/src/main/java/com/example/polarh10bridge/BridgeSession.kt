@@ -110,6 +110,10 @@ class BridgeSessionController(
         private set
 
     private val ibiLock = Any()
+    /**
+     * All accepted IBIs for the active capture. **Not ring-capped** — Record packages
+     * must include the full session series (PROTOCOL §7). Only ECG uses [MAX_ECG_BUFFER_SEC].
+     */
     private val ibis = ArrayList<RmssdCalculator.IbiSample>(512)
     private val lastRollingEmitElapsedMs = AtomicLong(0L)
 
@@ -273,7 +277,7 @@ class BridgeSessionController(
         val state = sessionStateJson()
         // Return to idle for the next start; keep last sessionId on the completed message.
         runState = BridgeSessionRunState.Idle
-        val durationS =
+        val wallDurationS =
             if (started > 0L && nowElapsedMs >= started) {
                 (nowElapsedMs - started) / 1000.0
             } else {
@@ -286,7 +290,7 @@ class BridgeSessionController(
                     mode = modeAtStop,
                     kind = kindAtStop,
                     sourceDevice = sourceDevice,
-                    durationS = durationS,
+                    wallDurationS = wallDurationS,
                     rmssd = rmssd,
                     sessionState = state,
                     profileId = profileId,
@@ -346,16 +350,21 @@ class BridgeSessionController(
         mode: BridgeSessionMode,
         kind: BridgeSessionKind,
         sourceDevice: String,
-        durationS: Double,
+        wallDurationS: Double,
         rmssd: JSONObject?,
         sessionState: JSONObject?,
         profileId: String?,
         profileDisplayName: String?,
     ): RitualPackage {
+        // Full list — no takeLast / time-window trim (hosts rebuild trends from IBI only).
         val ibiMs =
             synchronized(ibiLock) {
                 ibis.map { it.ibiMs.toInt().coerceAtLeast(0) }
             }
+        val ibiSpanS = RitualPackage.ibiSpanSeconds(ibiMs)
+        // duration_s is beat coverage when IBIs exist so hosts don't treat wall-clock
+        // length as a full IBI timeline (e.g. MCU LOD / BLE drops mid-Record).
+        val durationS = if (ibiMs.isNotEmpty()) ibiSpanS else wallDurationS
         val (hz, truncated, mvCopy) =
             synchronized(ecgLock) {
                 Triple(ecgSampleHz, ecgTruncated, ecgMv.toList())
@@ -371,6 +380,7 @@ class BridgeSessionController(
             sourceDevice = sourceDevice,
             emittedAt = emittedAt,
             durationS = durationS,
+            wallDurationS = wallDurationS,
             ibiMs = ibiMs,
             ecgSampleHz = hz,
             ecgUv = RitualPackage.mvToUvInts(mvCopy),

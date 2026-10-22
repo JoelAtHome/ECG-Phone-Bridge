@@ -16,7 +16,17 @@ data class RitualPackage(
     val kind: String,
     val sourceDevice: String,
     val emittedAt: String,
+    /**
+     * Beat-coverage length: Σ `ibi_ms` / 1000 when IBIs exist (else wall clock).
+     * Hosts that rebuild trends from the IBI list should treat this as the series span.
+     */
     val durationS: Double,
+    /**
+     * Wall-clock Record start→stop (elapsedRealtime). May exceed [durationS] when the
+     * sensor stopped publishing accepted IBIs mid-capture (LOD / BLE backpressure).
+     * Absent on older on-disk packages (treated as [durationS]).
+     */
+    val wallDurationS: Double = durationS,
     val ibiMs: List<Int>,
     val ecgSampleHz: Int,
     /** Little-endian int32 samples in µV (after [ecgScaleUvPerLsb]). */
@@ -32,6 +42,17 @@ data class RitualPackage(
 ) {
     val hasEcg: Boolean get() = ecgUv.isNotEmpty()
     val ibiCount: Int get() = ibiMs.size
+    /** Σ ibi_ms / 1000 — same basis as [durationS] when the series is non-empty. */
+    val ibiSpanS: Double get() = ibiSpanSeconds(ibiMs)
+    /**
+     * True when wall clock is meaningfully longer than beat coverage (incomplete IBI
+     * series relative to the Record attempt). Phone does **not** invent missing beats.
+     */
+    val ibiIncomplete: Boolean
+        get() =
+            ibiMs.isNotEmpty() &&
+                wallDurationS > 0.0 &&
+                ibiSpanS < wallDurationS * IBI_INCOMPLETE_RATIO
     val rmssdMs: Double?
         get() =
             rmssdJson?.let { raw ->
@@ -66,6 +87,9 @@ data class RitualPackage(
             .put("source_device", sourceDevice)
             .put("emitted_at", emittedAt)
             .put("duration_s", durationS)
+            .put("wall_duration_s", wallDurationS)
+            .put("ibi_span_s", ibiSpanS)
+            .put("ibi_incomplete", ibiIncomplete)
             .put("ibi_ms", JSONArray(ibiMs))
             .put("ecg_sample_hz", ecgSampleHz)
             .put("ecg_encoding", ECG_ENCODING_INT32)
@@ -104,6 +128,7 @@ data class RitualPackage(
             sourceDevice == other.sourceDevice &&
             emittedAt == other.emittedAt &&
             durationS == other.durationS &&
+            wallDurationS == other.wallDurationS &&
             ibiMs == other.ibiMs &&
             ecgSampleHz == other.ecgSampleHz &&
             ecgUv.contentEquals(other.ecgUv) &&
@@ -129,6 +154,17 @@ data class RitualPackage(
         const val SCHEMA_VERSION = 1
         const val ECG_ENCODING_INT32 = "int32_uv_b64"
         const val ECG_ENCODING_INT16 = "int16_uv_b64"
+        /** Wall longer than this fraction of beat span ⇒ [ibiIncomplete]. */
+        const val IBI_INCOMPLETE_RATIO = 0.85
+
+        fun ibiSpanSeconds(ibiMs: List<Int>): Double {
+            if (ibiMs.isEmpty()) return 0.0
+            var sum = 0L
+            for (v in ibiMs) {
+                sum += v.coerceAtLeast(0).toLong()
+            }
+            return sum / 1000.0
+        }
 
         fun fromFileJson(obj: JSONObject): RitualPackage {
             val ibiArr = obj.optJSONArray("ibi_ms") ?: JSONArray()
@@ -136,6 +172,13 @@ data class RitualPackage(
             for (i in 0 until ibiArr.length()) {
                 ibi.add(ibiArr.optInt(i))
             }
+            val durationS = obj.optDouble("duration_s", 0.0)
+            val wallDurationS =
+                if (obj.has("wall_duration_s")) {
+                    obj.optDouble("wall_duration_s", durationS)
+                } else {
+                    durationS
+                }
             val ecgUv = decodeEcgUv(obj)
             val rmssdObj = obj.optJSONObject("rmssd")
             val stateObj = obj.optJSONObject("session_state")
@@ -145,7 +188,8 @@ data class RitualPackage(
                 kind = obj.optString("kind", "ritual"),
                 sourceDevice = obj.optString("source_device", "POLAR_H10"),
                 emittedAt = obj.optString("emitted_at", ""),
-                durationS = obj.optDouble("duration_s", 0.0),
+                durationS = durationS,
+                wallDurationS = wallDurationS,
                 ibiMs = ibi,
                 ecgSampleHz = obj.optInt("ecg_sample_hz", 0),
                 ecgUv = ecgUv,

@@ -4,6 +4,9 @@ This changelog tracks changes specific to the Android Phone Bridge app (`phone-b
 
 ## Unreleased
 
+## Version 1.0.0-beta.83
+- fix: Record / saved-HRV packages keep the **full** IBI series (no phone-side IBI ring or window trim). `duration_s` is beat coverage (`sum(ibi_ms)/1000`); `wall_duration_s` / `ibi_span_s` / `ibi_incomplete` document when wall clock outruns accepted beats (PROTOCOL §7).
+
 ## Version 1.0.0-beta.82
 - fix: Polar Tech ECG strip drip-feeds samples at ~realtime instead of dumping whole BLE batches, so the beat train no longer looks like it scrolls the wrong way (wagon-wheel aliasing). Host/ritual still get full batches immediately.
 

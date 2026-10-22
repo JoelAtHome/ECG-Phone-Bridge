@@ -602,11 +602,15 @@ After Record Stop (`finalizing` → `completed`), the phone **always** persists 
 
 | `session_state` completed | yes | Includes `session_id`, mode/kind, `emitted_at` |
 
-| IBI series | yes | All accepted IBIs for the capture (ms) |
+| IBI series | yes | **All** accepted IBIs received during Record (ms). Phone does **not** ring-cap or window-trim the IBI list (ECG alone may truncate at ~15 min). |
 
 | ECG samples | preferred | Little-endian int32 µV (`int32_uv_b64`); may be empty / truncated. Hosts still accept older `int16_uv_b64` packages. |
 
 | `session_summary` | yes (on transfer) | Envelope before payload |
+
+
+
+**Duration / beat coverage:** `duration_s` is the **IBI timeline span** (`sum(ibi_ms)/1000`) when the series is non-empty, so hosts that rebuild trends from IBIs alone do not treat wall-clock Record length as missing beats. `wall_duration_s` is Record start→stop elapsed time. `ibi_span_s` mirrors the IBI sum; `ibi_incomplete` is true when wall clock is meaningfully longer than beat coverage (e.g. Feather LOD suppressed IBIs mid-take, or BLE drops). Phone never invents IBIs to fill the wall clock.
 
 
 
@@ -666,7 +670,13 @@ VNS-TA / ECG-Box Tuner: **no** auto-push. Manual send still allowed.
 
   "duration_s": 180.5,
 
+  "wall_duration_s": 182.0,
+
+  "ibi_span_s": 180.5,
+
   "ibi_count": 220,
+
+  "ibi_incomplete": false,
 
   "has_ecg": true,
 
